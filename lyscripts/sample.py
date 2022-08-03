@@ -6,7 +6,6 @@ import argparse
 from multiprocessing import Pool
 from pathlib import Path
 import yaml
-import json
 
 import emcee
 import lymph
@@ -59,8 +58,22 @@ if __name__ == "__main__":
     with report.status("Set up model & load data..."):
         model_cls = getattr(lymph, params["model"]["class"])
         graph = get_graph_from_(params["model"]["graph"])
-        MODEL = model_cls(graph=graph)
+        MODEL = model_cls(graph=graph, **params["model"]["kwargs"])
         MODEL.modalities = params["modalities"]
+        
+        # use fancy new time marginalization functionality
+        MODEL.diag_time_dists["early"] = lymph.utils.fast_binomial_pmf(
+            k=np.arange(params["model"]["max_t"] + 1),
+            n=params["model"]["max_t"],
+            p=params["model"]["first_binom_prob"],
+        )
+        def late_pmf(t,p):
+            """Parametrized PMF for late T-stage time marginalization"""
+            if p > 1. or p < 0.:
+                raise ValueError("p must be between 0 and 1")
+            return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
+        MODEL.diag_time_dists["late"] = late_pmf
+
         MODEL.patient_data = inference_data
         report.success("Set up model & loaded data")
 
@@ -69,7 +82,7 @@ if __name__ == "__main__":
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         # set up sampling params
-        ndim = len(MODEL.spread_probs) + 1
+        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
         FIRST_BINOM_PROB = params["model"]["first_binom_prob"]
         MAX_T = params["model"]["max_t"]
         T_STAGES = params["model"]["t_stages"]
@@ -84,18 +97,7 @@ if __name__ == "__main__":
         Compute the log-probability of data loaded in `model`, given the
         parameters `theta`.
         """
-        num_t_stages = len(T_STAGES)
-        spread_probs = theta[:-num_t_stages+1]
-        later_binom_probs = theta[-num_t_stages+1:]
-        new_theta = np.concatenate(
-            [spread_probs, [FIRST_BINOM_PROB, later_binom_probs]]
-        )
-
-        return MODEL.binom_marg_log_likelihood(
-            theta=new_theta,
-            t_stages=T_STAGES,
-            max_t=MAX_T
-        )
+        return MODEL.likelihood(given_params=theta, log=True)
 
     with Pool() as pool:
         nwalker = ndim * params["sampling"]["walkers_per_dim"]
