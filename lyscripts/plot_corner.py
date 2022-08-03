@@ -7,8 +7,8 @@ from pathlib import Path
 import corner
 import emcee
 import lymph
-from numpy import isin
 import yaml
+
 from .helpers import get_graph_from_, report
 
 if __name__ == "__main__":

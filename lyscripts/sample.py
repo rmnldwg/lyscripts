@@ -5,16 +5,15 @@ the preprocessed data as input and MCMC as sampling method.
 import argparse
 from multiprocessing import Pool
 from pathlib import Path
-import yaml
 
 import emcee
 import lymph
 import numpy as np
 import pandas as pd
+import yaml
 from lymph import EnsembleSampler
 
 from .helpers import get_graph_from_, report
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -60,7 +59,7 @@ if __name__ == "__main__":
         graph = get_graph_from_(params["model"]["graph"])
         MODEL = model_cls(graph=graph, **params["model"]["kwargs"])
         MODEL.modalities = params["modalities"]
-        
+
         # use fancy new time marginalization functionality
         MODEL.diag_time_dists["early"] = lymph.utils.fast_binomial_pmf(
             k=np.arange(params["model"]["max_t"] + 1),

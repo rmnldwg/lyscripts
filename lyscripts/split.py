@@ -12,7 +12,6 @@ import yaml
 
 from .helpers import report
 
-
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 

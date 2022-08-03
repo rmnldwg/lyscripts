@@ -16,7 +16,6 @@ from lymph.utils import fast_binomial_pmf
 
 from .helpers import get_graph_from_, report
 
-
 # define colors
 USZ_BLUE = '#005ea8'
 USZ_GREEN = '#00afa5'

@@ -5,10 +5,10 @@ lymph model using this package's utilities.
 import argparse
 import warnings
 from pathlib import Path
-import yaml
 
-import pandas as pd
 import lymph
+import pandas as pd
+import yaml
 
 from .helpers import report
 

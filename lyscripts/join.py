@@ -6,6 +6,7 @@ import warnings
 from pathlib import Path
 
 import pandas as pd
+
 from .helpers import report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)

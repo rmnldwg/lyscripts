@@ -4,16 +4,16 @@ Evaluate the performance of the model.
 import argparse
 import json
 from pathlib import Path
-import yaml
 
-from rich.progress import track
 import emcee
-import numpy as np
-import scipy as sp
-import pandas as pd
 import lymph
+import numpy as np
+import pandas as pd
+import scipy as sp
+import yaml
+from rich.progress import track
 
-from .helpers import report, get_graph_from_
+from .helpers import get_graph_from_, report
 
 
 def log_estimator(log_probs: np.ndarray) -> float:
