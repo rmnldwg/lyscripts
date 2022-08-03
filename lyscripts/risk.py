@@ -12,8 +12,10 @@ import numpy as np
 import pandas as pd
 import yaml
 from cycler import cycler
-from helpers import get_graph_from_, report
 from lymph.utils import fast_binomial_pmf
+
+from .helpers import get_graph_from_, report
+
 
 # define colors
 USZ_BLUE = '#005ea8'

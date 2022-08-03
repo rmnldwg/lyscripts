@@ -1,0 +1,43 @@
+[build-system]
+requires = [
+	"setuptools >= 61",
+	"setuptools_scm",
+	"wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lyscripts"
+description = "Package containing scripts used in lynference pipelines"
+authors = [
+	{name = "Roman Ludwig", email = "roman.ludwig@usz.ch"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["scripts", "lymph", "inference"]
+license = {file = "LICENSE"}
+urls = {repo = "https://github.com/rmnldwg/lyscripts"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "emcee",
+    "h5py",
+    "tables",
+    "matplotlib",
+    "scipy",
+    "xlrd",
+    "rich",
+    "pyyaml",
+    "lymph-model",
+]
+dynamic = ["version"]
+
+[tool.setuptools_scm]
+write_to = "lyscripts/_version.py"
+local_scheme = "no-local-version"
+
+[tools.setuptools.dynamic]
+version = {attr = "lyscripts._version.version"}

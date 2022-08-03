@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from lymph import EnsembleSampler
 
-from helpers import get_graph_from_, report
+from .helpers import get_graph_from_, report
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ import yaml
 import pandas as pd
 import lymph
 
-from helpers import report
+from .helpers import report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 

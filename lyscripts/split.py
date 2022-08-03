@@ -9,7 +9,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
-from helpers import report
+
+from .helpers import report
+
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 

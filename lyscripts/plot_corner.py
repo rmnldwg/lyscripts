@@ -9,7 +9,7 @@ import emcee
 import lymph
 from numpy import isin
 import yaml
-from helpers import get_graph_from_, report
+from .helpers import get_graph_from_, report
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

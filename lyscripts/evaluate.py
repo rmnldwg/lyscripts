@@ -13,7 +13,7 @@ import scipy as sp
 import pandas as pd
 import lymph
 
-from helpers import report, get_graph_from_
+from .helpers import report, get_graph_from_
 
 
 def log_estimator(log_probs: np.ndarray) -> float:
