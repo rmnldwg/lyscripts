@@ -1,5 +1,9 @@
 """
 Evaluate the performance of the model.
+
+## WARNING!
+What I have been doing here is wrong! I tried to compute the marginal log-likelihood
+from the stored log-likelihoods during sampling. That does not work!
 """
 import argparse
 import json

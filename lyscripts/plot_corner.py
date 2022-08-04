@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
         graph = get_graph_from_(params["model"]["graph"])
         model_cls = getattr(lymph, params["model"]["class"])
-        model = model_cls(graph=graph)
+        model = model_cls(graph=graph, **params["model"]["kwargs"])
 
         if isinstance(model, lymph.Unilateral):
             base_labels = [f"{e.start}➜{e.end}" for e in model.base_edges]
@@ -65,23 +65,34 @@ if __name__ == "__main__":
             ]
 
         elif isinstance(model, lymph.MidlineBilateral):
-            base_ipsi_labels = [f"i {e.start}➜{e.end}" for e in model.ext.ipsi.base_edges]
-            base_contra_labels = [f"c {e.start}➜{e.end}" for e in model.noext.contra.base_edges]
-            trans_labels = [f"{e.start}➜{e.end}" for e in model.ext.ipsi.trans_edges]
-            binom_labels = [f"p of {t}" for t in params["model"]["t_stages"][1:]]
-            labels = [
-                *base_ipsi_labels,
-                *base_contra_labels,
-                *trans_labels,
-                "mixing $\\alpha$",
-                *binom_labels
-            ]
-
+            base_ipsi = [f"i {e.start}➜{e.end}" for e in model.ext.ipsi.base_edges]
+            base_contra_ext = [f"ce {e.start}➜{e.end}" for e in model.ext.contra.base_edges]
+            base_contra_noext = [f"cn {e.start}➜{e.end}" for e in model.noext.contra.base_edges]
+            trans = [f"{e.start}➜{e.end}" for e in model.ext.ipsi.trans_edges]
+            binom = [f"p of {t}" for t in params["model"]["t_stages"][1:]]
+            if model.use_mixing:
+                labels = [
+                    *base_ipsi,
+                    *base_contra_noext,
+                    *trans,
+                    "mixing $\\alpha$",
+                    *binom
+                ]
+            else:
+                labels = [
+                    *base_ipsi,
+                    *base_contra_ext,
+                    *base_contra_noext,
+                    *trans,
+                    *binom
+                ]
 
         chain = backend.get_chain(
             flat=True,
             discard=backend.iteration-params["sampling"]["keep_steps"],
         )
+        if len(labels) != chain.shape[1]:
+            raise RuntimeError(f"length labels: {len(labels)}, shape chain: {chain.shape}")
         fig = corner.corner(
             chain,
             labels=labels,

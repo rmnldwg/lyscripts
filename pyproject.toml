@@ -27,6 +27,7 @@ dependencies = [
     "h5py",
     "tables",
     "matplotlib",
+    "corner",
     "scipy",
     "xlrd",
     "rich",

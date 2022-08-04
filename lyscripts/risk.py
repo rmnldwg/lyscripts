@@ -284,13 +284,18 @@ if __name__ == "__main__":
                     all_t_stages=params["model"]["t_stages"],
                     first_binom_prob=params["model"]["first_binom_prob"],
                 )
-                model.modalities = {"risk": scenario["diagnose_spsn"]}
+                model.modalities = {"risk": scenario["diagnosis_spsn"]}
+                try:
+                    diagnosis = {"risk": scenario["diagnosis"]}
+                except KeyError:
+                    diagnosis = None
                 risks[i] = 100. * np.array([
                     model.risk(
                         involvement=scenario["pattern"],
                         given_params=sample,
-                        given_diagnoses={"risk": scenario["diagnosis"]},
-                        t_stage=scenario["t_stage"]
+                        given_diagnoses=diagnosis,
+                        t_stage=scenario["t_stage"],
+                        midline_extension=scenario["midline_ext"],
                     ) for sample in samples
                 ])
                 if scenario["invert"]:
