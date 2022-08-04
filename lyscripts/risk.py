@@ -3,7 +3,7 @@ Compute and plot risks for a sampled model.
 """
 import argparse
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 import emcee
 import lymph
@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 import yaml
 from cycler import cycler
-from lymph.utils import fast_binomial_pmf
 
 from .helpers import get_graph_from_, report
 
@@ -181,155 +180,6 @@ def split_samples(
     return spread_probs, binom_probs
 
 
-def compute_risk(
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
-    spread_probs: np.ndarray,
-    binom_probs: np.ndarray,
-    pattern: Dict[str, Dict[str, bool]],
-    diagnosis: Optional[Dict[str, Dict[str, bool]]] = None,
-    diagnosis_spsn: Optional[List[float]] = None,
-    midline_ext: Optional[bool] = None,
-    max_t: int = 10,
-    invert: Optional[bool] = None,
-    **_kwargs,
-):
-    """
-    Compute the risk of a `pattern` of involvement given a `diagnose`. Do this by
-    calling the appropriate function for the respective `model` class.
-    """
-    if isinstance(model, lymph.Unilateral):
-        lnl_names = [lnl.name for lnl in model.lnls]
-    elif isinstance(model, lymph.Bilateral):
-        lnl_names = [lnl.name for lnl in model.ipsi.lnls]
-    elif isinstance(model, lymph.MidlineBilateral):
-        lnl_names = [lnl.name for lnl in model.ext.ipsi.lnls]
-    else:
-        raise ValueError(f"Unknown model type {type(model)}.")
-
-    # Make sure all LNLs are specified for the pattern, as well as the diagnosis.
-    if diagnosis is None:
-        diagnosis = {
-            "ipsi": {lnl: None for lnl in lnl_names},
-            "contra": {lnl: None for lnl in lnl_names},
-        }
-
-    pattern = make_complete_(pattern)
-    diagnosis = make_complete_(diagnosis)
-
-    # Adapt the pattern and diagnosis to the lymph-model API.
-    # This is necessary, because the risk function's implementation in
-    # `lymph` isn't quite ideal yet
-    lymph_api_pattern = {"ipsi": [], "contra": []}
-    lymph_api_diagnosis = {"ipsi": {"risk": []}, "contra": {"risk": []}}
-    for side in ["ipsi", "contra"]:
-        for lnl in lnl_names:
-            lymph_api_pattern[side].append(pattern[side][lnl])
-            lymph_api_diagnosis[side]["risk"].append(diagnosis[side][lnl])
-
-    # Apply the specificity and sensitivity values of the provided diagnosis
-    if diagnosis_spsn is None:
-        diagnosis_spsn = [1.0, 1.0]
-    model.modalities = {"risk": diagnosis_spsn}
-
-    if isinstance(model, lymph.Unilateral):
-        return _compute_risk_unilateral(
-            model=model,
-            spread_probs=spread_probs,
-            binom_probs=binom_probs,
-            pattern=lymph_api_pattern["ipsi"],
-            diagnosis=lymph_api_diagnosis["ipsi"],
-            max_t=max_t,
-            invert=invert,
-        )
-    elif isinstance(model, lymph.Bilateral) or isinstance(model, lymph.MidlineBilateral):
-        return _compute_risk_bilateral(
-            model=model,
-            spread_probs=spread_probs,
-            binom_probs=binom_probs,
-            pattern=lymph_api_pattern,
-            diagnosis=lymph_api_diagnosis,
-            midline_ext=midline_ext,
-            max_t=max_t,
-            invert=invert,
-        )
-
-def _compute_risk_unilateral(
-    model: lymph.Unilateral,
-    spread_probs: np.ndarray,
-    binom_probs: np.ndarray,
-    pattern: Dict[str, bool],
-    diagnosis: Dict[str, bool],
-    max_t: int = 10,
-    invert: bool = False,
-):
-    """
-    Compute the risk of a given `pattern` for a set of parameter `samples` and
-    an observed `diagnosis` in the unilateral case.
-    """
-    time = np.arange(max_t+1)
-    risk = np.zeros(shape=len(spread_probs), dtype=float)
-
-    for i, (sp, bp) in enumerate(zip(spread_probs, binom_probs)):
-        time_dist = fast_binomial_pmf(time, max_t, bp)
-        model.spread_probs = sp
-        risk[i] = model.risk(
-            inv=pattern,
-            diagnoses=diagnosis,
-            time_dist=time_dist,
-        )
-
-    return 1. - risk if invert else risk
-
-def _compute_risk_bilateral(
-    model: Union[lymph.Bilateral, lymph.MidlineBilateral],
-    spread_probs: np.ndarray,
-    binom_probs: np.ndarray,
-    midline_ext: bool,
-    pattern: Dict[str, Dict[str, bool]],
-    diagnosis: Dict[str, Dict[str, bool]],
-    max_t: int = 10,
-    invert: bool = False,
-) -> np.ndarray:
-    """
-    Compute the risk of a given `pattern` for a set of parameter `samples` and
-    an observed `diagnosis` in the bilateral case.
-    """
-    time = np.arange(max_t+1)
-    risk = np.zeros(shape=len(spread_probs), dtype=float)
-
-    # Correctly call the function, depending on whether the midline extension is used
-    if isinstance(model, lymph.Bilateral):
-        def risk_func(inv, diagnoses, time_dist, **_kwargs):
-            return model.risk(
-                inv=inv,
-                diagnoses=diagnoses,
-                time_dist=time_dist,
-            )
-    elif isinstance(model, lymph.MidlineBilateral):
-        def risk_func(inv, diagnoses, time_dist, midline_ext, **_kwargs):
-            return model.risk(
-                inv=inv,
-                diagnoses=diagnoses,
-                time_dist=time_dist,
-                midline_extension=midline_ext,
-            )
-    else:
-        raise TypeError(
-            f"Model type must be `Bilateral` or `MidlineBilateral`, not {type(model)}."
-        )
-
-    for i, (sp, bp) in enumerate(zip(spread_probs, binom_probs)):
-        time_dist = fast_binomial_pmf(time, max_t, bp)
-        model.spread_probs = sp
-        risk[i] = risk_func(
-            inv=pattern,
-            diagnoses=diagnosis,
-            time_dist=time_dist,
-            midline_ext=midline_ext,
-        )
-
-    return 1. - risk if invert else risk
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -381,7 +231,20 @@ if __name__ == "__main__":
     with report.status("Set up model..."):
         model_cls = getattr(lymph, params["model"]["class"])
         graph = get_graph_from_(params["model"]["graph"])
-        model = model_cls(graph=graph)
+        model = model_cls(graph=graph, **params["model"]["kwargs"])
+
+        model.diag_time_dists["early"] = lymph.utils.fast_binomial_pmf(
+            k=np.arange(params["model"]["max_t"] + 1),
+            n=params["model"]["max_t"],
+            p=params["model"]["first_binom_prob"],
+        )
+        def late_pmf(t,p):
+            """Parametrized PMF for late T-stage time marginalization"""
+            if p > 1. or p < 0.:
+                raise ValueError("p must be between 0 and 1")
+            return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
+        model.diag_time_dists["late"] = late_pmf
+
         report.success(f"Set up model with length of spread probs {len(model.spread_probs)}")
 
     plt.style.use(args.mplstyle)
@@ -421,13 +284,17 @@ if __name__ == "__main__":
                     all_t_stages=params["model"]["t_stages"],
                     first_binom_prob=params["model"]["first_binom_prob"],
                 )
-                risks[i] = 100. * compute_risk(
-                    model=model,
-                    spread_probs=spread_probs,
-                    binom_probs=binom_probs,
-                    **scenario,
-                    **params["model"],
-                )
+                model.modalities = {"risk": scenario["diagnose_spsn"]}
+                risks[i] = 100. * np.array([
+                    model.risk(
+                        involvement=scenario["pattern"],
+                        given_params=sample,
+                        given_diagnoses={"risk": scenario["diagnosis"]},
+                        t_stage=scenario["t_stage"]
+                    ) for sample in samples
+                ])
+                if scenario["invert"]:
+                    risks[i] = 100. - risks[i]
 
             bins = np.linspace(
                 start=np.minimum(np.min(risks), np.min(prevalences)),
