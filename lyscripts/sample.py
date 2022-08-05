@@ -61,20 +61,27 @@ if __name__ == "__main__":
         MODEL.modalities = params["modalities"]
 
         # use fancy new time marginalization functionality
-        MODEL.diag_time_dists["early"] = lymph.utils.fast_binomial_pmf(
-            k=np.arange(params["model"]["max_t"] + 1),
-            n=params["model"]["max_t"],
-            p=params["model"]["first_binom_prob"],
-        )
-        def late_pmf(t,p):
-            """Parametrized PMF for late T-stage time marginalization"""
-            if p > 1. or p < 0.:
-                raise ValueError("p must be between 0 and 1")
-            return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
-        MODEL.diag_time_dists["late"] = late_pmf
+        for i,t_stage in enumerate(params["model"]["t_stages"]):
+            if i == 0:
+                MODEL.diag_time_dists[t_stage] = lymph.utils.fast_binomial_pmf(
+                    k=np.arange(params["model"]["max_t"] + 1),
+                    n=params["model"]["max_t"],
+                    p=params["model"]["first_binom_prob"],
+                )
+            else:
+                def binom_pmf(t,p):
+                    if p > 1. or p < 0.:
+                        raise ValueError("Binomial probability must be between 0 and 1")
+                    return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
+
+                MODEL.diag_time_dists[t_stage] = binom_pmf
 
         MODEL.patient_data = inference_data
-        report.success("Set up model & loaded data")
+        ndims = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
+        report.success(
+            f"Set up model with {ndims} parameters and loaded {len(inference_data)} "
+            "patients"
+        )
 
     with report.status("Prepare sampling params & backend..."):
         # make sure path to output file exists

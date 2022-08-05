@@ -233,19 +233,24 @@ if __name__ == "__main__":
         graph = get_graph_from_(params["model"]["graph"])
         model = model_cls(graph=graph, **params["model"]["kwargs"])
 
-        model.diag_time_dists["early"] = lymph.utils.fast_binomial_pmf(
-            k=np.arange(params["model"]["max_t"] + 1),
-            n=params["model"]["max_t"],
-            p=params["model"]["first_binom_prob"],
-        )
-        def late_pmf(t,p):
-            """Parametrized PMF for late T-stage time marginalization"""
-            if p > 1. or p < 0.:
-                raise ValueError("p must be between 0 and 1")
-            return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
-        model.diag_time_dists["late"] = late_pmf
+        # use fancy new time marginalization functionality
+        for i,t_stage in enumerate(params["model"]["t_stages"]):
+            if i == 0:
+                model.diag_time_dists[t_stage] = lymph.utils.fast_binomial_pmf(
+                    k=np.arange(params["model"]["max_t"] + 1),
+                    n=params["model"]["max_t"],
+                    p=params["model"]["first_binom_prob"],
+                )
+            else:
+                def binom_pmf(t,p):
+                    if p > 1. or p < 0.:
+                        raise ValueError("Binomial probability must be between 0 and 1")
+                    return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
 
-        report.success(f"Set up model with length of spread probs {len(model.spread_probs)}")
+                model.diag_time_dists[t_stage] = binom_pmf
+
+        ndims = len(model.spread_probs) + model.diag_time_dists.num_parametric
+        report.success(f"Set up model with {ndims} parameters")
 
     plt.style.use(args.mplstyle)
 

@@ -13,19 +13,32 @@ import emcee
 import lymph
 import numpy as np
 import pandas as pd
-import scipy as sp
 import yaml
 from rich.progress import track
 
 from .helpers import get_graph_from_, report
 
 
-def log_estimator(log_probs: np.ndarray) -> float:
+def comp_bic(
+    log_probs: np.ndarray,
+    num_params: int,
+    num_data: int
+) -> float:
     """
-    Compute the MCMC estimator for a series of log probabilities.
+    Compute the Bayesian Information Criterion (BIC).
     """
-    num_samples = len(log_probs)
-    return sp.special.logsumexp(log_probs) - np.log(num_samples)
+    return num_params * np.log(num_data) - 2 * np.max(log_probs)
+
+def comp_enhanced_bic(
+    log_probs: np.ndarray,
+    num_params: int,
+    num_data: int
+) -> float:
+    """
+    Compute the enhanced Bayesian Information Criterion (eBIC, my invention), where
+    the maximum likelihood estimate is replaced with the expected likelihood.
+    """
+    return num_params * np.log(num_data) - 2 * np.mean(log_probs)
 
 
 if __name__ == "__main__":
@@ -69,76 +82,53 @@ if __name__ == "__main__":
         log_probs = backend.get_log_prob(**backend_kwargs)
         report.success(f"Opened samples from emcee backend from {model_path}")
 
+    with report.status("Read in patient data..."):
+        header_rows = [0,1] if params["model"]["class"] == "Unilateral" else [0,1,2]
+        inference_data = pd.read_csv(data_path, header=header_rows)
+        report.success(f"Read in patient data from {data_path}")
+
+    with report.status("Recreate model to compute more metrics..."):
+        model_cls = getattr(lymph, params["model"]["class"])
+        graph = get_graph_from_(params["model"]["graph"])
+        MODEL = model_cls(graph=graph)
+        MODEL.modalities = params["modalities"]
+
+        # use fancy new time marginalization functionality
+        for i,t_stage in enumerate(params["model"]["t_stages"]):
+            if i == 0:
+                MODEL.diag_time_dists[t_stage] = lymph.utils.fast_binomial_pmf(
+                    k=np.arange(params["model"]["max_t"] + 1),
+                    n=params["model"]["max_t"],
+                    p=params["model"]["first_binom_prob"],
+                )
+            else:
+                def binom_pmf(t,p):
+                    if p > 1. or p < 0.:
+                        raise ValueError("Binomial probability must be between 0 and 1")
+                    return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
+
+                MODEL.diag_time_dists[t_stage] = binom_pmf
+
+        MODEL.patient_data = inference_data
+        report.success("Recreated model to compare more metrics.")
+
     # Only read in two header rows when using the Unilateral model
     if params["model"]["class"] in ["Bilateral", "MidlineBilateral"]:
-        with report.status("Read in patient data..."):
-            inference_data = pd.read_csv(data_path, header=[0,1,2])
-            report.success(f"Read in patient data from {data_path}")
-
-        with report.status("Recreate model to compute more metrics..."):
-            model_cls = getattr(lymph, params["model"]["class"])
-            graph = get_graph_from_(params["model"]["graph"])
-            MODEL = model_cls(graph=graph)
-            MODEL.modalities = params["modalities"]
-            MODEL.patient_data = inference_data
-            FIRST_BINOM_PROB = params["model"]["first_binom_prob"]
-            MAX_T = params["model"]["max_t"]
-            T_STAGES = params["model"]["t_stages"]
-            time = np.arange(0, MAX_T + 1)
-
         def ipsi_and_contra_log_llh(theta,) -> float:
             """
             Compute the log-probability of ipsi- and contralateral data for a bilateral
             model separately.
             """
-            num_t_stages = len(T_STAGES)
-            spread_probs = theta[:-num_t_stages+1]
-            later_binom_probs = theta[-num_t_stages+1:]
-
-            time_dists = {}
-            for i,stage in enumerate(T_STAGES):
-                if i == 0:
-                    time_dists[stage] = lymph.utils.fast_binomial_pmf(
-                        time, MAX_T, FIRST_BINOM_PROB
-                    )
-                else:
-                    time_dists[stage] = lymph.utils.fast_binomial_pmf(
-                        time, MAX_T, later_binom_probs[i-1]
-                    )
-            MODEL.spread_probs = spread_probs
+            MODEL.check_and_assign(theta)
 
             if isinstance(MODEL, lymph.Bilateral):
-                ipsi_log_llh = MODEL.ipsi._log_likelihood(
-                    t_stages=T_STAGES,
-                    max_t=MAX_T,
-                    time_dists=time_dists,
-                )
-                contra_log_llh = MODEL.contra._log_likelihood(
-                    t_stages=T_STAGES,
-                    max_t=MAX_T,
-                    time_dists=time_dists,
-                )
+                ipsi_log_llh = MODEL.ipsi._likelihood(log=True)
+                contra_log_llh = MODEL.contra._log_likelihood(log=True)
             elif isinstance(MODEL, lymph.MidlineBilateral):
-                ipsi_log_llh = MODEL.ext.ipsi._log_likelihood(
-                    t_stages=T_STAGES,
-                    max_t=MAX_T,
-                    time_dists=time_dists,
-                )
-                ipsi_log_llh += MODEL.noext.ipsi._log_likelihood(
-                    t_stages=T_STAGES,
-                    max_t=MAX_T,
-                    time_dists=time_dists,
-                )
-                contra_log_llh = MODEL.ext.contra._log_likelihood(
-                    t_stages=T_STAGES,
-                    max_t=MAX_T,
-                    time_dists=time_dists,
-                )
-                contra_log_llh += MODEL.noext.contra._log_likelihood(
-                    t_stages=T_STAGES,
-                    max_t=MAX_T,
-                    time_dists=time_dists,
-                )
+                ipsi_log_llh = MODEL.ext.ipsi._likelihood(log=True)
+                ipsi_log_llh += MODEL.noext.ipsi._likelihood(log=True)
+                contra_log_llh = MODEL.ext.contra._likelihood(log=True)
+                contra_log_llh += MODEL.noext.contra._likelihood(log=True)
             else:
                 raise TypeError(f"Model class {type(MODEL)} not supported.")
 
@@ -153,13 +143,51 @@ if __name__ == "__main__":
             ):
                 ipsi_log_llh[i], contra_log_llh[i] = ipsi_and_contra_log_llh(sample)
 
-            metrics["ipsi_log_llh"] = log_estimator(ipsi_log_llh)
-            metrics["contra_log_llh"] = log_estimator(contra_log_llh)
+            if isinstance(MODEL, lymph.Bilateral):
+                num_params = (
+                    len(MODEL.ipsi.spread_probs)
+                    + MODEL.diag_time_dists.num_parametric
+                )
+            elif isinstance(MODEL, lymph.MidlineBilateral):
+                num_params = (
+                    len(MODEL.ext.ipsi.spread_probs)
+                    + MODEL.diag_time_dists.num_parametric
+                )
+
+            metrics["ipsi_BIC"] = comp_bic(
+                ipsi_log_llh,
+                num_params,
+                len(inference_data),
+            )
+            metrics["contra_BIC"] = comp_bic(
+                contra_log_llh,
+                num_params,
+                len(inference_data),
+            )
+            metrics["ipsi_eBIC"] = comp_enhanced_bic(
+                ipsi_log_llh,
+                num_params,
+                len(inference_data),
+            )
+            metrics["contra_eBIC"] = comp_enhanced_bic(
+                contra_log_llh,
+                num_params,
+                len(inference_data),
+            )
             report.success("Computed metrics for sides separately")
 
     with report.status("Write out metrics..."):
         # populate metrics dictionary
-        metrics["marg_log_likelihood"] = log_estimator(log_probs)
+        metrics["BIC"] = comp_bic(
+            log_probs,
+            len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric,
+            len(inference_data),
+        )
+        metrics["eBIC"] = comp_enhanced_bic(
+            log_probs,
+            len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric,
+            len(inference_data),
+        )
         metrics["max_log_likelihood"] = np.max(log_probs)
         metrics["mean_accept_frac"] = np.mean(backend.accepted) / nstep
         metrics["mean_acor_time"] = np.mean(backend.get_autocorr_time(tol=0))
