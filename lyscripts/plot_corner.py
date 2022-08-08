@@ -74,8 +74,8 @@ if __name__ == "__main__":
                 labels = [
                     *base_ipsi,
                     *base_contra_noext,
-                    *trans,
                     "mixing $\\alpha$",
+                    *trans,
                     *binom
                 ]
             else:

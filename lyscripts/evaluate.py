@@ -177,6 +177,18 @@ if __name__ == "__main__":
             report.success("Computed metrics for sides separately")
 
     with report.status("Write out metrics..."):
+        # store metrics in JSON file
+        metrics_path = Path(args.metrics)
+        metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        metrics_path.touch(exist_ok=True)
+
+        # read in metrics already present
+        with open(metrics_path, mode="r") as metrics_file:
+            try:
+                metrics = json.load(metrics_file)
+            except json.decoder.JSONDecodeError:
+                metrics = {}
+
         # populate metrics dictionary
         metrics["BIC"] = comp_bic(
             log_probs,
@@ -189,12 +201,10 @@ if __name__ == "__main__":
             len(inference_data),
         )
         metrics["max_log_likelihood"] = np.max(log_probs)
-        metrics["mean_accept_frac"] = np.mean(backend.accepted) / nstep
-        metrics["mean_acor_time"] = np.mean(backend.get_autocorr_time(tol=0))
+        metrics["mean_log_likelihood"] = np.mean(log_probs)
 
-        # store metrics in JSON file
-        metrics_path = Path(args.metrics)
-        metrics_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(metrics_path, mode='w') as metrics_file:
-            metrics_file.write(json.dumps(metrics))
+        # write out metrics again
+        with open(metrics_path, mode="w") as metrics_file:
+            json.dump(metrics, metrics_file)
+
         report.success(f"Wrote out metrics to {metrics_path}")
