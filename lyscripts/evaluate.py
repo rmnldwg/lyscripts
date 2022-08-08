@@ -14,7 +14,6 @@ import lymph
 import numpy as np
 import pandas as pd
 import yaml
-from rich.progress import track
 
 from .helpers import get_graph_from_, report
 
@@ -28,17 +27,6 @@ def comp_bic(
     Compute the Bayesian Information Criterion (BIC).
     """
     return num_params * np.log(num_data) - 2 * np.max(log_probs)
-
-def comp_enhanced_bic(
-    log_probs: np.ndarray,
-    num_params: int,
-    num_data: int
-) -> float:
-    """
-    Compute the enhanced Bayesian Information Criterion (eBIC, my invention), where
-    the maximum likelihood estimate is replaced with the expected likelihood.
-    """
-    return num_params * np.log(num_data) - 2 * np.mean(log_probs)
 
 
 if __name__ == "__main__":
@@ -72,7 +60,7 @@ if __name__ == "__main__":
         report.success(f"Read in params from {params_path}")
 
     with report.status("Open samples from emcee backend..."):
-        backend = emcee.backends.HDFBackend(model_path, read_only=True)
+        backend = emcee.backends.HDFBackend(model_path, read_only=True, name="mcmc")
         nstep = backend.iteration
         backend_kwargs = {
             "flat": True,
@@ -90,7 +78,7 @@ if __name__ == "__main__":
     with report.status("Recreate model to compute more metrics..."):
         model_cls = getattr(lymph, params["model"]["class"])
         graph = get_graph_from_(params["model"]["graph"])
-        MODEL = model_cls(graph=graph)
+        MODEL = model_cls(graph=graph, **params["model"]["kwargs"])
         MODEL.modalities = params["modalities"]
 
         # use fancy new time marginalization functionality
@@ -123,7 +111,7 @@ if __name__ == "__main__":
 
             if isinstance(MODEL, lymph.Bilateral):
                 ipsi_log_llh = MODEL.ipsi._likelihood(log=True)
-                contra_log_llh = MODEL.contra._log_likelihood(log=True)
+                contra_log_llh = MODEL.contra._likelihood(log=True)
             elif isinstance(MODEL, lymph.MidlineBilateral):
                 ipsi_log_llh = MODEL.ext.ipsi._likelihood(log=True)
                 ipsi_log_llh += MODEL.noext.ipsi._likelihood(log=True)
@@ -137,10 +125,7 @@ if __name__ == "__main__":
         with report.status("Compute metrics for sides separately..."):
             ipsi_log_llh = np.zeros_like(log_probs)
             contra_log_llh = np.zeros_like(log_probs)
-            for i,sample in track(
-                enumerate(chain),
-                description="Computing metrics...",
-            ):
+            for i,sample in enumerate(chain):
                 ipsi_log_llh[i], contra_log_llh[i] = ipsi_and_contra_log_llh(sample)
 
             if isinstance(MODEL, lymph.Bilateral):
@@ -164,16 +149,6 @@ if __name__ == "__main__":
                 num_params,
                 len(inference_data),
             )
-            metrics["ipsi_eBIC"] = comp_enhanced_bic(
-                ipsi_log_llh,
-                num_params,
-                len(inference_data),
-            )
-            metrics["contra_eBIC"] = comp_enhanced_bic(
-                contra_log_llh,
-                num_params,
-                len(inference_data),
-            )
             report.success("Computed metrics for sides separately")
 
     with report.status("Write out metrics..."):
@@ -182,20 +157,8 @@ if __name__ == "__main__":
         metrics_path.parent.mkdir(parents=True, exist_ok=True)
         metrics_path.touch(exist_ok=True)
 
-        # read in metrics already present
-        with open(metrics_path, mode="r") as metrics_file:
-            try:
-                metrics = json.load(metrics_file)
-            except json.decoder.JSONDecodeError:
-                metrics = {}
-
-        # populate metrics dictionary
+        # further populate metrics dictionary
         metrics["BIC"] = comp_bic(
-            log_probs,
-            len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric,
-            len(inference_data),
-        )
-        metrics["eBIC"] = comp_enhanced_bic(
             log_probs,
             len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric,
             len(inference_data),

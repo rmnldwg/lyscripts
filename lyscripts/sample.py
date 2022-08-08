@@ -116,7 +116,7 @@ if __name__ == "__main__":
             report.print(f"TI round {i+1}/{len(ladder)} with β = {inv_temp:.3f}")
             backend = emcee.backends.HDFBackend(
                 filename=output_path,
-                name=f"ti_round_{i+1}",
+                name=f"ti_round_{i+1:0>2d}",
             )
             moves = [
                 (emcee.moves.DEMove(),        0.8),
@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
         # copy last sampling round over to a group in the HDF5 file called "mcmc"
         h5_file = h5py.File(output_path, "r+")
-        h5_file.copy(f"ti_round_{len(ladder)}", h5_file, name="mcmc")
+        h5_file.copy(f"ti_round_{len(ladder):0>2d}", h5_file, name="mcmc")
         report.success("Finished thermodynamic integration.")
 
         with report.status("Compute plots and metrics..."):
@@ -175,7 +175,7 @@ if __name__ == "__main__":
             for i in range(len(ladder) - 1):
                 temp_diff = ladder[i+1] - ladder[i]
                 accuracy_mean = (accuracies[i+1] + accuracies[i]) / 2.
-                evidence += temp_diff * accuracy_mean
+                evidence -= temp_diff * accuracy_mean
 
             report.success("Computed plots and metrics.")
 
@@ -229,13 +229,7 @@ if __name__ == "__main__":
         metrics_path.touch(exist_ok=True)
 
         with report.status("Write out metrics..."):
-            # read in metrics already present
-            with open(metrics_path, mode="r") as metrics_file:
-                try:
-                    metrics = json.load(metrics_file)
-                except json.decoder.JSONDecodeError:
-                    metrics = {}
-
+            metrics = {}
             metrics["evidence"] = evidence
 
             # write out metrics again
