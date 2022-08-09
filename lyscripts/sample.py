@@ -3,22 +3,21 @@ Learn the spread probabilities of the HMM for lymphatic tumor progression using
 the preprocessed data as input and MCMC as sampling method.
 """
 import argparse
-import json
+import warnings
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union, List
-import warnings
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import emcee
 import h5py
 import lymph
 import numpy as np
-from scipy.special import factorial
 import pandas as pd
-from rich.progress import track
 import yaml
+from rich.progress import track
+from scipy.special import factorial
 
-from .helpers import get_graph_from_, report, ConsoleReport
+from .helpers import ConsoleReport, get_graph_from_, report
 
 
 class ConvenienceSampler(emcee.EnsembleSampler):
@@ -48,7 +47,7 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         **kwargs,
     ) -> Dict[str, Any]:
         """Run a round of sampling with at least `min_steps` and at most `max_steps`.
-        
+
         Every `check_interval` iterations, convergence is checked based on
         three criteria:
         - did it run for at least `min_steps`?
@@ -150,7 +149,7 @@ def run_mcmc_with_burnin(
     """
     Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
     `emcee.EnsembleSampler`).
-    
+
     This function first draws `burnin` (that are discarded if `keep_burnin` is set to
     `False`) and afterwards it performs a second sampling round, starting where the
     burnin left off, of length `nsteps - burnin` that will be stored in the
@@ -220,7 +219,31 @@ def add_tstage_marg(
             )
         else:
             model.diag_time_dists[stage] = parametric_binom_pmf(n=max_t)
-            
+
+
+def setup_model(
+    graph_params: Dict[str, Any],
+    model_params: Dict[str, Any],
+    modalities_params: Optional[Dict[str, Any]] = None,
+) -> Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]:
+    """Create a model instance as defined by some YAML params."""
+    graph = get_graph_from_(graph_params)
+
+    model_cls = getattr(lymph, model_params["class"])
+    model = model_cls(graph, **model_params["kwargs"])
+
+    if modalities_params is not None:
+        model.modalities = modalities_params
+
+    add_tstage_marg(
+        model,
+        t_stages=model_params["t_stages"],
+        first_binom_prob=model_params["first_binom_prob"],
+        max_t=model_params["max_t"],
+    )
+
+    return model
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -258,23 +281,19 @@ if __name__ == "__main__":
         inference_data = pd.read_csv(input_path, header=header)
         report.success(f"Read in training data from {input_path}")
 
+
     with report.status("Set up model & load data..."):
-        model_cls = getattr(lymph, params["model"]["class"])
-        graph = get_graph_from_(params["model"]["graph"])
-        MODEL = model_cls(graph=graph, **params["model"]["kwargs"])
-        MODEL.modalities = params["modalities"]
-        add_tstage_marg(
-            model=MODEL,
-            t_stages=params["model"]["t_stages"],
-            first_binom_prob=params["model"]["first_binom_prob"],
-            max_t=params["model"]["max_t"],
+        MODEL = setup_model(
+            graph_params=params["graph"],
+            model_params=params["model"],
+            modalities_params=params["modalities"],
         )
         MODEL.patient_data = inference_data
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
         nwalkers = ndim * params["sampling"]["walkers_per_dim"]
         report.success(
-            f"Set up model with {ndim} parameters and loaded {len(inference_data)} "
-            "patients"
+            f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
+            f"{len(inference_data)} patients"
         )
 
     if args.ti:
@@ -303,7 +322,7 @@ if __name__ == "__main__":
                 if np.isinf(llh):
                     return -np.inf, -np.inf
                 return inv_temp * llh, llh
-            
+
             run_mcmc_with_burnin(
                 nwalkers, ndim, log_prob_fn, nsteps, burnin,
                 persistent_backend=hdf5_backend,

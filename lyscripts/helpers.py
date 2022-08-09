@@ -37,7 +37,12 @@ def get_graph_from_(params_graph: dict):
     tuples as keys in a dictionary.
     """
     lymph_graph = {}
+
+    if not "tumor" in params_graph and "lnl" in params_graph:
+        raise KeyError("Parameters must define tumors and LNLs")
+
     for node_type, node_dict in params_graph.items():
         for node_name, out_connections in node_dict.items():
             lymph_graph[(node_type, node_name)] = out_connections
+
     return lymph_graph
