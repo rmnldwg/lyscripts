@@ -5,6 +5,7 @@ to parse and process the raw data from different institutions
 from rich.console import Console
 
 CROSS = "[bold red]✗[/bold red]"
+CIRCL = "[bold yellow]∘[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
 
 class ConsoleReport(Console):
@@ -14,6 +15,11 @@ class ConsoleReport(Console):
     def success(self, *objects, **kwargs) -> None:
         """Prefix a bold green check mark to any output."""
         objects = [CHECK, *objects]
+        return super().print(*objects, **kwargs)
+
+    def info(self, *objects, **kwargs) -> None:
+        """Prefix a bold yellow circle to any output."""
+        objects = [CIRCL, *objects]
         return super().print(*objects, **kwargs)
 
     def failure(self, *objects, **kwargs) -> None:

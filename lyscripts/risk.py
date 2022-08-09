@@ -223,9 +223,11 @@ if __name__ == "__main__":
     with report.status("Loading samples..."):
         model_path = Path(args.model)
         reader = emcee.backends.HDFBackend(model_path, read_only=True)
-        burnin = reader.iteration - params["sampling"]["keep_steps"]
         walkers_per_dim = params["sampling"]["walkers_per_dim"]
-        samples = reader.get_chain(flat=True, thin=walkers_per_dim, discard=burnin)
+        all_samples = reader.get_chain(flat=True)
+        num = len(all_samples)
+        idx = np.random.choice(num, size=(num // walkers_per_dim))
+        samples = all_samples[idx]
         report.success(f"Loaded samples with shape {samples.shape} from {model_path}")
 
     with report.status("Set up model..."):

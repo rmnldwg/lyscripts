@@ -6,16 +6,221 @@ import argparse
 import json
 from multiprocessing import Pool
 from pathlib import Path
+from typing import Any, Callable, Dict, Optional, Union, List
+import warnings
 
 import emcee
 import h5py
 import lymph
 import numpy as np
+from scipy.special import factorial
 import pandas as pd
+from rich.progress import track
 import yaml
-from lymph import EnsembleSampler
 
-from .helpers import get_graph_from_, report
+from .helpers import get_graph_from_, report, ConsoleReport
+
+
+class ConvenienceSampler(emcee.EnsembleSampler):
+    """Class that adds some useful defaults to the `emcee.EnsembleSampler`."""
+    def __init__(
+        self,
+        nwalkers,
+        ndim,
+        log_prob_fn,
+        pool=None,
+        backend=None,
+    ):
+        """Initialize sampler with sane defaults."""
+        moves = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
+        super().__init__(nwalkers, ndim, log_prob_fn, pool, moves, backend=backend)
+
+    def run_sampling(
+        self,
+        min_steps: int = 0,
+        max_steps: int = 10000,
+        initial_state: Optional[Union[emcee.State, np.ndarray]] = None,
+        check_interval: int = 100,
+        trust_threshold: float = 50.,
+        rel_acor_threshold: float = 0.05,
+        report: Optional[ConsoleReport] = None,
+        description: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Run a round of sampling with at least `min_steps` and at most `max_steps`.
+        
+        Every `check_interval` iterations, convergence is checked based on
+        three criteria:
+        - did it run for at least `min_steps`?
+        - has the acor time crossed the N / `trust_threshold`?
+        - did the acor time change less than `rel_acor_threshold`?
+
+        If a `ConsoleReport` is provided, progress will be displayed.
+
+        Returns dictionary containing the autocorrelation times obtained during the
+        run (along with the iteration number at which they were computed) and the
+        numpy array with the coordinates of the last draw.
+        """
+        if max_steps < min_steps:
+            warnings.warn(
+                "Sampling param min_steps is larger than max_steps. Swapping."
+            )
+            tmp = max_steps
+            max_steps = min_steps
+            min_steps = tmp
+
+        if initial_state is None:
+            initial_state = np.random.uniform(
+                low=0., high=1.,
+                size=(self.nwalkers, self.ndim)
+            )
+
+        iterations = []
+        acor_times = []
+        old_acor = np.inf
+        is_converged = False
+
+        samples_iterator = self.sample(
+            initial_state=initial_state,
+            iterations=max_steps,
+            **kwargs
+        )
+        if report is not None:
+            samples_iterator = track(
+                sequence=samples_iterator,
+                total=max_steps,
+                description=description,
+                console=report,
+            )
+        coords = None
+        for sample in samples_iterator:
+            # after `check_interval` number of samples...
+            coords = sample.coords
+            if self.iteration < min_steps or self.iteration % check_interval:
+                continue
+
+            # ...compute the autocorrelation time and store it in an array.
+            new_acor = self.get_autocorr_time(tol=0)
+            iterations.append(self.iteration)
+            acor_times.append(np.mean(new_acor))
+
+            # check convergence
+            is_converged = self.iteration >= min_steps
+            is_converged &= np.all(new_acor * trust_threshold < self.iteration)
+            rel_acor_diff = np.abs(old_acor - new_acor) / new_acor
+            is_converged &= np.all(rel_acor_diff < rel_acor_threshold)
+
+            # if it has converged, stop
+            if is_converged:
+                break
+
+            old_acor = new_acor
+
+        accept_rate = 100. * np.mean(self.acceptance_fraction)
+        if report is not None:
+            if is_converged:
+                report.success(
+                    description,
+                    f"converged after {self.iteration} steps with "
+                    f"an acceptance rate of {accept_rate:.2f}%"
+                )
+            else:
+                report.info(
+                    description,
+                    f"finished: Max. number of steps ({max_steps}) reached "
+                    f"(acceptance rate {accept_rate:.2f}%)"
+                )
+
+        return {
+            "iterations": iterations,
+            "acor_times": acor_times,
+            "final_state": coords,
+        }
+
+def run_mcmc_with_burnin(
+    nwalkers: int,
+    ndim: int,
+    log_prob_fn: Callable,
+    nsteps: int,
+    burnin: int,
+    persistent_backend: emcee.backends.HDFBackend,
+    keep_burnin: bool = False,
+    report: Optional[ConsoleReport] = None,
+):
+    """
+    Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
+    `emcee.EnsembleSampler`).
+    
+    This function first draws `burnin` (that are discarded if `keep_burnin` is set to
+    `False`) and afterwards it performs a second sampling round, starting where the
+    burnin left off, of length `nsteps - burnin` that will be stored in the
+    `persistent_backend`.
+
+    If `report` is given, the progress will be displayed.
+    """
+    with Pool() as pool:
+        # Burnin phase
+        if keep_burnin:
+            burnin_backend = persistent_backend
+        else:
+            burnin_backend = emcee.backends.Backend()
+        burnin_sampler = ConvenienceSampler(
+            nwalkers, ndim, log_prob_fn,
+            pool=pool, backend=burnin_backend,
+        )
+        burnin_result = burnin_sampler.run_sampling(
+            max_steps=burnin,
+            check_interval=burnin+1,  # this makes sure convergence is never checked
+            report=report,
+            description="Burn-in ",
+        )
+
+        # real sampling phase
+        sampler = ConvenienceSampler(
+            nwalkers, ndim, log_prob_fn,
+            pool=pool, backend=persistent_backend,
+        )
+        sampler.run_sampling(
+            max_steps=nsteps-burnin,
+            initial_state=burnin_result["final_state"],
+            check_interval=nsteps-burnin,
+            report=report,
+            description="Sampling"
+        )
+
+
+def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):
+    """Binomial PMF"""
+    if p > 1. or p < 0.:
+        raise ValueError("Binomial prob must be btw. 0 and 1")
+    q = (1. - p)
+    binom_coeff = factorial(n) / (factorial(k) * factorial(n - k))
+    return binom_coeff * p**k * q**(n - k)
+
+def parametric_binom_pmf(n: int) -> Callable:
+    """Return a parametric binomial PMF"""
+    def inner(t, p):
+        """Parametric binomial PMF"""
+        return binom_pmf(t, n, p)
+    return inner
+
+def add_tstage_marg(
+    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+    t_stages: List[str],
+    first_binom_prob: float,
+    max_t: int,
+):
+    """Add margializors over diagnose times to `model`."""
+    for i,stage in enumerate(t_stages):
+        if i == 0:
+            model.diag_time_dists[stage] = binom_pmf(
+                k=np.arange(max_t + 1),
+                n=max_t,
+                p=first_binom_prob
+            )
+        else:
+            model.diag_time_dists[stage] = parametric_binom_pmf(n=max_t)
+            
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -32,14 +237,6 @@ if __name__ == "__main__":
         help="Path to parameter YAML file"
     )
     parser.add_argument(
-        "--plots", default=None,
-        help="Path to folder containing the plots."
-    )
-    parser.add_argument(
-        "--metrics", default=None,
-        help="Path to metrics file (JSON)."
-    )
-    parser.add_argument(
         "--ti", action="store_true",
         help="Use thermodynamic integration from prior to given likelihood"
     )
@@ -54,13 +251,10 @@ if __name__ == "__main__":
             params = yaml.safe_load(params_file)
         report.success(f"Read in params from {params_path}")
 
-    # Only read in two header rows when using the Unilateral model
-    if params["model"]["class"] == "Unilateral":
-        header = [0, 1]
-    else:
-        header = [0, 1, 2]
-
     with report.status("Read in training data..."):
+        # Only read in two header rows when using the Unilateral model
+        is_unilateral = params["model"]["class"] == "Unilateral"
+        header = [0, 1] if is_unilateral else [0, 1, 2]
         inference_data = pd.read_csv(input_path, header=header)
         report.success(f"Read in training data from {input_path}")
 
@@ -69,27 +263,15 @@ if __name__ == "__main__":
         graph = get_graph_from_(params["model"]["graph"])
         MODEL = model_cls(graph=graph, **params["model"]["kwargs"])
         MODEL.modalities = params["modalities"]
-
-        # use fancy new time marginalization functionality
-        for i,t_stage in enumerate(params["model"]["t_stages"]):
-            if i == 0:
-                MODEL.diag_time_dists[t_stage] = lymph.utils.fast_binomial_pmf(
-                    k=np.arange(params["model"]["max_t"] + 1),
-                    n=params["model"]["max_t"],
-                    p=params["model"]["first_binom_prob"],
-                )
-            else:
-                def binom_pmf(t,p):
-                    if p > 1. or p < 0.:
-                        raise ValueError("Binomial probability must be between 0 and 1")
-                    return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
-
-                MODEL.diag_time_dists[t_stage] = binom_pmf
-
+        add_tstage_marg(
+            model=MODEL,
+            t_stages=params["model"]["t_stages"],
+            first_binom_prob=params["model"]["first_binom_prob"],
+            max_t=params["model"]["max_t"],
+        )
         MODEL.patient_data = inference_data
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        plots = {}
-        metrics = {}
+        nwalkers = ndim * params["sampling"]["walkers_per_dim"]
         report.success(
             f"Set up model with {ndim} parameters and loaded {len(inference_data)} "
             "patients"
@@ -104,166 +286,67 @@ if __name__ == "__main__":
             # set up sampling params
             ladder = np.logspace(0., 1., num=params["sampling"]["len_ladder"])
             ladder = (ladder - 1.) / 9.
-            nwalkers = ndim * params["sampling"]["walkers_per_dim"]
-            coords = np.random.uniform(size=(nwalkers,ndim))
             nsteps = params["sampling"]["kwargs"]["max_steps"] // len(ladder)
             burnin = nsteps - params["sampling"]["keep_steps"]
             report.success("Prepared thermodynamic integration.")
 
-            # initialize metrics and plots
-            acor_times = np.zeros_like(ladder)
-            accept_rates = np.zeros_like(ladder)
-            accuracies = np.zeros_like(ladder)
-
         for i,inv_temp in enumerate(ladder):
             report.print(f"TI round {i+1}/{len(ladder)} with β = {inv_temp:.3f}")
 
-            # prepare one backend for the burnin phase and one for storing the
-            # burned-in samples on disk
-            burnin_backend = emcee.backends.Backend()
-            storage_backend = emcee.backends.HDFBackend(
-                filename=output_path,
-                name=f"ti_round_{i+1:0>2d}",
-            )
+            # set up backend
+            hdf5_backend = emcee.backends.HDFBackend(output_path, name=f"ti/{i+1:0>2d}")
 
+            # create log-probability function
             def log_prob_fn(theta):
-                """Return log probability of model scaled with inverse temperature."""
+                """Compute log-probability of parameter sample `theta`."""
                 llh = MODEL.likelihood(given_params=theta, log=True)
                 if np.isinf(llh):
                     return -np.inf, -np.inf
                 return inv_temp * llh, llh
-
-            with Pool() as pool:
-                sampler_kwargs = {
-                    "nwalkers": nwalkers,
-                    "ndim": ndim,
-                    "log_prob_fn": log_prob_fn,
-                    "pool": pool,
-                    "moves": [
-                        (emcee.moves.DEMove(), 0.8),
-                        (emcee.moves.DESnookerMove(), 0.2)
-                    ],
-                }
-                burnin_sampler = emcee.EnsembleSampler(
-                    backend=burnin_backend, **sampler_kwargs
-                )
-                burned_in_state = burnin_sampler.run_mcmc(
-                    coords, nsteps=burnin, progress=True
-                )
-                sampler = emcee.EnsembleSampler(
-                    backend=storage_backend, **sampler_kwargs
-                )
-                final_state = sampler.run_mcmc(
-                    initial_state=burned_in_state, nsteps=nsteps-burnin, progress=True
-                )
-                
-
-            # compute some metrics
-            acor_times[i] = np.mean(burnin_sampler.get_autocorr_time(tol=0))
-            accept_rates[i] = np.mean(sampler.acceptance_fraction)
-            accuracies[i] = np.mean(sampler.get_blobs())
-            report.print(
-                f"Finished round {i+1} with acceptance rate {accept_rates[i]:.3f}"
+            
+            run_mcmc_with_burnin(
+                nwalkers, ndim, log_prob_fn, nsteps, burnin,
+                persistent_backend=hdf5_backend,
+                keep_burnin=False,
+                report=report,
             )
 
         # copy last sampling round over to a group in the HDF5 file called "mcmc"
         # because that is what other scripts expect to see
         h5_file = h5py.File(output_path, "r+")
-        h5_file.copy(f"ti_round_{len(ladder):0>2d}", h5_file, name="mcmc")
+        h5_file.copy(f"ti/{len(ladder):0>2d}", h5_file, name="mcmc")
         report.success("Finished thermodynamic integration.")
-
-        with report.status("Compute plots and metrics..."):
-            plots["acor"] = pd.DataFrame(
-                data=np.stack([ladder, acor_times], axis=0).T,
-                columns=["beta", "acor"]
-            )
-            plots["accept"] = pd.DataFrame(
-                data=np.stack([ladder, accept_rates], axis=0).T,
-                columns=["beta", "accept"]
-            )
-            plots["accuracy"] = pd.DataFrame(
-                data=np.stack([ladder, accuracies], axis=0).T,
-                columns=["beta", "accuracy"]
-            )
-            evidence = 0
-            for i in range(len(ladder) - 1):
-                temp_diff = ladder[i+1] - ladder[i]
-                accuracy_mean = (accuracies[i+1] + accuracies[i]) / 2.
-                evidence -= temp_diff * accuracy_mean
-
-            report.success("Computed plots and metrics.")
 
     else:
         with report.status("Prepare sampling params & backend..."):
             # make sure path to output file exists
             output_path = Path(args.output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
+
             # set up sampling params
             ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-            burnin_backend = emcee.backends.Backend()
-            storage_backend = emcee.backends.HDFBackend(output_path)
+            nwalkers = ndim * params["sampling"]["walkers_per_dim"]
+
+            # prepare backend
+            hdf5_backend = emcee.backends.HDFBackend(output_path, name="mcmc")
+
+            def log_prob_fn(theta,) -> float:
+                """
+                Compute the log-probability of data loaded in `model`, given the
+                parameters `theta`.
+                """
+                return MODEL.likelihood(given_params=theta, log=True)
+
             report.success(f"Prepared sampling params & backend at {output_path}")
 
-        # function needs to be defined at runtime and have no `args` and `kwargs`,
-        # otherwise `multiprocessing` won't work properly (i.e. give no performance
-        # benefit). Variables from outside are capitalized.
-        def log_prob_fn(theta,) -> float:
-            """
-            Compute the log-probability of data loaded in `model`, given the
-            parameters `theta`.
-            """
-            return MODEL.likelihood(given_params=theta, log=True)
-
         with Pool() as pool:
-            nwalkers = ndim * params["sampling"]["walkers_per_dim"]
-            burnin_sampler = EnsembleSampler(
-                nwalkers=nwalkers,
-                ndim=ndim,
-                log_prob_fn=log_prob_fn,
-                backend=burnin_backend,
+            sampler = ConvenienceSampler(
+                nwalkers, ndim, log_prob_fn,
                 pool=pool,
+                backend=hdf5_backend,
             )
-            plots["acor"] = burnin_sampler.run_sampling(**params["sampling"]["kwargs"])
-            sampler = emcee.EnsembleSampler(
-                nwalkers=nwalkers,
-                ndim=ndim,
-                log_prob_fn=log_prob_fn,
-                pool=pool,
-                backend=storage_backend,
-                moves=[
-                    (emcee.moves.DEMove(), 0.8),
-                    (emcee.moves.DESnookerMove(), 0.2)
-                ]
+            result = sampler.run_sampling(
+                report=report,
+                description="Sampling"
+                **params["sampling"]["kwargs"]
             )
-            sampler.run_mcmc(
-                initial_state=burnin_backend.get_last_sample(),
-                nstep=params["sampling"]["keep_steps"],
-                progress=True,
-            )
-            report.success("Sampling done.")
-
-    if args.plots is not None:
-        # make sure path to plots file exists
-        plots_path = Path(args.plots)
-        plots_path.mkdir(parents=True, exist_ok=True)
-
-        with report.status("Storing plots..."):
-            for name,df in plots.items():
-                df.to_csv(plots_path / (name + ".csv"), index=False)
-            report.success(f"Stored plots at {plots_path}")
-
-    if args.metrics is not None:
-        # make sure path to metrics file exists
-        metrics_path = Path(args.metrics)
-        metrics_path.parent.mkdir(parents=True, exist_ok=True)
-        metrics_path.touch(exist_ok=True)
-
-        with report.status("Write out metrics..."):
-            metrics = {}
-            metrics["evidence"] = evidence
-
-            # write out metrics again
-            with open(metrics_path, mode="w") as metrics_file:
-                json.dump(metrics, metrics_file)
-
-            report.success(f"Wrote out metrics to {metrics_path}")
