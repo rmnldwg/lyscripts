@@ -55,9 +55,9 @@ class CustomProgress(Progress):
             TimeRemainingColumn(),
             TimeElapsedColumn(),
         ]
-        super().__init__(*columns, console=report, **kwargs)
+        super().__init__(*columns, **kwargs)
 
-progress = CustomProgress()
+report_progress = CustomProgress()
 
 
 def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):

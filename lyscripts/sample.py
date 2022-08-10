@@ -15,7 +15,7 @@ import pandas as pd
 import yaml
 from rich.progress import track
 
-from .helpers import ConsoleReport, report, progress, model_from_config
+from .helpers import report, model_from_config, CustomProgress
 
 
 class ConvenienceSampler(emcee.EnsembleSampler):
@@ -40,8 +40,7 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         check_interval: int = 100,
         trust_threshold: float = 50.,
         rel_acor_threshold: float = 0.05,
-        report: Optional[ConsoleReport] = None,
-        description: Optional[str] = None,
+        progress_desc: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """Run a round of sampling with at least `min_steps` and at most `max_steps`.
@@ -52,7 +51,7 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         - has the acor time crossed the N / `trust_threshold`?
         - did the acor time change less than `rel_acor_threshold`?
 
-        If a `ConsoleReport` is provided, progress will be displayed.
+        If a `progress_desc` is provided, progress will be displayed.
 
         Returns dictionary containing the autocorrelation times obtained during the
         run (along with the iteration number at which they were computed) and the
@@ -82,12 +81,17 @@ class ConvenienceSampler(emcee.EnsembleSampler):
             iterations=max_steps,
             **kwargs
         )
-        if report is not None:
-            samples_iterator = progress.track(
+        # wrap the iteration over samples in a rich tracker,
+        # if verbosity is desired
+        if progress_desc is not None:
+            report_progress = CustomProgress(console=report)
+            samples_iterator = report_progress.track(
                 sequence=samples_iterator,
                 total=max_steps,
-                description=description,
+                description=progress_desc,
             )
+            report_progress.start()
+
         coords = None
         for sample in samples_iterator:
             # after `check_interval` number of samples...
@@ -117,14 +121,16 @@ class ConvenienceSampler(emcee.EnsembleSampler):
 
         accept_rate = 100. * np.mean(self.acceptance_fraction)
         accept_rate_str = f"acceptance rate was {accept_rate:.2f}%"
-        if report is not None:
+
+        if progress_desc is not None:
+            report_progress.stop()
             if is_converged:
                 report.success(
-                    description, "converged,", accept_rate_str
+                    progress_desc, "converged,", accept_rate_str
                 )
             else:
                 report.info(
-                    description, "finished: Max. steps reached,", accept_rate_str
+                    progress_desc, "finished: Max. steps reached,", accept_rate_str
                 )
 
         return {
@@ -143,7 +149,7 @@ def run_mcmc_with_burnin(
     sampling_kwargs: Optional[dict] = None,
     burnin: Optional[int] = None,
     keep_burnin: bool = False,
-    report: Optional[ConsoleReport] = None,
+    verbose: bool = True,
 ) -> Dict[str, Any]:
     """
     Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
@@ -157,7 +163,7 @@ def run_mcmc_with_burnin(
     When `burnin` is not given, the burnin phase will stil take place and it will
     sample until convergence, after which it will draw another `nsteps` samples.
 
-    If `report` is given, the progress will be displayed.
+    If `progress_desc` is given, the progress will be displayed.
     
     Returns a dictionary with some information about the burnin phase.
     """
@@ -178,16 +184,14 @@ def run_mcmc_with_burnin(
 
         if burnin is None:
             burnin_result = burnin_sampler.run_sampling(
-                report=report,
-                description="Burn-in ",
+                progress_desc="Burn-in " if verbose else None,
                 **sampling_kwargs,
             )
         else:
             burnin_result = burnin_sampler.run_sampling(
                 min_steps=burnin,
                 max_steps=burnin,
-                report=report,
-                description="Burn-in ",
+                progress_desc="Burn-in " if verbose else None,
             )
 
         # persistent sampling phase
@@ -199,8 +203,7 @@ def run_mcmc_with_burnin(
             min_steps=nsteps,
             max_steps=nsteps,
             initial_state=burnin_result["final_state"],
-            report=report,
-            description="Sampling"
+            progress_desc="Sampling" if verbose else None,
         )
 
         return burnin_result
@@ -298,7 +301,7 @@ if __name__ == "__main__":
                 persistent_backend=hdf5_backend,
                 burnin=burnin,
                 keep_burnin=False,
-                report=report,
+                verbose=True
             )
             plots["acor_times"].append(burnin_info["acor_times"][-1])
             plots["accept_rates"].append(burnin_info["accept_rate"])
@@ -339,6 +342,7 @@ if __name__ == "__main__":
             nstep=params["sampling"]["nstep"],
             persistent_backend=hdf5_backend,
             sampling_kwargs=params["sampling"]["kwargs"],
+            verbose=True,
         )
         x_axis = np.array(burnin_info["iterations"])
         plots = {"acor_times": burnin_info["acor_times"]}
