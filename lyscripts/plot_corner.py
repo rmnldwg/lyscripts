@@ -22,7 +22,7 @@ if __name__ == "__main__":
         help="Path to parameter file (YAML)."
     )
     parser.add_argument(
-        "--plots", default="plots/corner.svg",
+        "--plots", default="plots/corner",
         help="Path to output corner plot (SVG)."
     )
 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     with report.status("Plot corner plot..."):
         plot_path = Path(args.plots)
-        plot_path.parent.mkdir(parents=True, exist_ok=True)
+        plot_path.mkdir(parents=True, exist_ok=True)
 
         graph = graph_from_config(params["graph"])
         model_cls = getattr(lymph, params["model"]["class"])
@@ -95,5 +95,6 @@ if __name__ == "__main__":
             labels=labels,
             show_titles=True,
         )
-        fig.savefig(plot_path)
+        fig.savefig(plot_path / "corner.svg")
+        fig.savefig(plot_path / "corner.png", dpi=300)
         report.success(f"Saved corner plot to {plot_path}")
