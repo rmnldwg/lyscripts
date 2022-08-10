@@ -6,18 +6,16 @@ import argparse
 import warnings
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict,  Optional, Union
 
 import emcee
 import h5py
-import lymph
 import numpy as np
 import pandas as pd
 import yaml
 from rich.progress import track
-from scipy.special import factorial
 
-from .helpers import ConsoleReport, get_graph_from_, report
+from .helpers import ConsoleReport, report, progress, model_from_config
 
 
 class ConvenienceSampler(emcee.EnsembleSampler):
@@ -85,11 +83,10 @@ class ConvenienceSampler(emcee.EnsembleSampler):
             **kwargs
         )
         if report is not None:
-            samples_iterator = track(
+            samples_iterator = progress.track(
                 sequence=samples_iterator,
                 total=max_steps,
                 description=description,
-                console=report,
             )
         coords = None
         for sample in samples_iterator:
@@ -115,25 +112,26 @@ class ConvenienceSampler(emcee.EnsembleSampler):
 
             old_acor = new_acor
 
+        iterations.append(self.iteration)
+        acor_times.append(np.mean(self.get_autocorr_time(tol=0)))
+
         accept_rate = 100. * np.mean(self.acceptance_fraction)
+        accept_rate_str = f"acceptance rate was {accept_rate:.2f}%"
         if report is not None:
             if is_converged:
                 report.success(
-                    description,
-                    f"converged after {self.iteration} steps with "
-                    f"an acceptance rate of {accept_rate:.2f}%"
+                    description, "converged,", accept_rate_str
                 )
             else:
                 report.info(
-                    description,
-                    f"finished: Max. number of steps ({max_steps}) reached "
-                    f"(acceptance rate {accept_rate:.2f}%)"
+                    description, "finished: Max. steps reached,", accept_rate_str
                 )
 
         return {
             "iterations": iterations,
             "acor_times": acor_times,
             "final_state": coords,
+            "accept_rate": accept_rate,
         }
 
 def run_mcmc_with_burnin(
@@ -141,11 +139,12 @@ def run_mcmc_with_burnin(
     ndim: int,
     log_prob_fn: Callable,
     nsteps: int,
-    burnin: int,
     persistent_backend: emcee.backends.HDFBackend,
+    sampling_kwargs: Optional[dict] = None,
+    burnin: Optional[int] = None,
     keep_burnin: bool = False,
     report: Optional[ConsoleReport] = None,
-):
+) -> Dict[str, Any]:
     """
     Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
     `emcee.EnsembleSampler`).
@@ -154,95 +153,57 @@ def run_mcmc_with_burnin(
     `False`) and afterwards it performs a second sampling round, starting where the
     burnin left off, of length `nsteps - burnin` that will be stored in the
     `persistent_backend`.
+    
+    When `burnin` is not given, the burnin phase will stil take place and it will
+    sample until convergence, after which it will draw another `nsteps` samples.
 
     If `report` is given, the progress will be displayed.
+    
+    Returns a dictionary with some information about the burnin phase.
     """
+    if sampling_kwargs is None:
+        sampling_kwargs = {}
+
     with Pool() as pool:
         # Burnin phase
         if keep_burnin:
             burnin_backend = persistent_backend
         else:
             burnin_backend = emcee.backends.Backend()
+
         burnin_sampler = ConvenienceSampler(
             nwalkers, ndim, log_prob_fn,
             pool=pool, backend=burnin_backend,
         )
-        burnin_result = burnin_sampler.run_sampling(
-            max_steps=burnin,
-            check_interval=burnin+1,  # this makes sure convergence is never checked
-            report=report,
-            description="Burn-in ",
-        )
 
-        # real sampling phase
+        if burnin is None:
+            burnin_result = burnin_sampler.run_sampling(
+                report=report,
+                description="Burn-in ",
+                **sampling_kwargs,
+            )
+        else:
+            burnin_result = burnin_sampler.run_sampling(
+                min_steps=burnin,
+                max_steps=burnin,
+                report=report,
+                description="Burn-in ",
+            )
+
+        # persistent sampling phase
         sampler = ConvenienceSampler(
             nwalkers, ndim, log_prob_fn,
             pool=pool, backend=persistent_backend,
         )
         sampler.run_sampling(
-            max_steps=nsteps-burnin,
+            min_steps=nsteps,
+            max_steps=nsteps,
             initial_state=burnin_result["final_state"],
-            check_interval=nsteps-burnin,
             report=report,
             description="Sampling"
         )
 
-
-def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):
-    """Binomial PMF"""
-    if p > 1. or p < 0.:
-        raise ValueError("Binomial prob must be btw. 0 and 1")
-    q = (1. - p)
-    binom_coeff = factorial(n) / (factorial(k) * factorial(n - k))
-    return binom_coeff * p**k * q**(n - k)
-
-def parametric_binom_pmf(n: int) -> Callable:
-    """Return a parametric binomial PMF"""
-    def inner(t, p):
-        """Parametric binomial PMF"""
-        return binom_pmf(t, n, p)
-    return inner
-
-def add_tstage_marg(
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
-    t_stages: List[str],
-    first_binom_prob: float,
-    max_t: int,
-):
-    """Add margializors over diagnose times to `model`."""
-    for i,stage in enumerate(t_stages):
-        if i == 0:
-            model.diag_time_dists[stage] = binom_pmf(
-                k=np.arange(max_t + 1),
-                n=max_t,
-                p=first_binom_prob
-            )
-        else:
-            model.diag_time_dists[stage] = parametric_binom_pmf(n=max_t)
-
-
-def setup_model(
-    graph_params: Dict[str, Any],
-    model_params: Dict[str, Any],
-    modalities_params: Optional[Dict[str, Any]] = None,
-) -> Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]:
-    """Create a model instance as defined by some YAML params."""
-    graph = get_graph_from_(graph_params)
-
-    model_cls = getattr(lymph, model_params["class"])
-    model = model_cls(graph, **model_params["kwargs"])
-
-    if modalities_params is not None:
-        model.modalities = modalities_params
-
-    add_tstage_marg(
-        model,
-        t_stages=model_params["t_stages"],
-        first_binom_prob=model_params["first_binom_prob"],
-        max_t=model_params["max_t"],
-    )
-
-    return model
+        return burnin_result
 
 
 if __name__ == "__main__":
@@ -260,55 +221,64 @@ if __name__ == "__main__":
         help="Path to parameter YAML file"
     )
     parser.add_argument(
-        "--ti", action="store_true",
-        help="Use thermodynamic integration from prior to given likelihood"
+        "--plots", default="plots",
+        help="Directory to store plot of acor times",
+    )
+    parser.add_argument(
+        "--ti", type=int, default=0,
+        help="Number of thermodynamic integration steps. If 0, don't do TI."
     )
 
     # Parse arguments and prepare paths
     args = parser.parse_args()
-    input_path = Path(args.input)
-    params_path = Path(args.params)
 
     with report.status("Read in parameters..."):
+        params_path = Path(args.params)
         with open(params_path, mode='r') as params_file:
             params = yaml.safe_load(params_file)
         report.success(f"Read in params from {params_path}")
 
     with report.status("Read in training data..."):
+        input_path = Path(args.input)
         # Only read in two header rows when using the Unilateral model
         is_unilateral = params["model"]["class"] == "Unilateral"
         header = [0, 1] if is_unilateral else [0, 1, 2]
-        inference_data = pd.read_csv(input_path, header=header)
+        DATA = pd.read_csv(input_path, header=header)
         report.success(f"Read in training data from {input_path}")
 
-
     with report.status("Set up model & load data..."):
-        MODEL = setup_model(
+        MODEL = model_from_config(
             graph_params=params["graph"],
             model_params=params["model"],
             modalities_params=params["modalities"],
         )
-        MODEL.patient_data = inference_data
+        MODEL.patient_data = DATA
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
         nwalkers = ndim * params["sampling"]["walkers_per_dim"]
         report.success(
             f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
-            f"{len(inference_data)} patients"
+            f"{len(DATA)} patients"
         )
 
-    if args.ti:
+    if args.ti > 0:
         with report.status("Prepare thermodynamic integration..."):
             # make sure path to output file exists
             output_path = Path(args.output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # set up sampling params
-            ladder = np.logspace(0., 1., num=params["sampling"]["len_ladder"])
+            ladder = np.logspace(0., 1., num=args.ti)
             ladder = (ladder - 1.) / 9.
-            nsteps = params["sampling"]["kwargs"]["max_steps"] // len(ladder)
-            burnin = nsteps - params["sampling"]["keep_steps"]
+            nsteps = params["sampling"]["nsteps"]
+            burnin = params["sampling"]["burnin"]
             report.success("Prepared thermodynamic integration.")
 
+        # record some information about each burnin phase
+        x_axis = ladder.copy()
+        plots = {
+            "acor_times": [],
+            "accept_rates": [],
+        }
         for i,inv_temp in enumerate(ladder):
             report.print(f"TI round {i+1}/{len(ladder)} with β = {inv_temp:.3f}")
 
@@ -323,12 +293,15 @@ if __name__ == "__main__":
                     return -np.inf, -np.inf
                 return inv_temp * llh, llh
 
-            run_mcmc_with_burnin(
-                nwalkers, ndim, log_prob_fn, nsteps, burnin,
+            burnin_info = run_mcmc_with_burnin(
+                nwalkers, ndim, log_prob_fn, nsteps,
                 persistent_backend=hdf5_backend,
+                burnin=burnin,
                 keep_burnin=False,
                 report=report,
             )
+            plots["acor_times"].append(burnin_info["acor_times"][-1])
+            plots["accept_rates"].append(burnin_info["accept_rate"])
 
         # copy last sampling round over to a group in the HDF5 file called "mcmc"
         # because that is what other scripts expect to see
@@ -350,22 +323,37 @@ if __name__ == "__main__":
             hdf5_backend = emcee.backends.HDFBackend(output_path, name="mcmc")
 
             def log_prob_fn(theta,) -> float:
-                """
-                Compute the log-probability of data loaded in `model`, given the
+                """Compute the log-probability of data loaded in `model`, given the
                 parameters `theta`.
+                
+                Note that the `llh` is also passed as second return value to be stored
+                in the `emcee` blobs, where it is also stored in the TI case.
                 """
-                return MODEL.likelihood(given_params=theta, log=True)
+                llh = MODEL.likelihood(given_params=theta, log=True)
+                return llh, llh
 
             report.success(f"Prepared sampling params & backend at {output_path}")
 
-        with Pool() as pool:
-            sampler = ConvenienceSampler(
-                nwalkers, ndim, log_prob_fn,
-                pool=pool,
-                backend=hdf5_backend,
+        burnin_info = run_mcmc_with_burnin(
+            nwalkers, ndim, log_prob_fn,
+            nstep=params["sampling"]["nstep"],
+            persistent_backend=hdf5_backend,
+            sampling_kwargs=params["sampling"]["kwargs"],
+        )
+        x_axis = np.array(burnin_info["iterations"])
+        plots = {"acor_times": burnin_info["acor_times"]}
+        
+    with report.status("Store plots about burnin phases..."):
+        plot_path = Path(args.plots)
+        plot_path.mkdir(parents=True, exist_ok=True)
+        
+        for name, y_axis in plots.items():
+            tmp_df = pd.DataFrame(
+                np.array([x_axis, y_axis]).T,
+                columns=["x", name],
             )
-            result = sampler.run_sampling(
-                report=report,
-                description="Sampling"
-                **params["sampling"]["kwargs"]
-            )
+            tmp_df.to_csv(plot_path/(name + ".csv"), index=False)
+            
+        report.success(
+            f"Stored {len(plots)} plots about burnin phases at {plot_path}"
+        )

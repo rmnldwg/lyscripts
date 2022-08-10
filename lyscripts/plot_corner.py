@@ -9,7 +9,7 @@ import emcee
 import lymph
 import yaml
 
-from .helpers import get_graph_from_, report
+from .helpers import graph_from_config, report
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -42,7 +42,7 @@ if __name__ == "__main__":
         plot_path = Path(args.plots)
         plot_path.parent.mkdir(parents=True, exist_ok=True)
 
-        graph = get_graph_from_(params["model"]["graph"])
+        graph = graph_from_config(params["graph"])
         model_cls = getattr(lymph, params["model"]["class"])
         model = model_cls(graph=graph, **params["model"]["kwargs"])
 
@@ -87,10 +87,7 @@ if __name__ == "__main__":
                     *binom
                 ]
 
-        chain = backend.get_chain(
-            flat=True,
-            discard=backend.iteration-params["sampling"]["keep_steps"],
-        )
+        chain = backend.get_chain(flat=True)
         if len(labels) != chain.shape[1]:
             raise RuntimeError(f"length labels: {len(labels)}, shape chain: {chain.shape}")
         fig = corner.corner(

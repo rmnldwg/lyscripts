@@ -13,7 +13,8 @@ import pandas as pd
 import yaml
 from cycler import cycler
 
-from .helpers import get_graph_from_, report
+from .helpers import ConsoleReport, report, model_from_config
+
 
 # define colors
 USZ_BLUE = '#005ea8'
@@ -209,16 +210,18 @@ if __name__ == "__main__":
 
     with report.status("Read in parameters..."):
         params_path = Path(args.params)
-        with open(params_path, 'r') as params_file:
+        with open(params_path, mode='r') as params_file:
             params = yaml.safe_load(params_file)
         report.success(f"Read in params from {params_path}")
 
     if args.data is not None:
-        with report.status("Reading in data..."):
+        with report.status("Read in training data..."):
             data_path = Path(args.data)
-            header = [0,1] if params["model"]["class"] == "Unilateral" else [0,1,2]
-            data = pd.read_csv(data_path, header=header)
-            report.success(f"Read in data from {data_path}")
+            # Only read in two header rows when using the Unilateral model
+            is_unilateral = params["model"]["class"] == "Unilateral"
+            header = [0, 1] if is_unilateral else [0, 1, 2]
+            DATA = pd.read_csv(data_path, header=header)
+            report.success(f"Read in training data from {data_path}")
 
     with report.status("Loading samples..."):
         model_path = Path(args.model)
@@ -230,29 +233,19 @@ if __name__ == "__main__":
         samples = all_samples[idx]
         report.success(f"Loaded samples with shape {samples.shape} from {model_path}")
 
-    with report.status("Set up model..."):
-        model_cls = getattr(lymph, params["model"]["class"])
-        graph = get_graph_from_(params["model"]["graph"])
-        model = model_cls(graph=graph, **params["model"]["kwargs"])
-
-        # use fancy new time marginalization functionality
-        for i,t_stage in enumerate(params["model"]["t_stages"]):
-            if i == 0:
-                model.diag_time_dists[t_stage] = lymph.utils.fast_binomial_pmf(
-                    k=np.arange(params["model"]["max_t"] + 1),
-                    n=params["model"]["max_t"],
-                    p=params["model"]["first_binom_prob"],
-                )
-            else:
-                def binom_pmf(t,p):
-                    if p > 1. or p < 0.:
-                        raise ValueError("Binomial probability must be between 0 and 1")
-                    return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
-
-                model.diag_time_dists[t_stage] = binom_pmf
-
-        ndims = len(model.spread_probs) + model.diag_time_dists.num_parametric
-        report.success(f"Set up model with {ndims} parameters")
+    with report.status("Set up model & load data..."):
+        MODEL = model_from_config(
+            graph_params=params["graph"],
+            model_params=params["model"],
+            modalities_params=params["modalities"],
+        )
+        MODEL.patient_data = DATA
+        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
+        nwalkers = ndim * params["sampling"]["walkers_per_dim"]
+        report.success(
+            f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
+            f"{len(DATA)} patients"
+        )
 
     plt.style.use(args.mplstyle)
 
@@ -283,7 +276,7 @@ if __name__ == "__main__":
             for i, scenario in enumerate(risk_plot["scenarios"]):
                 if args.data is not None and "comp_modality" in scenario:
                     prevalences[i] = 100. * compute_prevalence(
-                        data=data, **scenario
+                        data=DATA, **scenario
                     )
                 spread_probs, binom_probs = split_samples(
                     samples,
@@ -291,13 +284,13 @@ if __name__ == "__main__":
                     all_t_stages=params["model"]["t_stages"],
                     first_binom_prob=params["model"]["first_binom_prob"],
                 )
-                model.modalities = {"risk": scenario["diagnosis_spsn"]}
+                MODEL.modalities = {"risk": scenario["diagnosis_spsn"]}
                 try:
                     diagnosis = {"risk": scenario["diagnosis"]}
                 except KeyError:
                     diagnosis = None
                 risks[i] = 100. * np.array([
-                    model.risk(
+                    MODEL.risk(
                         involvement=scenario["pattern"],
                         given_params=sample,
                         given_diagnoses=diagnosis,
