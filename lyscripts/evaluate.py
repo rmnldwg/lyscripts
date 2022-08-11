@@ -1,22 +1,18 @@
 """
 Evaluate the performance of the model.
-
-## WARNING!
-What I have been doing here is wrong! I tried to compute the marginal log-likelihood
-from the stored log-likelihoods during sampling. That does not work!
 """
 import argparse
 import json
 from pathlib import Path
 
 import emcee
+import h5py
 import lymph
 import numpy as np
 import pandas as pd
 import yaml
-import h5py
 
-from .helpers import report, model_from_config
+from .helpers import model_from_config, report
 
 
 def comp_bic(
@@ -169,7 +165,7 @@ if __name__ == "__main__":
                 metrics["evidence"] += beta_diff * mean_acc
 
             report.success(f"Performed thermodynamic integration with {ti_steps} steps")
-        
+
         with report.status("Plot β vs accuracy..."):
             plot_path = Path(args.plots) / "ti" / "accuracies.csv"
             plot_path.parent.mkdir(exist_ok=True)
@@ -180,7 +176,7 @@ if __name__ == "__main__":
             )
             tmp_df.to_csv(plot_path, index=False)
             report.status(f"Plotted β vs accuracy at {plot_path}")
-                
+
     with report.status("Write out metrics..."):
         # store metrics in JSON file
         metrics_path = Path(args.metrics)

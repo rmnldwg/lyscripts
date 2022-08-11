@@ -6,16 +6,15 @@ import argparse
 import warnings
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Any, Callable, Dict,  Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import emcee
 import h5py
 import numpy as np
 import pandas as pd
 import yaml
-from rich.progress import track
 
-from .helpers import report, model_from_config, CustomProgress
+from .helpers import CustomProgress, model_from_config, report
 
 
 class ConvenienceSampler(emcee.EnsembleSampler):
@@ -136,8 +135,8 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         return {
             "iterations": iterations,
             "acor_times": acor_times,
-            "final_state": coords,
             "accept_rate": accept_rate,
+            "final_state": coords,
         }
 
 def run_mcmc_with_burnin(
@@ -155,16 +154,17 @@ def run_mcmc_with_burnin(
     Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
     `emcee.EnsembleSampler`).
 
-    This function first draws `burnin` (that are discarded if `keep_burnin` is set to
-    `False`) and afterwards it performs a second sampling round, starting where the
-    burnin left off, of length `nsteps - burnin` that will be stored in the
+    This function first draws `burnin` samples (that are discarded if `keep_burnin`
+    is set to `False`) and afterwards it performs a second sampling round, starting
+    where the burnin left off, of length `nsteps` that will be stored in the
     `persistent_backend`.
-    
-    When `burnin` is not given, the burnin phase will stil take place and it will
-    sample until convergence, after which it will draw another `nsteps` samples.
 
-    If `progress_desc` is given, the progress will be displayed.
-    
+    When `burnin` is not given, the burnin phase will still take place and it will
+    sample until convergence using convergence criteria defined via `sampling_kwargs`,
+    after which it will draw another `nsteps` samples.
+
+    If `verbose` is set to `True`, the progress will be displayed.
+
     Returns a dictionary with some information about the burnin phase.
     """
     if sampling_kwargs is None:
@@ -228,8 +228,8 @@ if __name__ == "__main__":
         help="Directory to store plot of acor times",
     )
     parser.add_argument(
-        "--ti", type=int, default=0,
-        help="Number of thermodynamic integration steps. If 0, don't do TI."
+        "--ti", action="store_true",
+        help="Perform thermodynamic integration"
     )
 
     # Parse arguments and prepare paths
@@ -263,27 +263,26 @@ if __name__ == "__main__":
             f"{len(DATA)} patients"
         )
 
-    if args.ti > 0:
+    if args.ti:
         with report.status("Prepare thermodynamic integration..."):
             # make sure path to output file exists
             output_path = Path(args.output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # set up sampling params
-            ladder = np.logspace(0., 1., num=args.ti)
-            ladder = (ladder - 1.) / 9.
+            temp_schedule = params["sampling"]["temp_schedule"]
             nsteps = params["sampling"]["nsteps"]
             burnin = params["sampling"]["burnin"]
             report.success("Prepared thermodynamic integration.")
 
         # record some information about each burnin phase
-        x_axis = ladder.copy()
+        x_axis = temp_schedule.copy()
         plots = {
             "acor_times": [],
             "accept_rates": [],
         }
-        for i,inv_temp in enumerate(ladder):
-            report.print(f"TI round {i+1}/{len(ladder)} with β = {inv_temp:.3f}")
+        for i,inv_temp in enumerate(temp_schedule):
+            report.print(f"TI round {i+1}/{len(temp_schedule)} with β = {inv_temp:.3f}")
 
             # set up backend
             hdf5_backend = emcee.backends.HDFBackend(output_path, name=f"ti/{i+1:0>2d}")
@@ -307,9 +306,9 @@ if __name__ == "__main__":
             plots["accept_rates"].append(burnin_info["accept_rate"])
 
         # copy last sampling round over to a group in the HDF5 file called "mcmc"
-        # because that is what other scripts expect to see
+        # because that is what other scripts expect to see, e.g. for plotting risks
         h5_file = h5py.File(output_path, "r+")
-        h5_file.copy(f"ti/{len(ladder):0>2d}", h5_file, name="mcmc")
+        h5_file.copy(f"ti/{len(temp_schedule):0>2d}", h5_file, name="mcmc")
         report.success("Finished thermodynamic integration.")
 
     else:
@@ -328,7 +327,7 @@ if __name__ == "__main__":
             def log_prob_fn(theta,) -> float:
                 """Compute the log-probability of data loaded in `model`, given the
                 parameters `theta`.
-                
+
                 Note that the `llh` is also passed as second return value to be stored
                 in the `emcee` blobs, where it is also stored in the TI case.
                 """
@@ -346,18 +345,18 @@ if __name__ == "__main__":
         )
         x_axis = np.array(burnin_info["iterations"])
         plots = {"acor_times": burnin_info["acor_times"]}
-        
+
     with report.status("Store plots about burnin phases..."):
         plot_path = Path(args.plots)
         plot_path.mkdir(parents=True, exist_ok=True)
-        
+
         for name, y_axis in plots.items():
             tmp_df = pd.DataFrame(
                 np.array([x_axis, y_axis]).T,
                 columns=["x", name],
             )
             tmp_df.to_csv(plot_path/(name + ".csv"), index=False)
-            
+
         report.success(
             f"Stored {len(plots)} plots about burnin phases at {plot_path}"
         )

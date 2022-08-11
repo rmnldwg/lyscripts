@@ -2,23 +2,20 @@
 This module contains frequently used functions as well as instructions on how
 to parse and process the raw data from different institutions
 """
-from typing import Union, Dict, Any, List, Optional, Callable
-
-import numpy as np
-from scipy.special import factorial
-from rich.console import Console
-from rich.progress import (
-    Progress,
-    TextColumn,
-    BarColumn,
-    TaskProgressColumn,
-    TimeElapsedColumn,
-    TimeRemainingColumn,
-    MofNCompleteColumn,
-)
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import lymph
-
+import numpy as np
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
+from scipy.special import factorial
 
 CROSS = "[bold red]✗[/bold red]"
 CIRCL = "[bold yellow]∘[/bold yellow]"
