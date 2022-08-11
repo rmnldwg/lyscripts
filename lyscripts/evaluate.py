@@ -1,21 +1,19 @@
 """
 Evaluate the performance of the model.
-
-## WARNING!
-What I have been doing here is wrong! I tried to compute the marginal log-likelihood
-from the stored log-likelihoods during sampling. That does not work!
 """
 import argparse
 import json
 from pathlib import Path
 
 import emcee
+import h5py
 import lymph
 import numpy as np
 import pandas as pd
 import yaml
+from scipy.integrate import trapezoid
 
-from .helpers import get_graph_from_, report
+from .helpers import model_from_config, report
 
 
 def comp_bic(
@@ -24,9 +22,34 @@ def comp_bic(
     num_data: int
 ) -> float:
     """
-    Compute the Bayesian Information Criterion (BIC).
+    Compute the negative one half of the Bayesian Information Criterion (BIC).
     """
-    return num_params * np.log(num_data) - 2 * np.max(log_probs)
+    return np.max(log_probs) - num_params * np.log(num_data) / 2.
+
+def comp_evidence_error(
+    temp_schedule: np.ndarray,
+    accuracies: np.ndarray,
+    errors: np.ndarray,
+    num: int = 1000,
+) -> float:
+    """Compute the error of the evidence.
+
+    The evidence is simply computed by integrating the `accuracies` over the provided
+    `temp_schedule` using a simple quadrature.
+
+    Its error (standard deviation) is computed by drawing a number of new accuracies
+    from normal distributions that have as their respective means the provided
+    `accuracies` and as standard deviations the provided `errors`, which should be the
+    standard deviations of the `accuracies`. Then, I compute for each of the drawn
+    samples the evidence and get that collections's standard deviation.
+    """
+    drawn_accuracies = np.random.normal(
+        loc=accuracies,
+        scale=errors,
+        size=(num, len(accuracies))
+    )
+    integrals = trapezoid(y=drawn_accuracies, x=temp_schedule, axis=1)
+    return np.std(integrals)
 
 
 if __name__ == "__main__":
@@ -44,64 +67,57 @@ if __name__ == "__main__":
         help="Path to parameter file (YAML)."
     )
     parser.add_argument(
-        "--metrics", required=True,
+        "--plots", default="plots",
+        help="Directory for storing plots"
+    )
+    parser.add_argument(
+        "--metrics", default="metrics.json",
         help="Path to metrics file (JSON)."
     )
 
     args = parser.parse_args()
-    data_path = Path(args.data)
-    model_path = Path(args.model)
-    params_path = Path(args.params)
     metrics = {}
 
     with report.status("Read in parameters..."):
+        params_path = Path(args.params)
         with open(params_path, mode='r') as params_file:
             params = yaml.safe_load(params_file)
         report.success(f"Read in params from {params_path}")
 
     with report.status("Open samples from emcee backend..."):
+        model_path = Path(args.model)
         backend = emcee.backends.HDFBackend(model_path, read_only=True, name="mcmc")
         nstep = backend.iteration
-        backend_kwargs = {
-            "flat": True,
-            "discard": nstep - params["sampling"]["keep_steps"]
-        }
-        chain = backend.get_chain(**backend_kwargs)
-        log_probs = backend.get_log_prob(**backend_kwargs)
+        chain = backend.get_chain(flat=True)
+
+        # use blobs, because also for TI, this is the unscaled log-prob
+        log_probs = backend.get_blobs()
         report.success(f"Opened samples from emcee backend from {model_path}")
 
     with report.status("Read in patient data..."):
-        header_rows = [0,1] if params["model"]["class"] == "Unilateral" else [0,1,2]
-        inference_data = pd.read_csv(data_path, header=header_rows)
+        data_path = Path(args.data)
+        # Only read in two header rows when using the Unilateral model
+        is_unilateral = params["model"]["class"] == "Unilateral"
+        header = [0, 1] if is_unilateral else [0, 1, 2]
+        DATA = pd.read_csv(data_path, header=header)
         report.success(f"Read in patient data from {data_path}")
 
-    with report.status("Recreate model to compute more metrics..."):
-        model_cls = getattr(lymph, params["model"]["class"])
-        graph = get_graph_from_(params["model"]["graph"])
-        MODEL = model_cls(graph=graph, **params["model"]["kwargs"])
-        MODEL.modalities = params["modalities"]
-
-        # use fancy new time marginalization functionality
-        for i,t_stage in enumerate(params["model"]["t_stages"]):
-            if i == 0:
-                MODEL.diag_time_dists[t_stage] = lymph.utils.fast_binomial_pmf(
-                    k=np.arange(params["model"]["max_t"] + 1),
-                    n=params["model"]["max_t"],
-                    p=params["model"]["first_binom_prob"],
-                )
-            else:
-                def binom_pmf(t,p):
-                    if p > 1. or p < 0.:
-                        raise ValueError("Binomial probability must be between 0 and 1")
-                    return lymph.utils.fast_binomial_pmf(t, params["model"]["max_t"], p)
-
-                MODEL.diag_time_dists[t_stage] = binom_pmf
-
-        MODEL.patient_data = inference_data
-        report.success("Recreated model to compare more metrics.")
+    with report.status("Recreate model & load data..."):
+        MODEL = model_from_config(
+            graph_params=params["graph"],
+            model_params=params["model"],
+            modalities_params=params["modalities"],
+        )
+        MODEL.patient_data = DATA
+        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
+        nwalkers = ndim * params["sampling"]["walkers_per_dim"]
+        report.success(
+            f"Recreated {type(MODEL)} model with {ndim} parameters and loaded "
+            f"{len(DATA)} patients"
+        )
 
     # Only read in two header rows when using the Unilateral model
-    if params["model"]["class"] in ["Bilateral", "MidlineBilateral"]:
+    if isinstance(MODEL, (lymph.Bilateral, lymph.MidlineBilateral)):
         def ipsi_and_contra_log_llh(theta,) -> float:
             """
             Compute the log-probability of ipsi- and contralateral data for a bilateral
@@ -123,8 +139,8 @@ if __name__ == "__main__":
             return ipsi_log_llh, contra_log_llh
 
         with report.status("Compute metrics for sides separately..."):
-            ipsi_log_llh = np.zeros_like(log_probs)
-            contra_log_llh = np.zeros_like(log_probs)
+            ipsi_log_llh = np.zeros(shape=len(chain))
+            contra_log_llh = np.zeros(shape=len(chain))
             for i,sample in enumerate(chain):
                 ipsi_log_llh[i], contra_log_llh[i] = ipsi_and_contra_log_llh(sample)
 
@@ -142,14 +158,57 @@ if __name__ == "__main__":
             metrics["ipsi_BIC"] = comp_bic(
                 ipsi_log_llh,
                 num_params,
-                len(inference_data),
+                len(DATA),
             )
             metrics["contra_BIC"] = comp_bic(
                 contra_log_llh,
                 num_params,
-                len(inference_data),
+                len(DATA),
             )
             report.success("Computed metrics for sides separately")
+
+
+    h5_file = h5py.File(name=model_path, mode="r")
+    # check if TI has been performed
+    if "ti" in h5_file:
+        with report.status("Compute results of thermodynamic integration..."):
+            temp_schedule = params["sampling"]["temp_schedule"]
+            num_temps = len(temp_schedule)
+            if num_temps != len(h5_file["ti"]):
+                raise RuntimeError(
+                    f"Parameters suggest temp schedule of length {num_temps}, "
+                    f"but stored are {len(h5_file['ti'])}"
+                )
+            accuracies = np.zeros_like(temp_schedule)
+            errors = np.zeros_like(temp_schedule)
+            for i,round in enumerate(h5_file["ti"]):
+                reader = emcee.backends.HDFBackend(
+                    model_path,
+                    name=f"ti/{round}",
+                    read_only=True,
+                )
+                log_probs = reader.get_blobs()
+                accuracies[i] = np.mean(log_probs)
+                errors[i] = np.std(log_probs)
+
+            metrics["evidence"] = trapezoid(y=accuracies, x=temp_schedule)
+            metrics["evidence_std"] = comp_evidence_error(
+                temp_schedule, accuracies, errors
+            )
+            report.success(
+                f"Computed results of thermodynamic integration with {num_temps} steps"
+            )
+
+        with report.status("Plot β vs accuracy..."):
+            plot_path = Path(args.plots) / "ti" / "accuracies.csv"
+            plot_path.parent.mkdir(exist_ok=True)
+
+            tmp_df = pd.DataFrame(
+                np.array([temp_schedule, accuracies]).T,
+                columns=["β", "accuracy"],
+            )
+            tmp_df.to_csv(plot_path, index=False)
+            report.success(f"Plotted β vs accuracy at {plot_path}")
 
     with report.status("Write out metrics..."):
         # store metrics in JSON file
@@ -161,10 +220,10 @@ if __name__ == "__main__":
         metrics["BIC"] = comp_bic(
             log_probs,
             len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric,
-            len(inference_data),
+            len(DATA),
         )
-        metrics["max_log_likelihood"] = np.max(log_probs)
-        metrics["mean_log_likelihood"] = np.mean(log_probs)
+        metrics["max_llh"] = np.max(log_probs)
+        metrics["mean_llh"] = np.mean(log_probs)
 
         # write out metrics again
         with open(metrics_path, mode="w") as metrics_file:

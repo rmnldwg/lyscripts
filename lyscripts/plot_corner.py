@@ -9,7 +9,7 @@ import emcee
 import lymph
 import yaml
 
-from .helpers import get_graph_from_, report
+from .helpers import graph_from_config, report
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -22,7 +22,7 @@ if __name__ == "__main__":
         help="Path to parameter file (YAML)."
     )
     parser.add_argument(
-        "--plots", default="plots/corner.svg",
+        "--plots", default="plots/corner",
         help="Path to output corner plot (SVG)."
     )
 
@@ -40,9 +40,9 @@ if __name__ == "__main__":
 
     with report.status("Plot corner plot..."):
         plot_path = Path(args.plots)
-        plot_path.parent.mkdir(parents=True, exist_ok=True)
+        plot_path.mkdir(parents=True, exist_ok=True)
 
-        graph = get_graph_from_(params["model"]["graph"])
+        graph = graph_from_config(params["graph"])
         model_cls = getattr(lymph, params["model"]["class"])
         model = model_cls(graph=graph, **params["model"]["kwargs"])
 
@@ -87,10 +87,7 @@ if __name__ == "__main__":
                     *binom
                 ]
 
-        chain = backend.get_chain(
-            flat=True,
-            discard=backend.iteration-params["sampling"]["keep_steps"],
-        )
+        chain = backend.get_chain(flat=True)
         if len(labels) != chain.shape[1]:
             raise RuntimeError(f"length labels: {len(labels)}, shape chain: {chain.shape}")
         fig = corner.corner(
@@ -98,5 +95,6 @@ if __name__ == "__main__":
             labels=labels,
             show_titles=True,
         )
-        fig.savefig(plot_path)
+        fig.savefig(plot_path / "corner.svg")
+        fig.savefig(plot_path / "corner.png", dpi=300)
         report.success(f"Saved corner plot to {plot_path}")
