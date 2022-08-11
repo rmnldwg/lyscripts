@@ -1,4 +1,6 @@
 """
+.. include:: ../README.md
+
 This package provides scripts to the `lynference` repository, where the inference
 pipelines live and run regarding the lympahtic progression project.
 

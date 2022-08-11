@@ -23,25 +23,31 @@ def comp_bic(
 ) -> float:
     """
     Compute the negative one half of the Bayesian Information Criterion (BIC).
+
+    The BIC is defined as
+    $$ BIC = k \\ln{n} - 2 \\ln{\\hat{L}} $$
+    where $k$ is the number of parameters `num_params`, $n$ the number of datapoints
+    `num_data` and $\\hat{L}$ the maximum likelihood estimate of the `log_prob`.
+    It is constructed such that the following is an
+    approximation of the model evidence:
+    $$ p(D \\mid m) \\approx \\exp{\\left( - BIC / 2 \\right)} $$
+    which is why this function returns the negative one half of it.
     """
     return np.max(log_probs) - num_params * np.log(num_data) / 2.
 
 def comp_evidence_error(
-    temp_schedule: np.ndarray,
     accuracies: np.ndarray,
     errors: np.ndarray,
+    temp_schedule: np.ndarray,
     num: int = 1000,
 ) -> float:
-    """Compute the error of the evidence.
+    """Compute the error (standard deviation) of the evidence.
 
-    The evidence is simply computed by integrating the `accuracies` over the provided
-    `temp_schedule` using a simple quadrature.
-
-    Its error (standard deviation) is computed by drawing a number of new accuracies
-    from normal distributions that have as their respective means the provided
-    `accuracies` and as standard deviations the provided `errors`, which should be the
-    standard deviations of the `accuracies`. Then, I compute for each of the drawn
-    samples the evidence and get that collections's standard deviation.
+    It is computed by drawing a `num` new accuracies from normal distributions
+    that have as their respective means the provided `accuracies` and as standard
+    deviations the provided `errors`, which should be the standard deviations of the
+    `accuracies`. Then, each of the drawn sequence of accuracies is integrated over
+    `temp_schedule`.
     """
     drawn_accuracies = np.random.normal(
         loc=accuracies,
@@ -193,7 +199,7 @@ if __name__ == "__main__":
 
             metrics["evidence"] = trapezoid(y=accuracies, x=temp_schedule)
             metrics["evidence_std"] = comp_evidence_error(
-                temp_schedule, accuracies, errors
+                accuracies, errors, temp_schedule
             )
             report.success(
                 f"Computed results of thermodynamic integration with {num_temps} steps"

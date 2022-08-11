@@ -43,6 +43,9 @@ dev = [
     "pycln",
     "pylint",
 ]
+doc = [
+    "pdoc"
+]
 
 [tool.setuptools_scm]
 write_to = "lyscripts/_version.py"
