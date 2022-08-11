@@ -11,6 +11,7 @@ import lymph
 import numpy as np
 import pandas as pd
 import yaml
+from scipy.integrate import trapezoid
 
 from .helpers import model_from_config, report
 
@@ -24,6 +25,31 @@ def comp_bic(
     Compute the negative one half of the Bayesian Information Criterion (BIC).
     """
     return np.max(log_probs) - num_params * np.log(num_data) / 2.
+
+def comp_evidence_error(
+    temp_schedule: np.ndarray,
+    accuracies: np.ndarray,
+    errors: np.ndarray,
+    num: int = 1000,
+) -> float:
+    """Compute the error of the evidence.
+
+    The evidence is simply computed by integrating the `accuracies` over the provided
+    `temp_schedule` using a simple quadrature.
+
+    Its error (standard deviation) is computed by drawing a number of new accuracies
+    from normal distributions that have as their respective means the provided
+    `accuracies` and as standard deviations the provided `errors`, which should be the
+    standard deviations of the `accuracies`. Then, I compute for each of the drawn
+    samples the evidence and get that collections's standard deviation.
+    """
+    drawn_accuracies = np.random.normal(
+        loc=accuracies,
+        scale=errors,
+        size=(num, len(accuracies))
+    )
+    integrals = trapezoid(y=drawn_accuracies, x=temp_schedule, axis=1)
+    return np.std(integrals)
 
 
 if __name__ == "__main__":
@@ -45,7 +71,7 @@ if __name__ == "__main__":
         help="Directory for storing plots"
     )
     parser.add_argument(
-        "--metrics", required=True,
+        "--metrics", default="metrics.json",
         help="Path to metrics file (JSON)."
     )
 
@@ -141,41 +167,48 @@ if __name__ == "__main__":
             )
             report.success("Computed metrics for sides separately")
 
-    # check if TI has been performed
+
     h5_file = h5py.File(name=model_path, mode="r")
+    # check if TI has been performed
     if "ti" in h5_file:
-        with report.status("Perform thermodynamic integration..."):
-            ti_steps = len(h5_file["ti"])
-            ladder = np.logspace(0., 1., num=ti_steps)
-            ladder = (ladder - 1.) / 9.
-            accuracies = []
-            for round in h5_file["ti"]:
+        with report.status("Compute results of thermodynamic integration..."):
+            temp_schedule = params["sampling"]["temp_schedule"]
+            num_temps = len(temp_schedule)
+            if num_temps != len(h5_file["ti"]):
+                raise RuntimeError(
+                    f"Parameters suggest temp schedule of length {num_temps}, "
+                    f"but stored are {len(h5_file['ti'])}"
+                )
+            accuracies = np.zeros_like(temp_schedule)
+            errors = np.zeros_like(temp_schedule)
+            for i,round in enumerate(h5_file["ti"]):
                 reader = emcee.backends.HDFBackend(
                     model_path,
                     name=f"ti/{round}",
                     read_only=True,
                 )
                 log_probs = reader.get_blobs()
-                accuracies.append(np.mean(log_probs))
+                accuracies[i] = np.mean(log_probs)
+                errors[i] = np.std(log_probs)
 
-            metrics["evidence"] = 0.
-            for i in range(ti_steps - 1):
-                beta_diff = ladder[i+1] - ladder[i]
-                mean_acc = (accuracies[i+1] + accuracies[i]) / 2.
-                metrics["evidence"] += beta_diff * mean_acc
-
-            report.success(f"Performed thermodynamic integration with {ti_steps} steps")
+            metrics["evidence"] = trapezoid(y=accuracies, x=temp_schedule)
+            metrics["evidence_std"] = comp_evidence_error(
+                temp_schedule, accuracies, errors
+            )
+            report.success(
+                f"Computed results of thermodynamic integration with {num_temps} steps"
+            )
 
         with report.status("Plot β vs accuracy..."):
             plot_path = Path(args.plots) / "ti" / "accuracies.csv"
             plot_path.parent.mkdir(exist_ok=True)
 
             tmp_df = pd.DataFrame(
-                np.array([ladder, accuracies]).T,
+                np.array([temp_schedule, accuracies]).T,
                 columns=["β", "accuracy"],
             )
             tmp_df.to_csv(plot_path, index=False)
-            report.status(f"Plotted β vs accuracy at {plot_path}")
+            report.success(f"Plotted β vs accuracy at {plot_path}")
 
     with report.status("Write out metrics..."):
         # store metrics in JSON file

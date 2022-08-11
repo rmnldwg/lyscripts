@@ -282,7 +282,7 @@ if __name__ == "__main__":
             "accept_rates": [],
         }
         for i,inv_temp in enumerate(temp_schedule):
-            report.print(f"TI round {i+1}/{len(temp_schedule)} with β = {inv_temp:.3f}")
+            report.print(f"TI round {i+1}/{len(temp_schedule)} with β = {inv_temp}")
 
             # set up backend
             hdf5_backend = emcee.backends.HDFBackend(output_path, name=f"ti/{i+1:0>2d}")
