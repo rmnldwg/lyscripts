@@ -3,7 +3,7 @@ Compute and plot risks for a sampled model.
 """
 import argparse
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import emcee
 import lymph
@@ -13,8 +13,7 @@ import pandas as pd
 import yaml
 from cycler import cycler
 
-from .helpers import ConsoleReport, report, model_from_config
-
+from .helpers import model_from_config, report
 
 # define colors
 USZ_BLUE = '#005ea8'
@@ -40,146 +39,134 @@ def set_size(width="single", unit="cm", ratio="golden"):
     height = width / ratio
     return (width, height)
 
+def prepare_figure(title: str):
+    """Return figure and axes to plot risk histograms into."""
+    fig, ax = plt.subplots(figsize=set_size(width="full"))
+    fig.suptitle(risk_plot["title"])
+    histogram_cycler = (
+        cycler(histtype=["stepfilled", "step"])
+        * cycler(color=USZ_COLOR_LIST)
+    )
+    vline_cycler = (
+        cycler(linestyle=["-", "--"])
+        * cycler(color=USZ_COLOR_LIST)
+    )
+    return fig, ax, histogram_cycler, vline_cycler
 
-def make_complete_(pat_or_diag: Dict[str, Dict[str, bool]]) -> Dict[str, Dict[str, bool]]:
+
+def get_match_idx(
+    pattern: Dict[str, Optional[bool]],
+    data: pd.DataFrame,
+    lnls: Optional[List[str]] = None,
+    invert: bool = False,
+) -> pd.Series:
+    """Get the indices of the rows in the `data` where the diagnose matches the
+    `pattern` of interest for every lymph node level in the `lnls`.
     """
-    Make sure both sides in the pattern or diagnose are specified.
-    """
-    if not any([side in pat_or_diag for side in ["ipsi", "contra"]]):
-        raise ValueError("pattern/diagnose must contain at least one side.")
+    if lnls is None:
+        lnls = list(pattern.keys())
 
-    if "ipsi" in pat_or_diag:
-        lnls = [lnl for lnl in pat_or_diag["ipsi"].keys()]
-    else:
-        lnls = [lnl for lnl in pat_or_diag["contra"].keys()]
+    match_idx = False if invert else True
+    for lnl in lnls:
+        if lnl not in pattern or pattern[lnl] is None:
+            continue
+        if invert:
+            match_idx |= data[lnl] != pattern[lnl]
+        else:
+            match_idx &= data[lnl] == pattern[lnl]
 
-    for side in ["ipsi", "contra"]:
-        if side not in pat_or_diag:
-            pat_or_diag[side] = {lnl: None for lnl in lnls}
-
-    return pat_or_diag
-
+    return match_idx
 
 def compute_prevalence(
+    pattern: Dict[str, Dict[str, bool]],
     data: pd.DataFrame,
     t_stage: str,
-    pattern: Dict[str, Dict[str, bool]],
-    comp_modality: str = "max_llh",
+    lnls: Optional[List[str]] = None,
+    modality: str = "max_llh",
     midline_ext: Optional[bool] = None,
     invert: bool = False,
     **_kwargs,
 ):
-    """
-    Compute the prevalence of a `pattern` of interest in the data. Do this by calling
-    the appropriate function, depending on whether the data contains uni- or bilateral
-    information.
-    """
-    pattern = make_complete_(pattern)
+    """Extract the prevalence of a lymphatic `pattern` of progression for a given
+    `t_stage` from the `data` as reported by the given `modality`.
 
+    If the `data` contains bilateral information, one can choose to factor in whether
+    or not the patient's `midline_ext` should be considered as well.
+
+    By giving a list of `lnls`, one can restrict the matching algorithm to only those
+    lymph node levels that are provided via this list.
+
+    When `invert` is set to `True`, the function returns 1 minus the prevalence.
+    """
+    # make sure the pattern has the right form
+    if pattern is None:
+        pattern = {}
+    if "ipsi" not in pattern:
+        pattern["ipsi"] = {}
+    if "contra" not in pattern:
+        pattern["contra"] = {}
+
+    # get the data we care about
     if data.columns.nlevels == 3:
-        return _compute_prevalence_bilateral(
-            data=data,
-            t_stage=t_stage,
-            midline_ext=midline_ext,
-            pattern=pattern,
-            comp_modality=comp_modality,
-            invert=invert,
-        )
+        is_bilateral = True
+        is_t_stage = data["info", "tumor", "t_stage"] == t_stage
+        if midline_ext is not None:
+            has_midline_ext = data["info", "tumor", "midline_extension"] == midline_ext
+        else:
+            has_midline_ext = True
     elif data.columns.nlevels == 2:
-        return _compute_prevalence_unilateral(
-            data=data,
-            t_stage=t_stage,
-            pattern=pattern["ipsi"],
-            comp_modality=comp_modality,
-            invert=invert,
-        )
+        is_bilateral = False
+        is_t_stage = data["info", "t_stage"] == t_stage
+        has_midline_ext = True
     else:
         raise ValueError("Data must contain either 2 or 3 levels.")
+    eligible_data = data.loc[is_t_stage & has_midline_ext, modality]
 
-def _compute_prevalence_unilateral(
-    data: pd.DataFrame,
-    t_stage: str,
-    pattern: Dict[str, bool],
-    comp_modality: str = "max_llh",
-    invert: bool = False,
-):
-    """
-    Compute the prevalence of a given involvement `pattern` in the data for the
-    unilateral case.
-    """
-    is_t_stage = data["info", "t_stage"] == t_stage
-    prev_data = data.loc[is_t_stage, comp_modality]
+    # filter the data by the LNL pattern they report
+    if is_bilateral:
+        do_lnls_match = get_match_idx(
+            pattern["ipsi"],
+            eligible_data["ipsi"],
+            lnls=lnls,
+            invert=invert
+        )
+        do_lnls_match &= get_match_idx(
+            pattern["contra"],
+            eligible_data["contra"],
+            lnls=lnls,
+            invert=invert
+        )
+    else:
+        do_lnls_match = get_match_idx(
+            pattern["ipsi"],
+            eligible_data,
+            lnls=lnls,
+            invert=invert,
+        )
+    matching_data = eligible_data[do_lnls_match]
+    return len(matching_data) / len(eligible_data)
 
-    lnl_match = False if invert else True
-    for lnl, state in pattern.items():
-        if state is None:
-            continue
-        if invert:
-            lnl_match |= prev_data[lnl] != state
-        else:
-            lnl_match &= prev_data[lnl] == state
-
-    match_data = prev_data.loc[lnl_match]
-    prevalence = len(match_data) / len(prev_data)
-    return prevalence
-
-def _compute_prevalence_bilateral(
-    data: pd.DataFrame,
-    t_stage: str,
+def compute_risk(
+    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
     pattern: Dict[str, Dict[str, bool]],
-    comp_modality: str = "max_llh",
-    midline_ext: Optional[bool] = None,
-    invert: bool = False,
-) -> float:
+    given_params: np.ndarray,
+    given_diagnose: Optional[Dict[str, Dict[str, bool]]] = None,
+    given_diagnose_spsn: Optional[List[float]] = None,
+    prediction_spsn: Optional[List[float]] = None,
+    verbose: bool = True,
+) -> np.ndarray:
+    """Compute the probability of seeing a `pattern` of involvement using a `model`
+    with pretrained `given_params`. This pribability can be computed for a
+    `given_diagnose` that was obtained using a modality with specificity & sensitivity
+    specified by `given_diagnose_spsn`.
+
+    With the `prediction_spsn` one can set the specificity & sensitivity for the
+    prediction. E.g., if both are set to `1.0`, this will output the risk for
+    occult disease, while if it is anything lower, it will return the probability
+    of seeing a diagnose that matches the `pattern`.
+
+    Set `verbose` to `True` for a visualization of the progress.
     """
-    Compute the prevalence of a given involvement `pattern` in the data for the
-    bilateral case (with or without `midline_ext`).
-    """
-    is_t_stage = data["info", "tumor", "t_stage"] == t_stage
-
-    if midline_ext is not None:
-        has_midline_ext = data["info", "tumor", "midline_extension"] == midline_ext
-        prev_data = data.loc[is_t_stage & has_midline_ext, comp_modality]
-    else:
-        prev_data = data.loc[is_t_stage, comp_modality]
-
-    lnl_match = False if invert else True
-    for side in ["ipsi", "contra"]:
-        for lnl, state in pattern[side].items():
-            if state is None:
-                continue
-            if invert:
-                lnl_match |= prev_data[side, lnl] != state
-            else:
-                lnl_match &= prev_data[side, lnl] == state
-
-    match_data = prev_data.loc[lnl_match]
-    prevalence = len(match_data) / len(prev_data)
-    return prevalence
-
-
-def split_samples(
-    samples: np.ndarray,
-    selected_t_stage: str,
-    all_t_stages: List[str],
-    first_binom_prob: float = 0.3,
-):
-    """
-    Split the samples into spread probs and parameters for the binomial distribution
-    over diagnose times.
-    """
-    ndim = samples.shape[1]
-    num_spread_probs = ndim - len(all_t_stages) + 1
-    spread_probs = samples[:, :num_spread_probs]
-
-    t_stage_idx = all_t_stages.index(selected_t_stage)
-    if t_stage_idx == 0:
-        binom_probs = np.ones(shape=samples.shape[0]) * first_binom_prob
-    else:
-        binom_probs = samples[:, num_spread_probs + t_stage_idx - 1]
-
-    return spread_probs, binom_probs
-
 
 
 if __name__ == "__main__":
@@ -255,57 +242,40 @@ if __name__ == "__main__":
         plot_path.mkdir(exist_ok=True)
         plot_path = plot_path
 
+        # loop through the individual risk plots to compute
         for k, risk_plot in enumerate(params["risk_plots"]):
             s.update(f"Computing & drawing {k+1}/{num_risk_plots} risks...")
-            fig, ax = plt.subplots(figsize=set_size(width="full"))
-            fig.suptitle(risk_plot["title"])
-            hist_cyc = (
-                cycler(histtype=["stepfilled", "step"])
-                * cycler(color=USZ_COLOR_LIST)
-            )
-            vline_cyc = (
-                cycler(linestyle=["-", "--"])
-                * cycler(color=USZ_COLOR_LIST)
-            )
+            fig, ax, hist_cyc, vline_cyc = prepare_figure(risk_plot["title"])
 
-            risks = np.zeros(
-                shape=(len(risk_plot["scenarios"]), len(samples)),
-                dtype=float
-            )
-            prevalences = np.zeros(shape=len(risk_plot["scenarios"]))
+            risks, prevalences = [], []
             for i, scenario in enumerate(risk_plot["scenarios"]):
                 if args.data is not None and "comp_modality" in scenario:
-                    prevalences[i] = 100. * compute_prevalence(
+                    prevalences.append(100. * compute_prevalence(
                         data=DATA, **scenario
-                    )
-                spread_probs, binom_probs = split_samples(
-                    samples,
-                    selected_t_stage=scenario["t_stage"],
-                    all_t_stages=params["model"]["t_stages"],
-                    first_binom_prob=params["model"]["first_binom_prob"],
-                )
-                MODEL.modalities = {"risk": scenario["diagnosis_spsn"]}
+                    ))
+                MODEL.modalities = {"risk": scenario["given_diagnosis_spsn"]}
                 try:
-                    diagnosis = {"risk": scenario["diagnosis"]}
+                    given_diagnosis = {"risk": scenario["given_diagnosis"]}
                 except KeyError:
-                    diagnosis = None
-                risks[i] = 100. * np.array([
+                    given_diagnosis = None
+                risks.append(100. * np.array([
                     MODEL.risk(
                         involvement=scenario["pattern"],
                         given_params=sample,
-                        given_diagnoses=diagnosis,
+                        given_diagnoses=given_diagnosis,
                         t_stage=scenario["t_stage"],
                         midline_extension=scenario["midline_ext"],
                     ) for sample in samples
-                ])
+                ]))
                 if scenario["invert"]:
-                    risks[i] = 100. - risks[i]
+                    risks[-1] = 100. - risks[-1]
 
             bins = np.linspace(
                 start=np.minimum(np.min(risks), np.min(prevalences)),
                 stop=np.maximum(np.max(risks), np.max(prevalences)),
                 num=risk_plot["num_bins"],
             )
+            # cycle through the scenarios to compare in one figure
             for i, tmp in enumerate(zip(risk_plot["scenarios"], hist_cyc, vline_cyc)):
                 scenario, hist_style, vline_style = tmp
                 ax.hist(
