@@ -149,24 +149,120 @@ def compute_prevalence(
 def compute_risk(
     model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
     pattern: Dict[str, Dict[str, bool]],
-    given_params: np.ndarray,
-    given_diagnose: Optional[Dict[str, Dict[str, bool]]] = None,
-    given_diagnose_spsn: Optional[List[float]] = None,
+    t_stage: str,
+    samples: np.ndarray,
+    given_diagnosis: Optional[Dict[str, Dict[str, bool]]] = None,
+    given_diagnosis_spsn: Optional[List[float]] = None,
+    midline_ext: bool = False,
     prediction_spsn: Optional[List[float]] = None,
+    invert: bool = False,
     verbose: bool = True,
 ) -> np.ndarray:
-    """Compute the probability of seeing a `pattern` of involvement using a `model`
-    with pretrained `given_params`. This pribability can be computed for a
-    `given_diagnose` that was obtained using a modality with specificity & sensitivity
-    specified by `given_diagnose_spsn`.
+    """Compute the probability of seeing a `pattern` of involvement in a particular
+    `t_stage` using a `model` with pretrained `samples`. This probability can be
+    computed for a `given_diagnosis` that was obtained using a modality with
+    specificity & sensitivity provided via `given_diagnosis_spsn`. If the model is an
+    instance of `lymph.MidlineBilateral`, one can specify whether or not the primary
+    tumor has a `midline_ext`.
+
+    Both the `pattern` and the `given_diagnosis` should be dictionaries like this:
+
+    ```python
+    pattern = {
+        "ipsi":  {"I": False, "II": True , "III": None , "IV": None},
+        "contra: {"I": None , "II": False, "III": False, "IV": None},
+    }
+    ```
 
     With the `prediction_spsn` one can set the specificity & sensitivity for the
     prediction. E.g., if both are set to `1.0`, this will output the risk for
     occult disease, while if it is anything lower, it will return the probability
     of seeing a diagnose that matches the `pattern`.
 
+    The returned probability can be `invert`ed.
+
     Set `verbose` to `True` for a visualization of the progress.
     """
+    if isinstance(model, lymph.Unilateral):
+        # get the observation matrix for the prediction step in the beginning
+        model.modalities = {"pred": prediction_spsn}
+        obs_matrix = model.observation_matrix.copy()
+
+        # assign the diagnostic sp & sn, and compute risk of all possible states
+        model.modalities = {"risk": given_diagnosis_spsn}
+        given_diagnosis = {"risk": given_diagnosis["ipsi"]}
+        post_state_probs = np.zeros(
+            shape=(len(samples), len(model.state_list)),
+            dtype=float
+        )
+        for i,sample in enumerate(samples):
+            post_state_probs[i] = model.risk(
+                given_params=sample,
+                given_diagnoses=given_diagnosis,
+                t_stage=t_stage
+            )
+        post_obs_probs = post_state_probs @ obs_matrix
+
+        # marginalize over the observations that match `pattern`
+        pattern = np.array([pattern[lnl] for lnl in model.lnls])
+        marg_obs = np.zeros(shape=len(model.obs_list), dtype=bool)
+        for i,obs in enumerate(model.obs_list):
+            marg_obs[i] = np.all(np.equal(
+                pattern, obs,
+                where=(pattern != None),
+                out=np.ones_like(obs, dtype=bool)
+            ))
+        return post_obs_probs @ marg_obs
+
+    elif isinstance(model, lymph.MidlineBilateral):
+        if midline_ext:
+            model = model.ext
+        else:
+            model = model.noext
+
+    elif not isinstance(model, lymph.Bilateral):
+        raise TypeError("Model is not a known type.")
+
+    model.modalities = {"pred": prediction_spsn}
+    obs_matrices = {
+        "ipsi": model.ipsi.observation_matrix.copy(),
+        "contra": model.contra.observation_matrix.copy(),
+    }
+
+    model.modalities = {"risk": given_diagnose_spsn}
+    given_diagnose = {"risk": given_diagnose}
+    nstates = len(model.ipsi.state_list)
+    post_state_probs = np.zeros(
+        shape=(len(samples), nstates, nstates),
+        dtype=float
+    )
+    for i,sample in enumerate(samples):
+        post_state_probs[i] = model.risk(
+            given_params=sample,
+            given_diagnoses=given_diagnose,
+            t_stage=t_stage,
+        )
+    post_obs_probs = np.einsum(
+        "ji,kjl,lm->kim",
+        [obs_matrices["ipsi"], post_state_probs, obs_matrices["contra"]]
+    )
+
+    marg_obs = {}
+    for side in ["ipsi", "contra"]:
+        side_model = getattr(model, side)
+        side_pattern = np.array([pattern[side][lnl] for lnl in side_model.lnls])
+        marg_obs[side] = np.zeros(shape=len(side_model.obs_list))
+        for i,obs in enumerate(side_model.obs_list):
+            marg_obs[side][i] = np.all(np.equal(
+                side_pattern, obs,
+                where=(pattern != None),
+                out=np.ones_like(obs, dtype=bool)
+            ))
+
+    return np.einsum(
+        "i,kij,j->k",
+        [marg_obs["ipsi"], post_obs_probs, marg_obs["contra"]]
+    )
 
 
 if __name__ == "__main__":
