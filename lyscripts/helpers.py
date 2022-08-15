@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import lymph
 import numpy as np
+import pandas as pd
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -128,3 +129,25 @@ def model_from_config(
     )
 
     return model
+
+def get_lnls(model) -> List[str]:
+    """Extract the list of LNLs from a model instance."""
+    if isinstance(model, lymph.Unilateral):
+        return [lnl.name for lnl in model.lnls]
+    elif isinstance(model, lymph.Bilateral):
+        return [lnl.name for lnl in model.ipsi.lnls]
+    elif isinstance(model, lymph.MidlineBilateral):
+        return [lnl.name for lnl in model.ext.ipsi.lnls]
+    else:
+        raise TypeError(f"Model cannot be of type {type(model)}")
+
+def nested_to_pandas(nested_dict: dict) -> pd.DataFrame:
+    """Transform a nested dictionary with empty values into a pandas DataFrame with
+    a multiindex. This method also works with missing values, but only for two levels.
+    """
+    flat_dict = {}
+    for outer_key, inner_dict in nested_dict.items():
+        for inner_key, value in inner_dict.items():
+            flat_dict[(outer_key, inner_key)] = value
+
+    return pd.DataFrame(flat_dict, index=[0])
