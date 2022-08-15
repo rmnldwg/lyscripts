@@ -49,7 +49,13 @@ def predicted_risk(
 
     Set `verbose` to `True` for a visualization of the progress.
     """
-    model.modalities = {"risk": given_diagnosis_spsn}
+    if given_diagnosis is None:
+        given_diagnosis = {"ipsi": {}, "contra": {}}
+
+    if given_diagnosis_spsn is not None:
+        model.modalities = {"risk": given_diagnosis_spsn}
+    else:
+        model.modalities = {"risk": [1., 1.]}
 
     # wrap the iteration over samples in a rich progressbar if `verbose`
     enumerate_samples = enumerate(samples)
