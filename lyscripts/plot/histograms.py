@@ -1,0 +1,149 @@
+"""
+Plot computed risks and prevalences into a beautiful histogram.
+"""
+import argparse
+from pathlib import Path
+
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+from cycler import cycler
+
+from ..helpers import report
+
+# define colors
+USZ_BLUE = '#005ea8'
+USZ_GREEN = '#00afa5'
+USZ_RED = '#ae0060'
+USZ_ORANGE = '#f17900'
+USZ_GRAY = '#c5d5db'
+USZ_COLOR_LIST = [USZ_BLUE, USZ_ORANGE, USZ_GREEN, USZ_RED, USZ_GRAY]
+HATCH_LIST = ["////", r"\\\\", "||||", "----", "oooo"]
+
+
+def get_size(width="single", unit="cm", ratio="golden"):
+    """Get optimal figure size for a range of scenarios."""
+    if width == "single":
+        width = 10
+    elif width == "full":
+        width = 16
+
+    ratio = 1.618 if ratio == "golden" else ratio
+    width = width / 2.54 if unit == "cm" else width
+    height = width / ratio
+    return (width, height)
+
+
+def get_label(attrs) -> str:
+    """Extract label of a historgam from the HDF5 attrs object of the dataset."""
+    t_stage = attrs["t_stage"]
+    midline_ext = "ext" if attrs["midline_ext"] else "noext"
+    label = f"{t_stage} | {midline_ext}"
+    if "modality" in attrs:
+        modality = attrs["modality"]
+        label = f"{modality} | " + label
+    return label
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--input", default="models/risks.hdf5",
+        help="File path of the computed risks or prevalences (HDF5)"
+    )
+    parser.add_argument(
+        "--mplstyle", default=".mplstyle",
+        help="Path to the MPL stylesheet"
+    )
+    parser.add_argument(
+        "--names", nargs="+",
+        help="List of names of computed risks/prevalences to combine into one plot"
+    )
+    parser.add_argument(
+        "--bins", default=50, type=int,
+        help="Number of bins to put the computed values into"
+    )
+    parser.add_argument(
+        "--title",
+        help="Title of the plot"
+    )
+    parser.add_argument(
+        "--plots",
+        help="Output directory for the plot"
+    )
+
+    args = parser.parse_args()
+
+    with report.status("Read in computed values..."):
+        input_path = Path(args.input)
+        with h5py.File(name=input_path, mode="r") as h5_file:
+            values = []
+            labels = []
+            lines = []
+            min_value = 1.
+            max_value = 0.
+
+            for name in args.names:
+                try:
+                    dataset = h5_file[name]
+                except KeyError as key_err:
+                    raise KeyError(
+                        f"No precomputed values found for name {name}"
+                    ) from key_err
+
+                values.append(100. * dataset[:])
+                labels.append(get_label(dataset.attrs))
+                lines.append(100. * dataset.attrs.get("observed", np.nan))
+                min_value = np.minimum(min_value, np.min(values))
+                max_value = np.maximum(max_value, np.max(values))
+
+            min_value = np.min(lines, where=~np.isnan(lines), initial=min_value)
+            max_value = np.max(lines, where=~np.isnan(lines), initial=max_value)
+
+        report.success(f"Read in computed values from {input_path}")
+
+    with report.status("Apply MPL stylesheet..."):
+        stylesheet_path = Path(args.mplstyle)
+        plt.style.use(stylesheet_path)
+        report.success(f"Applied MPL stylesheet from {stylesheet_path}")
+
+    with report.status("Set up figure..."):
+        fig, ax = plt.subplots(figsize=get_size())
+        fig.suptitle(args.title)
+        hist_cycl = (
+            cycler(histtype=["stepfilled", "step"])
+            * cycler(color=USZ_COLOR_LIST)
+        )
+        vline_cycl = (
+            cycler(linestyle=["-", "--"])
+            * cycler(color=USZ_COLOR_LIST)
+        )
+        report.success("Set up figure")
+        hist_kwargs = {
+            "bins": np.linspace(min_value, max_value, args.bins),
+            "density": True,
+            "alpha": 0.7,
+            "linewidth": 2.,
+        }
+
+    with report.status("Plot histograms..."):
+        zipper = zip(values, labels, lines, hist_cycl, vline_cycl)
+        for vals, label, line, hstyle, lstyle in zipper:
+            ax.hist(
+                vals,
+                label=label,
+                **hist_kwargs,
+                **hstyle
+            )
+            if not np.isnan(line):
+                ax.axvline(line, **lstyle)
+            ax.legend()
+            ax.set_xlabel("probability [%]")
+        report.success(f"Plotted {len(values)} histograms")
+
+    with report.status("Save plots..."):
+        plots_path = Path(args.plots)
+        plots_path.mkdir(exist_ok=True)
+        plt.savefig(plots_path / f"{args.title}.png", dpi=200)
+        plt.savefig(plots_path / f"{args.title}.svg")
+        report.success(f"Stored plots at {plots_path}")

@@ -16,36 +16,9 @@ from rich.progress import track
 
 from .helpers import get_lnls, model_from_config, nested_to_pandas, report
 
-# def set_size(width="single", unit="cm", ratio="golden"):
-#     """
-#     Get optimal figure size for a range of scenarios.
-#     """
-#     if width == "single":
-#         width = 10
-#     elif width == "full":
-#         width = 16
-
-#     ratio = 1.618 if ratio == "golden" else ratio
-#     width = width / 2.54 if unit == "cm" else width
-#     height = width / ratio
-#     return (width, height)
-
-# def prepare_figure(title: str):
-#     """Return figure and axes to plot risk histograms into."""
-#     fig, ax = plt.subplots(figsize=set_size(width="full"))
-#     fig.suptitle(risk_plot["title"])
-#     histogram_cycler = (
-#         cycler(histtype=["stepfilled", "step"])
-#         * cycler(color=USZ_COLOR_LIST)
-#     )
-#     vline_cycler = (
-#         cycler(linestyle=["-", "--"])
-#         * cycler(color=USZ_COLOR_LIST)
-#     )
-#     return fig, ax, histogram_cycler, vline_cycler
-
 
 def get_match_idx(
+    match_idx,
     pattern: Dict[str, Optional[bool]],
     data: pd.DataFrame,
     lnls: List[str],
@@ -54,7 +27,6 @@ def get_match_idx(
     """Get the indices of the rows in the `data` where the diagnose matches the
     `pattern` of interest for every lymph node level in the `lnls`.
     """
-    match_idx = False if invert else True
     for lnl in lnls:
         if lnl not in pattern or pattern[lnl] is None:
             continue
@@ -111,14 +83,17 @@ def observed_prevalence(
     eligible_data = eligible_data.dropna(axis="index", how="all")
 
     # filter the data by the LNL pattern they report
+    do_lnls_match = False if invert else True
     if is_bilateral:
         do_lnls_match = get_match_idx(
+            do_lnls_match,
             pattern["ipsi"],
             eligible_data["ipsi"],
             lnls=lnls,
             invert=invert
         )
-        do_lnls_match &= get_match_idx(
+        do_lnls_match = get_match_idx(
+            do_lnls_match,
             pattern["contra"],
             eligible_data["contra"],
             lnls=lnls,
@@ -126,12 +101,13 @@ def observed_prevalence(
         )
     else:
         do_lnls_match = get_match_idx(
+            do_lnls_match,
             pattern["ipsi"],
             eligible_data,
             lnls=lnls,
             invert=invert,
         )
-    matching_data = eligible_data[do_lnls_match]
+    matching_data = eligible_data.loc[do_lnls_match]
     return len(matching_data) / len(eligible_data)
 
 def predicted_prevalence(
@@ -191,21 +167,23 @@ def predicted_prevalence(
         pattern_df = pd.DataFrame(columns=mi)
         pattern_df["prev"] = nested_to_pandas(pattern)
         pattern_df["info", "tumor", "t_stage"] = t_stage
-
-        if isinstance(model, lymph.MidlineBilateral):
-            if midline_ext:
-                model = model.ext
-            else:
-                model = model.noext
+        pattern_df["info", "tumor", "midline_extension"] = midline_ext
 
     model.patient_data = pattern_df
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
     for i,sample in enumerate_samples:
-        prevalences[i] = model.likelihood(
-            given_params=sample,
-            log=False,
-        )
+        if isinstance(model, lymph.MidlineBilateral):
+            model.check_and_assign(sample)
+            if midline_ext:
+                prevalences[i] = model.ext.likelihood(log=False)
+            else:
+                prevalences[i] = model.noext.likelihood(log=False)
+        else:
+            prevalences[i] = model.likelihood(
+                given_params=sample,
+                log=False,
+            )
     return 1. - prevalences if invert else prevalences
 
 
@@ -268,13 +246,7 @@ def predicted_risk(
             )
         return 1. - risks if invert else risks
 
-    elif isinstance(model, lymph.MidlineBilateral):
-        if midline_ext:
-            model = model.ext
-        else:
-            model = model.noext
-
-    elif not isinstance(model, lymph.Bilateral):
+    elif not isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
         raise TypeError("Model is not a known type.")
 
     given_diagnosis = {"risk": given_diagnosis}
@@ -285,6 +257,7 @@ def predicted_risk(
             given_params=sample,
             given_diagnoses=given_diagnosis,
             t_stage=t_stage,
+            midline_extension=midline_ext,
         )
     return 1. - risks if invert else risks
 
