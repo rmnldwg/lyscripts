@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from cycler import cycler
+from rich.progress import track
 
 from .helpers import model_from_config, report
 
@@ -77,7 +78,7 @@ def get_match_idx(
 
     return match_idx
 
-def compute_prevalence(
+def observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
     data: pd.DataFrame,
     t_stage: str,
@@ -107,17 +108,15 @@ def compute_prevalence(
         pattern["contra"] = {}
 
     # get the data we care about
+    has_midline_ext = True
     if data.columns.nlevels == 3:
         is_bilateral = True
         is_t_stage = data["info", "tumor", "t_stage"] == t_stage
         if midline_ext is not None:
             has_midline_ext = data["info", "tumor", "midline_extension"] == midline_ext
-        else:
-            has_midline_ext = True
     elif data.columns.nlevels == 2:
         is_bilateral = False
         is_t_stage = data["info", "t_stage"] == t_stage
-        has_midline_ext = True
     else:
         raise ValueError("Data must contain either 2 or 3 levels.")
     eligible_data = data.loc[is_t_stage & has_midline_ext, modality]
@@ -146,73 +145,137 @@ def compute_prevalence(
     matching_data = eligible_data[do_lnls_match]
     return len(matching_data) / len(eligible_data)
 
-def compute_risk(
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+def predicted_prevalence(
     pattern: Dict[str, Dict[str, bool]],
-    t_stage: str,
+    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
     samples: np.ndarray,
+    t_stage: str,
+    midline_ext: bool = False,
+    modality_spsn: Optional[List[float]] = None,
+    invert: bool = False,
+    verbose: bool = True,
+    **_kwargs,
+) -> np.ndarray:
+    """Compute the prevalence of a given `pattern` of lymphatic progression using a
+    `model` and trained `samples`.
+
+    Do this computation for the specified `t_stage` and whether or not the tumor has
+    a `midline_ext`. `modality_spsn` defines the values for specificity & sensitivity
+    of the diagnostic modality for which the prevalence is to be computed. Default is
+    a value of 1 for both.
+
+    Use `invert` to compute 1 - p.
+    """
+    if modality_spsn is None:
+        modality_spsn = [1., 1.]
+
+    model.modalities = {"prev": modality_spsn}
+
+    # wrap the iteration over samples in a rich progressbar if `verbose`
+    enumerate_samples = enumerate(samples)
+    if verbose:
+        enumerate_samples = track(
+            enumerate_samples,
+            description="Computing predicted prevalence...",
+            console=report,
+        )
+
+    prevalences = np.zeros(shape=len(samples), dtype=float)
+
+    # ensure the `pattern` is complete
+    lnls = model.lnls
+    for side in ["ipsi", "contra"]:
+        if side not in pattern:
+            pattern[side] = {}
+        pattern[side] = {lnl: pattern[side].get(lnl, None) for lnl in lnls}
+
+    if isinstance(model, lymph.Unilateral):
+        # make DataFrame with one row from `pattern`
+        mi = pd.MultiIndex.from_product([["prev"], lnls])
+        pattern_df = pd.DataFrame(columns=mi)
+        pattern_df["prev"] = pd.DataFrame(pattern["ipsi"], index=[0])
+        pattern["info", "t_stage"] = t_stage
+
+    elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
+        # make DataFrame with one row from `pattern`
+        mi = pd.MultiIndex.from_product([["prev"], ["ipsi", "contra"], lnls])
+        pattern_df = pd.DataFrame(columns=mi)
+        for side in ["ipsi", "contra"]:
+            pattern_df["prev"][side] = pd.DataFrame(pattern[side], index=[0])
+        pattern["info", "tumor", "t_stage"] = t_stage
+
+        if isinstance(model, lymph.MidlineBilateral):
+            if midline_ext:
+                model = model.ext
+            else:
+                model = model.noext
+
+    model.patient_data = pattern_df
+
+    # compute prevalence as likelihood of diagnose `prev`, which was defined above
+    for i,sample in enumerate_samples:
+        prevalences[i] = model.likelihood(
+            given_params=sample,
+            log=False,
+        )
+    return 1. - prevalences if invert else prevalences
+
+
+def compute_risk(
+    involvement: Dict[str, Dict[str, bool]],
+    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+    samples: np.ndarray,
+    t_stage: str,
+    midline_ext: bool = False,
     given_diagnosis: Optional[Dict[str, Dict[str, bool]]] = None,
     given_diagnosis_spsn: Optional[List[float]] = None,
-    midline_ext: bool = False,
-    prediction_spsn: Optional[List[float]] = None,
     invert: bool = False,
     verbose: bool = True,
 ) -> np.ndarray:
-    """Compute the probability of seeing a `pattern` of involvement in a particular
+    """Compute the probability of arriving in a particular `involvement` in a given
     `t_stage` using a `model` with pretrained `samples`. This probability can be
     computed for a `given_diagnosis` that was obtained using a modality with
     specificity & sensitivity provided via `given_diagnosis_spsn`. If the model is an
     instance of `lymph.MidlineBilateral`, one can specify whether or not the primary
     tumor has a `midline_ext`.
 
-    Both the `pattern` and the `given_diagnosis` should be dictionaries like this:
+    Both the `involvement` and the `given_diagnosis` should be dictionaries like this:
 
     ```python
-    pattern = {
+    involvement = {
         "ipsi":  {"I": False, "II": True , "III": None , "IV": None},
         "contra: {"I": None , "II": False, "III": False, "IV": None},
     }
     ```
 
-    With the `prediction_spsn` one can set the specificity & sensitivity for the
-    prediction. E.g., if both are set to `1.0`, this will output the risk for
-    occult disease, while if it is anything lower, it will return the probability
-    of seeing a diagnose that matches the `pattern`.
-
     The returned probability can be `invert`ed.
 
     Set `verbose` to `True` for a visualization of the progress.
     """
-    if isinstance(model, lymph.Unilateral):
-        # get the observation matrix for the prediction step in the beginning
-        model.modalities = {"pred": prediction_spsn}
-        obs_matrix = model.observation_matrix.copy()
+    model.modalities = {"risk": given_diagnosis_spsn}
 
-        # assign the diagnostic sp & sn, and compute risk of all possible states
-        model.modalities = {"risk": given_diagnosis_spsn}
-        given_diagnosis = {"risk": given_diagnosis["ipsi"]}
-        post_state_probs = np.zeros(
-            shape=(len(samples), len(model.state_list)),
-            dtype=float
+    # wrap the iteration over samples in a rich progressbar if `verbose`
+    enumerate_samples = enumerate(samples)
+    if verbose:
+        enumerate_samples = track(
+            enumerate_samples,
+            description="Computing risk...",
+            console=report,
         )
-        for i,sample in enumerate(samples):
-            post_state_probs[i] = model.risk(
+
+    risks = np.zeros(shape=len(samples), dtype=float)
+
+    if isinstance(model, lymph.Unilateral):
+        given_diagnosis = {"risk": given_diagnosis["ipsi"]}
+
+        for i,sample in enumerate_samples:
+            risks[i] = model.risk(
+                involvement=involvement["ipsi"],
                 given_params=sample,
                 given_diagnoses=given_diagnosis,
                 t_stage=t_stage
             )
-        post_obs_probs = post_state_probs @ obs_matrix
-
-        # marginalize over the observations that match `pattern`
-        pattern = np.array([pattern[lnl] for lnl in model.lnls])
-        marg_obs = np.zeros(shape=len(model.obs_list), dtype=bool)
-        for i,obs in enumerate(model.obs_list):
-            marg_obs[i] = np.all(np.equal(
-                pattern, obs,
-                where=(pattern != None),
-                out=np.ones_like(obs, dtype=bool)
-            ))
-        return post_obs_probs @ marg_obs
+        return 1. - risks if invert else risks
 
     elif isinstance(model, lymph.MidlineBilateral):
         if midline_ext:
@@ -223,46 +286,16 @@ def compute_risk(
     elif not isinstance(model, lymph.Bilateral):
         raise TypeError("Model is not a known type.")
 
-    model.modalities = {"pred": prediction_spsn}
-    obs_matrices = {
-        "ipsi": model.ipsi.observation_matrix.copy(),
-        "contra": model.contra.observation_matrix.copy(),
-    }
-
-    model.modalities = {"risk": given_diagnose_spsn}
     given_diagnose = {"risk": given_diagnose}
-    nstates = len(model.ipsi.state_list)
-    post_state_probs = np.zeros(
-        shape=(len(samples), nstates, nstates),
-        dtype=float
-    )
-    for i,sample in enumerate(samples):
-        post_state_probs[i] = model.risk(
+
+    for i,sample in enumerate_samples:
+        risks[i] = model.risk(
+            involvement=involvement,
             given_params=sample,
             given_diagnoses=given_diagnose,
             t_stage=t_stage,
         )
-    post_obs_probs = np.einsum(
-        "ji,kjl,lm->kim",
-        [obs_matrices["ipsi"], post_state_probs, obs_matrices["contra"]]
-    )
-
-    marg_obs = {}
-    for side in ["ipsi", "contra"]:
-        side_model = getattr(model, side)
-        side_pattern = np.array([pattern[side][lnl] for lnl in side_model.lnls])
-        marg_obs[side] = np.zeros(shape=len(side_model.obs_list))
-        for i,obs in enumerate(side_model.obs_list):
-            marg_obs[side][i] = np.all(np.equal(
-                side_pattern, obs,
-                where=(pattern != None),
-                out=np.ones_like(obs, dtype=bool)
-            ))
-
-    return np.einsum(
-        "i,kij,j->k",
-        [marg_obs["ipsi"], post_obs_probs, marg_obs["contra"]]
-    )
+    return 1. - risks if invert else risks
 
 
 if __name__ == "__main__":
@@ -346,7 +379,7 @@ if __name__ == "__main__":
             risks, prevalences = [], []
             for i, scenario in enumerate(risk_plot["scenarios"]):
                 if args.data is not None and "comp_modality" in scenario:
-                    prevalences.append(100. * compute_prevalence(
+                    prevalences.append(100. * observed_prevalence(
                         data=DATA, **scenario
                     ))
                 MODEL.modalities = {"risk": scenario["given_diagnosis_spsn"]}
