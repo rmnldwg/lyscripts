@@ -1,6 +1,6 @@
 """
-Predict risks of involvements and prevalences of diagnostic patterns using the model
-used for inference and the drawn samples.
+Predict prevalences of diagnostic patterns using the samples that were inferred using
+the model via MCMC sampling.
 """
 import argparse
 from pathlib import Path
@@ -14,7 +14,7 @@ import pandas as pd
 import yaml
 from rich.progress import track
 
-from .helpers import get_lnls, model_from_config, nested_to_pandas, report
+from ..helpers import get_lnls, model_from_config, nested_to_pandas, report
 
 
 def get_match_idx(
@@ -187,81 +187,6 @@ def predicted_prevalence(
     return 1. - prevalences if invert else prevalences
 
 
-def predicted_risk(
-    involvement: Dict[str, Dict[str, bool]],
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
-    samples: np.ndarray,
-    t_stage: str,
-    midline_ext: bool = False,
-    given_diagnosis: Optional[Dict[str, Dict[str, bool]]] = None,
-    given_diagnosis_spsn: Optional[List[float]] = None,
-    invert: bool = False,
-    description: Optional[str] = None,
-    **_kwargs,
-) -> np.ndarray:
-    """Compute the probability of arriving in a particular `involvement` in a given
-    `t_stage` using a `model` with pretrained `samples`. This probability can be
-    computed for a `given_diagnosis` that was obtained using a modality with
-    specificity & sensitivity provided via `given_diagnosis_spsn`. If the model is an
-    instance of `lymph.MidlineBilateral`, one can specify whether or not the primary
-    tumor has a `midline_ext`.
-
-    Both the `involvement` and the `given_diagnosis` should be dictionaries like this:
-
-    ```python
-    involvement = {
-        "ipsi":  {"I": False, "II": True , "III": None , "IV": None},
-        "contra: {"I": None , "II": False, "III": False, "IV": None},
-    }
-    ```
-
-    The returned probability can be `invert`ed.
-
-    Set `verbose` to `True` for a visualization of the progress.
-    """
-    model.modalities = {"risk": given_diagnosis_spsn}
-
-    # wrap the iteration over samples in a rich progressbar if `verbose`
-    enumerate_samples = enumerate(samples)
-    if description is not None:
-        enumerate_samples = track(
-            enumerate_samples,
-            description=description,
-            total=len(samples),
-            console=report,
-            transient=True,
-        )
-
-    risks = np.zeros(shape=len(samples), dtype=float)
-
-    if isinstance(model, lymph.Unilateral):
-        given_diagnosis = {"risk": given_diagnosis["ipsi"]}
-
-        for i,sample in enumerate_samples:
-            risks[i] = model.risk(
-                involvement=involvement["ipsi"],
-                given_params=sample,
-                given_diagnoses=given_diagnosis,
-                t_stage=t_stage
-            )
-        return 1. - risks if invert else risks
-
-    elif not isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
-        raise TypeError("Model is not a known type.")
-
-    given_diagnosis = {"risk": given_diagnosis}
-
-    for i,sample in enumerate_samples:
-        risks[i] = model.risk(
-            involvement=involvement,
-            given_params=sample,
-            given_diagnoses=given_diagnosis,
-            t_stage=t_stage,
-            midline_extension=midline_ext,
-        )
-    return 1. - risks if invert else risks
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -277,11 +202,7 @@ if __name__ == "__main__":
         help="Path to parameter file (YAML)"
     )
     parser.add_argument(
-        "--output-risks", default="models/risks.hdf5",
-        help="Output path for predicted risks (HDF5 file)"
-    )
-    parser.add_argument(
-        "--output-prevalences", default="models/prevalences.hdf5",
+        "--prevalences", default="models/prevalences.hdf5",
         help="Output path for predicted prevalences (HDF5 file)"
     )
     args = parser.parse_args()
@@ -317,29 +238,7 @@ if __name__ == "__main__":
             f"Set up {type(MODEL)} model with {ndim} parameters"
         )
 
-    risks_path = Path(args.output_risks)
-    risks_path.parent.mkdir(exist_ok=True)
-    num_risks = len(params["risks"])
-    with h5py.File(risks_path, mode="w") as risks_storage:
-        for i,scenario in enumerate(params["risks"]):
-            risks = predicted_risk(
-                model=MODEL,
-                samples=SAMPLES,
-                description=f"Compute risks for scenario {i+1}/{num_risks}...",
-                **scenario
-            )
-            risks_dset = risks_storage.create_dataset(
-                name=scenario["name"],
-                data=risks,
-            )
-            for key,val in scenario.items():
-                try:
-                    risks_dset.attrs[key] = val
-                except TypeError:
-                    pass
-        report.success(f"Computed risks of {num_risks} scenarios stored at {risks_path}")
-
-    prevalences_path = Path(args.output_prevalences)
+    prevalences_path = Path(args.prevalences)
     prevalences_path.parent.mkdir(exist_ok=True)
     num_prevalences = len(params["prevalences"])
     with h5py.File(prevalences_path, mode="w") as prevalences_storage:
