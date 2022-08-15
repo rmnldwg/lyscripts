@@ -1,72 +1,59 @@
 """
-Compute and plot risks for a sampled model.
+Predict risks of involvements and prevalences of diagnostic patterns using the model
+used for inference and the drawn samples.
 """
 import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import emcee
+import h5py
 import lymph
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
-from cycler import cycler
 from rich.progress import track
 
-from .helpers import model_from_config, report
+from .helpers import get_lnls, model_from_config, nested_to_pandas, report
 
-# define colors
-USZ_BLUE = '#005ea8'
-USZ_GREEN = '#00afa5'
-USZ_RED = '#ae0060'
-USZ_ORANGE = '#f17900'
-USZ_GRAY = '#c5d5db'
-USZ_COLOR_LIST = [USZ_BLUE, USZ_ORANGE, USZ_GREEN, USZ_RED, USZ_GRAY]
-HATCH_LIST = ["////", r"\\\\", "||||", "----", "oooo"]
+# def set_size(width="single", unit="cm", ratio="golden"):
+#     """
+#     Get optimal figure size for a range of scenarios.
+#     """
+#     if width == "single":
+#         width = 10
+#     elif width == "full":
+#         width = 16
 
+#     ratio = 1.618 if ratio == "golden" else ratio
+#     width = width / 2.54 if unit == "cm" else width
+#     height = width / ratio
+#     return (width, height)
 
-def set_size(width="single", unit="cm", ratio="golden"):
-    """
-    Get optimal figure size for a range of scenarios.
-    """
-    if width == "single":
-        width = 10
-    elif width == "full":
-        width = 16
-
-    ratio = 1.618 if ratio == "golden" else ratio
-    width = width / 2.54 if unit == "cm" else width
-    height = width / ratio
-    return (width, height)
-
-def prepare_figure(title: str):
-    """Return figure and axes to plot risk histograms into."""
-    fig, ax = plt.subplots(figsize=set_size(width="full"))
-    fig.suptitle(risk_plot["title"])
-    histogram_cycler = (
-        cycler(histtype=["stepfilled", "step"])
-        * cycler(color=USZ_COLOR_LIST)
-    )
-    vline_cycler = (
-        cycler(linestyle=["-", "--"])
-        * cycler(color=USZ_COLOR_LIST)
-    )
-    return fig, ax, histogram_cycler, vline_cycler
+# def prepare_figure(title: str):
+#     """Return figure and axes to plot risk histograms into."""
+#     fig, ax = plt.subplots(figsize=set_size(width="full"))
+#     fig.suptitle(risk_plot["title"])
+#     histogram_cycler = (
+#         cycler(histtype=["stepfilled", "step"])
+#         * cycler(color=USZ_COLOR_LIST)
+#     )
+#     vline_cycler = (
+#         cycler(linestyle=["-", "--"])
+#         * cycler(color=USZ_COLOR_LIST)
+#     )
+#     return fig, ax, histogram_cycler, vline_cycler
 
 
 def get_match_idx(
     pattern: Dict[str, Optional[bool]],
     data: pd.DataFrame,
-    lnls: Optional[List[str]] = None,
+    lnls: List[str],
     invert: bool = False,
 ) -> pd.Series:
     """Get the indices of the rows in the `data` where the diagnose matches the
     `pattern` of interest for every lymph node level in the `lnls`.
     """
-    if lnls is None:
-        lnls = list(pattern.keys())
-
     match_idx = False if invert else True
     for lnl in lnls:
         if lnl not in pattern or pattern[lnl] is None:
@@ -82,7 +69,7 @@ def observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
     data: pd.DataFrame,
     t_stage: str,
-    lnls: Optional[List[str]] = None,
+    lnls: List[str],
     modality: str = "max_llh",
     midline_ext: Optional[bool] = None,
     invert: bool = False,
@@ -102,10 +89,10 @@ def observed_prevalence(
     # make sure the pattern has the right form
     if pattern is None:
         pattern = {}
-    if "ipsi" not in pattern:
-        pattern["ipsi"] = {}
-    if "contra" not in pattern:
-        pattern["contra"] = {}
+    for side in ["ipsi", "contra"]:
+        if side not in pattern:
+            pattern[side] = {}
+        pattern[side] = {lnl: pattern[side].get(lnl, None) for lnl in lnls}
 
     # get the data we care about
     has_midline_ext = True
@@ -119,7 +106,9 @@ def observed_prevalence(
         is_t_stage = data["info", "t_stage"] == t_stage
     else:
         raise ValueError("Data must contain either 2 or 3 levels.")
+
     eligible_data = data.loc[is_t_stage & has_midline_ext, modality]
+    eligible_data = eligible_data.dropna(axis="index", how="all")
 
     # filter the data by the LNL pattern they report
     if is_bilateral:
@@ -153,7 +142,7 @@ def predicted_prevalence(
     midline_ext: bool = False,
     modality_spsn: Optional[List[float]] = None,
     invert: bool = False,
-    verbose: bool = True,
+    description: Optional[str] = None,
     **_kwargs,
 ) -> np.ndarray:
     """Compute the prevalence of a given `pattern` of lymphatic progression using a
@@ -173,17 +162,19 @@ def predicted_prevalence(
 
     # wrap the iteration over samples in a rich progressbar if `verbose`
     enumerate_samples = enumerate(samples)
-    if verbose:
+    if description is not None:
         enumerate_samples = track(
             enumerate_samples,
-            description="Computing predicted prevalence...",
+            description=description,
+            total=len(samples),
             console=report,
+            transient=True
         )
 
     prevalences = np.zeros(shape=len(samples), dtype=float)
 
     # ensure the `pattern` is complete
-    lnls = model.lnls
+    lnls = get_lnls(model)
     for side in ["ipsi", "contra"]:
         if side not in pattern:
             pattern[side] = {}
@@ -191,18 +182,15 @@ def predicted_prevalence(
 
     if isinstance(model, lymph.Unilateral):
         # make DataFrame with one row from `pattern`
-        mi = pd.MultiIndex.from_product([["prev"], lnls])
-        pattern_df = pd.DataFrame(columns=mi)
-        pattern_df["prev"] = pd.DataFrame(pattern["ipsi"], index=[0])
-        pattern["info", "t_stage"] = t_stage
+        pattern_df = nested_to_pandas({"prev": pattern["ipsi"]})
+        pattern_df["info", "t_stage"] = t_stage
 
     elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
         # make DataFrame with one row from `pattern`
         mi = pd.MultiIndex.from_product([["prev"], ["ipsi", "contra"], lnls])
         pattern_df = pd.DataFrame(columns=mi)
-        for side in ["ipsi", "contra"]:
-            pattern_df["prev"][side] = pd.DataFrame(pattern[side], index=[0])
-        pattern["info", "tumor", "t_stage"] = t_stage
+        pattern_df["prev"] = nested_to_pandas(pattern)
+        pattern_df["info", "tumor", "t_stage"] = t_stage
 
         if isinstance(model, lymph.MidlineBilateral):
             if midline_ext:
@@ -221,7 +209,7 @@ def predicted_prevalence(
     return 1. - prevalences if invert else prevalences
 
 
-def compute_risk(
+def predicted_risk(
     involvement: Dict[str, Dict[str, bool]],
     model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
     samples: np.ndarray,
@@ -230,7 +218,8 @@ def compute_risk(
     given_diagnosis: Optional[Dict[str, Dict[str, bool]]] = None,
     given_diagnosis_spsn: Optional[List[float]] = None,
     invert: bool = False,
-    verbose: bool = True,
+    description: Optional[str] = None,
+    **_kwargs,
 ) -> np.ndarray:
     """Compute the probability of arriving in a particular `involvement` in a given
     `t_stage` using a `model` with pretrained `samples`. This probability can be
@@ -256,11 +245,13 @@ def compute_risk(
 
     # wrap the iteration over samples in a rich progressbar if `verbose`
     enumerate_samples = enumerate(samples)
-    if verbose:
+    if description is not None:
         enumerate_samples = track(
             enumerate_samples,
-            description="Computing risk...",
+            description=description,
+            total=len(samples),
             console=report,
+            transient=True,
         )
 
     risks = np.zeros(shape=len(samples), dtype=float)
@@ -286,13 +277,13 @@ def compute_risk(
     elif not isinstance(model, lymph.Bilateral):
         raise TypeError("Model is not a known type.")
 
-    given_diagnose = {"risk": given_diagnose}
+    given_diagnosis = {"risk": given_diagnosis}
 
     for i,sample in enumerate_samples:
         risks[i] = model.risk(
             involvement=involvement,
             given_params=sample,
-            given_diagnoses=given_diagnose,
+            given_diagnoses=given_diagnosis,
             t_stage=t_stage,
         )
     return 1. - risks if invert else risks
@@ -301,28 +292,26 @@ def compute_risk(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "-m", "--model", required=True,
+        "--model", required=True,
         help="Path to drawn samples (HDF5)"
     )
     parser.add_argument(
-        "-d", "--data", default=None,
+        "--data", default=None,
         help="Path to the data file if risk is to be compared to prevalence"
     )
     parser.add_argument(
-        "-p", "--params", default="params.yaml",
+        "--params", default="params.yaml",
         help="Path to parameter file (YAML)"
     )
     parser.add_argument(
-        "-o", "--output", default="plots",
-        help="Output directory for results (plots)"
+        "--output-risks", default="models/risks.hdf5",
+        help="Output path for predicted risks (HDF5 file)"
     )
     parser.add_argument(
-        "--mplstyle", default=".mplstyle",
-        help="Matplotlib style file"
+        "--output-prevalences", default="models/prevalences.hdf5",
+        help="Output path for predicted prevalences (HDF5 file)"
     )
     args = parser.parse_args()
-
-    plt.style.use(args.mplstyle)
 
     with report.status("Read in parameters..."):
         params_path = Path(args.params)
@@ -342,92 +331,68 @@ if __name__ == "__main__":
     with report.status("Loading samples..."):
         model_path = Path(args.model)
         reader = emcee.backends.HDFBackend(model_path, read_only=True)
-        walkers_per_dim = params["sampling"]["walkers_per_dim"]
-        all_samples = reader.get_chain(flat=True)
-        num = len(all_samples)
-        idx = np.random.choice(num, size=(num // walkers_per_dim))
-        samples = all_samples[idx]
-        report.success(f"Loaded samples with shape {samples.shape} from {model_path}")
+        SAMPLES = reader.get_chain(flat=True)
+        report.success(f"Loaded samples with shape {SAMPLES.shape} from {model_path}")
 
-    with report.status("Set up model & load data..."):
+    with report.status("Set up model..."):
         MODEL = model_from_config(
             graph_params=params["graph"],
             model_params=params["model"],
-            modalities_params=params["modalities"],
         )
-        MODEL.patient_data = DATA
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        nwalkers = ndim * params["sampling"]["walkers_per_dim"]
         report.success(
-            f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
-            f"{len(DATA)} patients"
+            f"Set up {type(MODEL)} model with {ndim} parameters"
         )
 
-    plt.style.use(args.mplstyle)
-
-    num_risk_plots = len(params["risk_plots"])
-    with report.status(f"Computing & drawing 0/{num_risk_plots} risks...") as s:
-        plot_path = Path(args.output)
-        plot_path.mkdir(exist_ok=True)
-        plot_path = plot_path
-
-        # loop through the individual risk plots to compute
-        for k, risk_plot in enumerate(params["risk_plots"]):
-            s.update(f"Computing & drawing {k+1}/{num_risk_plots} risks...")
-            fig, ax, hist_cyc, vline_cyc = prepare_figure(risk_plot["title"])
-
-            risks, prevalences = [], []
-            for i, scenario in enumerate(risk_plot["scenarios"]):
-                if args.data is not None and "comp_modality" in scenario:
-                    prevalences.append(100. * observed_prevalence(
-                        data=DATA, **scenario
-                    ))
-                MODEL.modalities = {"risk": scenario["given_diagnosis_spsn"]}
-                try:
-                    given_diagnosis = {"risk": scenario["given_diagnosis"]}
-                except KeyError:
-                    given_diagnosis = None
-                risks.append(100. * np.array([
-                    MODEL.risk(
-                        involvement=scenario["pattern"],
-                        given_params=sample,
-                        given_diagnoses=given_diagnosis,
-                        t_stage=scenario["t_stage"],
-                        midline_extension=scenario["midline_ext"],
-                    ) for sample in samples
-                ]))
-                if scenario["invert"]:
-                    risks[-1] = 100. - risks[-1]
-
-            bins = np.linspace(
-                start=np.minimum(np.min(risks), np.min(prevalences)),
-                stop=np.maximum(np.max(risks), np.max(prevalences)),
-                num=risk_plot["num_bins"],
+    risks_path = Path(args.output_risks)
+    risks_path.parent.mkdir(exist_ok=True)
+    num_risks = len(params["risks"])
+    with h5py.File(risks_path, mode="w") as risks_storage:
+        for i,scenario in enumerate(params["risks"]):
+            risks = predicted_risk(
+                model=MODEL,
+                samples=SAMPLES,
+                description=f"Compute risks for scenario {i+1}/{num_risks}...",
+                **scenario
             )
-            # cycle through the scenarios to compare in one figure
-            for i, tmp in enumerate(zip(risk_plot["scenarios"], hist_cyc, vline_cyc)):
-                scenario, hist_style, vline_style = tmp
-                ax.hist(
-                    risks[i],
-                    bins=bins,
-                    density=True,
-                    label=scenario["label"],
-                    alpha=0.7,
-                    linewidth=2,
-                    **hist_style
-                )
-                if args.data is not None and "comp_modality" in scenario:
-                    ax.axvline(
-                        prevalences[i],
-                        label=f"prevalence {scenario['label']}",
-                        **vline_style
-                    )
+            risks_dset = risks_storage.create_dataset(
+                name=scenario["name"],
+                data=risks,
+            )
+            for key,val in scenario.items():
+                try:
+                    risks_dset.attrs[key] = val
+                except TypeError:
+                    pass
+        report.success(f"Computed risks of {num_risks} scenarios stored at {risks_path}")
 
-            ax.set_ylabel("$p(R)$")
-            ax.set_xlabel("Risk $R$ [%]")
-            ax.legend()
-            plot_name = risk_plot["title"].lower().replace(" ", "_")
-            fig.savefig(plot_path / f"{plot_name}.png", dpi=300)
-            fig.savefig(plot_path / f"{plot_name}.svg")
-
-        report.success(f"Computed & drawn {num_risk_plots} risks to {plot_path}")
+    prevalences_path = Path(args.output_prevalences)
+    prevalences_path.parent.mkdir(exist_ok=True)
+    num_prevalences = len(params["prevalences"])
+    with h5py.File(prevalences_path, mode="w") as prevalences_storage:
+        for i,scenario in enumerate(params["prevalences"]):
+            prevalences = predicted_prevalence(
+                model=MODEL,
+                samples=SAMPLES,
+                description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
+                **scenario
+            )
+            prevalences_dset = prevalences_storage.create_dataset(
+                name=scenario["name"],
+                data=prevalences,
+            )
+            data_prevalence = observed_prevalence(
+                data=DATA,
+                lnls=get_lnls(MODEL),
+                **scenario,
+            )
+            for key,val in scenario.items():
+                try:
+                    prevalences_dset.attrs[key] = val
+                except TypeError:
+                    pass
+            prevalences_dset.attrs["observed"] = data_prevalence
+        report.success(
+            f"Computed prevalences of {num_prevalences} scenarios stored at "
+            f"{prevalences_path}"
+        )
