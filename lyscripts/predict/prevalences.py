@@ -263,8 +263,8 @@ if __name__ == "__main__":
                     prevalences_dset.attrs[key] = val
                 except TypeError:
                     pass
-            prevalences_dset.attrs["num_match"] = num_match
-            prevalences_dset.attrs["num_total"] = num_total
+            prevalences_dset.attrs["num_match"] = float(num_match)
+            prevalences_dset.attrs["num_total"] = float(num_total)
         report.success(
             f"Computed prevalences of {num_prevalences} scenarios stored at "
             f"{prevalences_path}"
