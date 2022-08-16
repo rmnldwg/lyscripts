@@ -72,6 +72,7 @@ class ConvenienceSampler(emcee.EnsembleSampler):
 
         iterations = []
         acor_times = []
+        accept_rates = []
         old_acor = np.inf
         is_converged = False
 
@@ -98,6 +99,9 @@ class ConvenienceSampler(emcee.EnsembleSampler):
             if self.iteration < min_steps or self.iteration % check_interval:
                 continue
 
+            # ...get the acceptance rate up to this point
+            accept_rates.append(100. * np.mean(self.acceptance_fraction))
+
             # ...compute the autocorrelation time and store it in an array.
             new_acor = self.get_autocorr_time(tol=0)
             iterations.append(self.iteration)
@@ -117,9 +121,8 @@ class ConvenienceSampler(emcee.EnsembleSampler):
 
         iterations.append(self.iteration)
         acor_times.append(np.mean(self.get_autocorr_time(tol=0)))
-
-        accept_rate = 100. * np.mean(self.acceptance_fraction)
-        accept_rate_str = f"acceptance rate was {accept_rate:.2f}%"
+        accept_rates.append(100. * np.mean(self.acceptance_fraction))
+        accept_rate_str = f"acceptance rate was {accept_rates[-1]:.2f}%"
 
         if progress_desc is not None:
             report_progress.stop()
@@ -135,7 +138,7 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         return {
             "iterations": iterations,
             "acor_times": acor_times,
-            "accept_rate": accept_rate,
+            "accept_rates": accept_rates,
             "final_state": coords,
         }
 
@@ -303,7 +306,7 @@ if __name__ == "__main__":
                 verbose=True
             )
             plots["acor_times"].append(burnin_info["acor_times"][-1])
-            plots["accept_rates"].append(burnin_info["accept_rate"])
+            plots["accept_rates"].append(burnin_info["accept_rates"][-1])
 
         # copy last sampling round over to a group in the HDF5 file called "mcmc"
         # because that is what other scripts expect to see, e.g. for plotting risks
@@ -338,13 +341,16 @@ if __name__ == "__main__":
 
         burnin_info = run_mcmc_with_burnin(
             nwalkers, ndim, log_prob_fn,
-            nstep=params["sampling"]["nstep"],
+            nsteps=params["sampling"]["nsteps"],
             persistent_backend=hdf5_backend,
             sampling_kwargs=params["sampling"]["kwargs"],
             verbose=True,
         )
         x_axis = np.array(burnin_info["iterations"])
-        plots = {"acor_times": burnin_info["acor_times"]}
+        plots = {
+            "acor_times": burnin_info["acor_times"],
+            "accept_rates": burnin_info["accept_rates"]
+        }
 
     with report.status("Store plots about burnin phases..."):
         plot_path = Path(args.plots)
