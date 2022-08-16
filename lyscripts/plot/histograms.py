@@ -7,6 +7,7 @@ from pathlib import Path
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy as sp
 from cycler import cycler
 
 from ..helpers import report
@@ -36,13 +37,17 @@ def get_size(width="single", unit="cm", ratio="golden"):
 
 def get_label(attrs) -> str:
     """Extract label of a historgam from the HDF5 attrs object of the dataset."""
-    t_stage = attrs["t_stage"]
-    midline_ext = "ext" if attrs["midline_ext"] else "noext"
-    label = f"{t_stage} | {midline_ext}"
-    if "modality" in attrs:
-        modality = attrs["modality"]
-        label = f"{modality} | " + label
-    return label
+    label = []
+    transforms = {
+        "label": lambda x: x,
+        "modality": lambda x: x,
+        "t_stage": lambda x: x,
+        "midline_ext": lambda x: "ext" if x else "noext"
+    }
+    for key,func in transforms.items():
+        if key in attrs:
+            label.append(func(attrs[key]))
+    return " | ".join(label)
 
 
 if __name__ == "__main__":
@@ -79,6 +84,8 @@ if __name__ == "__main__":
         with h5py.File(name=input_path, mode="r") as h5_file:
             values = []
             labels = []
+            num_matches = []
+            num_totals = []
             lines = []
             min_value = 1.
             max_value = 0.
@@ -93,7 +100,9 @@ if __name__ == "__main__":
 
                 values.append(100. * dataset[:])
                 labels.append(get_label(dataset.attrs))
-                lines.append(100. * dataset.attrs.get("observed", np.nan))
+                num_matches.append(dataset.attrs.get("num_match", np.nan))
+                num_totals.append(dataset.attrs.get("num_total", np.nan))
+                lines.append(100. * num_matches[-1] / num_totals[-1])
                 min_value = np.minimum(min_value, np.min(values))
                 max_value = np.maximum(max_value, np.max(values))
 
@@ -114,7 +123,7 @@ if __name__ == "__main__":
             cycler(histtype=["stepfilled", "step"])
             * cycler(color=USZ_COLOR_LIST)
         )
-        vline_cycl = (
+        line_cycl = (
             cycler(linestyle=["-", "--"])
             * cycler(color=USZ_COLOR_LIST)
         )
@@ -122,21 +131,23 @@ if __name__ == "__main__":
         hist_kwargs = {
             "bins": np.linspace(min_value, max_value, args.bins),
             "density": True,
-            "alpha": 0.7,
+            "alpha": 0.6,
             "linewidth": 2.,
         }
 
     with report.status("Plot histograms..."):
-        zipper = zip(values, labels, lines, hist_cycl, vline_cycl)
-        for vals, label, line, hstyle, lstyle in zipper:
+        x = np.linspace(min_value, max_value, 200)
+        zipper = zip(values, labels, num_matches, num_totals, hist_cycl, line_cycl)
+        for vals, label, a, n, hstyle, lstyle in zipper:
             ax.hist(
                 vals,
                 label=label,
                 **hist_kwargs,
                 **hstyle
             )
-            if not np.isnan(line):
-                ax.axvline(line, **lstyle)
+            if not np.isnan(a):
+                post = sp.stats.beta.pdf(x / 100., a+1, n-a+1) / 100.
+                ax.plot(x, post, label=f"{a}/{n}", **lstyle)
             ax.legend()
             ax.set_xlabel("probability [%]")
         report.success(f"Plotted {len(values)} histograms")

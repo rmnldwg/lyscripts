@@ -108,7 +108,7 @@ def observed_prevalence(
             invert=invert,
         )
     matching_data = eligible_data.loc[do_lnls_match]
-    return len(matching_data) / len(eligible_data)
+    return len(matching_data), len(eligible_data)
 
 def predicted_prevalence(
     pattern: Dict[str, Dict[str, bool]],
@@ -253,7 +253,7 @@ if __name__ == "__main__":
                 name=scenario["name"],
                 data=prevalences,
             )
-            data_prevalence = observed_prevalence(
+            num_match, num_total = observed_prevalence(
                 data=DATA,
                 lnls=get_lnls(MODEL),
                 **scenario,
@@ -263,7 +263,8 @@ if __name__ == "__main__":
                     prevalences_dset.attrs[key] = val
                 except TypeError:
                     pass
-            prevalences_dset.attrs["observed"] = data_prevalence
+            prevalences_dset.attrs["num_match"] = num_match
+            prevalences_dset.attrs["num_total"] = num_total
         report.success(
             f"Computed prevalences of {num_prevalences} scenarios stored at "
             f"{prevalences_path}"
