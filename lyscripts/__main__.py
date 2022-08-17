@@ -10,6 +10,7 @@ from . import (
     exit_lyscripts,
     generate,
     join,
+    plot,
     predict,
     sample,
     split,
@@ -40,6 +41,7 @@ split.add_parser(subparsers, help_formatter=parser.formatter_class)
 sample.add_parser(subparsers, help_formatter=parser.formatter_class)
 evaluate.add_parser(subparsers, help_formatter=parser.formatter_class)
 predict.add_parser(subparsers, help_formatter=parser.formatter_class)
+plot.add_parser(subparsers, help_formatter=parser.formatter_class)
 temp_schedule.add_parser(subparsers, help_formatter=parser.formatter_class)
 
 args = parser.parse_args()

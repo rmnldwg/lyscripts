@@ -10,7 +10,7 @@ import numpy as np
 import scipy as sp
 from cycler import cycler
 
-from ..helpers import report
+from ..helpers import clean_docstring, report
 
 # define colors
 USZ_BLUE = '#005ea8'

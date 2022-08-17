@@ -34,7 +34,7 @@ def add_arguments(parser: argparse.ArgumentParser):
     and run the respective main function when chosen.
     """
     parser.add_argument(
-        "model", required=True, type=Path,
+        "model", type=Path,
         help="Path to model output files (HDF5)."
     )
     parser.add_argument(
