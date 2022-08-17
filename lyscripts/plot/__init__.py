@@ -16,7 +16,7 @@ def _add_parser(
     """
     Add an `ArgumentParser` to the subparsers action and then add more subparsers.
     """
-    parser = subparsers._add_parser(
+    parser = subparsers.add_parser(
         Path(__file__).parent.name,
         description=clean_docstring(__doc__),
         help=clean_docstring(__doc__),

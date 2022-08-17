@@ -19,10 +19,21 @@ from . import (
 from .helpers import clean_docstring
 from .rich_argparse import RichHelpFormatter
 
+
+class RichDefaultHelpFormatter(
+    RichHelpFormatter,
+    argparse.ArgumentDefaultsHelpFormatter
+):
+    """
+    Empty class that combines the functionality of displaying the default value with
+    the beauty of the `rich` formatter
+    """
+
+
 parser = argparse.ArgumentParser(
     prog="lyscripts",
     description=clean_docstring(__doc__),
-    formatter_class=RichHelpFormatter,
+    formatter_class=RichDefaultHelpFormatter,
 )
 parser.set_defaults(run_main=_exit)
 parser.add_argument(

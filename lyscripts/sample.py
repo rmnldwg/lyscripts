@@ -24,7 +24,7 @@ def _add_parser(
     """
     Add an `ArgumentParser` to the subparsers action.
     """
-    parser = subparsers._add_parser(
+    parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=clean_docstring(__doc__),
         help=clean_docstring(__doc__),
