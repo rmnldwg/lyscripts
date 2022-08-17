@@ -5,9 +5,9 @@ can use the `lymph` package for.
 import argparse
 
 from . import (
+    _exit,
     clean,
     evaluate,
-    exit_lyscripts,
     generate,
     join,
     plot,
@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(
     description=clean_docstring(__doc__),
     formatter_class=RichHelpFormatter,
 )
-parser.set_defaults(run_main=exit_lyscripts)
+parser.set_defaults(run_main=_exit)
 parser.add_argument(
     "-v", "--version", action="store_true",
     help="Display the version of lyscripts"
@@ -34,15 +34,15 @@ subparsers = parser.add_subparsers()
 
 # the individual scripts add `ArgumentParser` instances and their arguments to
 # this `subparsers` object
-generate.add_parser(subparsers, help_formatter=parser.formatter_class)
-join.add_parser(subparsers, help_formatter=parser.formatter_class)
-clean.add_parser(subparsers, help_formatter=parser.formatter_class)
-split.add_parser(subparsers, help_formatter=parser.formatter_class)
-sample.add_parser(subparsers, help_formatter=parser.formatter_class)
-evaluate.add_parser(subparsers, help_formatter=parser.formatter_class)
-predict.add_parser(subparsers, help_formatter=parser.formatter_class)
-plot.add_parser(subparsers, help_formatter=parser.formatter_class)
-temp_schedule.add_parser(subparsers, help_formatter=parser.formatter_class)
+generate._add_parser(subparsers, help_formatter=parser.formatter_class)
+join._add_parser(subparsers, help_formatter=parser.formatter_class)
+clean._add_parser(subparsers, help_formatter=parser.formatter_class)
+split._add_parser(subparsers, help_formatter=parser.formatter_class)
+sample._add_parser(subparsers, help_formatter=parser.formatter_class)
+evaluate._add_parser(subparsers, help_formatter=parser.formatter_class)
+predict._add_parser(subparsers, help_formatter=parser.formatter_class)
+plot._add_parser(subparsers, help_formatter=parser.formatter_class)
+temp_schedule._add_parser(subparsers, help_formatter=parser.formatter_class)
 
 args = parser.parse_args()
 args.run_main(args)

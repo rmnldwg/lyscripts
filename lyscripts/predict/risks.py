@@ -16,23 +16,23 @@ from rich.progress import track
 from ..helpers import clean_docstring, model_from_config, report
 
 
-def add_parser(
+def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
     """
     Add an `ArgumentParser` to the subparsers action.
     """
-    parser = subparsers.add_parser(
+    parser = subparsers._add_parser(
         Path(__file__).name.replace(".py", ""),
         description=clean_docstring(__doc__),
         help=clean_docstring(__doc__),
         formatter_class=help_formatter,
     )
-    add_arguments(parser)
+    _add_arguments(parser)
 
 
-def add_arguments(parser: argparse.ArgumentParser):
+def _add_arguments(parser: argparse.ArgumentParser):
     """
     Add arguments needed to run this script to a `subparsers` instance
     and run the respective main function when chosen.

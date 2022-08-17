@@ -26,23 +26,23 @@ from ..helpers import (
 )
 
 
-def add_parser(
+def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
     """
     Add an `ArgumentParser` to the subparsers action.
     """
-    parser = subparsers.add_parser(
+    parser = subparsers._add_parser(
         Path(__file__).name.replace(".py", ""),
         description=clean_docstring(__doc__),
         help=clean_docstring(__doc__),
         formatter_class=help_formatter,
     )
-    add_arguments(parser)
+    _add_arguments(parser)
 
 
-def add_arguments(parser: argparse.ArgumentParser):
+def _add_arguments(parser: argparse.ArgumentParser):
     """
     Add arguments needed to run this script to a `subparsers` instance
     and run the respective main function when chosen.
@@ -302,7 +302,7 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    add_arguments(parser)
+    _add_arguments(parser)
 
     args = parser.parse_args()
     args.run_main(args)
