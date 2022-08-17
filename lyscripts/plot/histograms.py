@@ -170,7 +170,7 @@ def main(args: argparse.Namespace):
             )
             if not np.isnan(a):
                 post = sp.stats.beta.pdf(x / 100., a+1, n-a+1) / 100.
-                ax.plot(x, post, label=f"{a}/{n}", **lstyle)
+                ax.plot(x, post, label=f"{a:d}/{n:d}", **lstyle)
             ax.legend()
             ax.set_xlabel("probability [%]")
         report.success(f"Plotted {len(values)} histograms")
