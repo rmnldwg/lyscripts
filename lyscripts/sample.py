@@ -258,6 +258,17 @@ def run_mcmc_with_burnin(
         return burnin_result
 
 
+MODEL = None
+INV_TEMP = 1.
+
+def log_prob_fn(theta: np.array) -> float:
+    """log probability function using global variables because of pickling."""
+    llh = MODEL.likelihood(given_params=theta)
+    if np.isinf(llh):
+        return -np.inf, -np.inf
+    return INV_TEMP * llh, llh
+
+
 def main(args: argparse.Namespace):
     """
     Run main program with `args` parsed by argparse.
@@ -271,24 +282,26 @@ def main(args: argparse.Namespace):
         # Only read in two header rows when using the Unilateral model
         is_unilateral = params["model"]["class"] == "Unilateral"
         header = [0, 1] if is_unilateral else [0, 1, 2]
-        DATA = pd.read_csv(args.input, header=header)
+        inference_data = pd.read_csv(args.input, header=header)
         report.success(f"Read in training data from {args.input}")
 
     with report.status("Set up model & load data..."):
+        global MODEL  # ugly, but necessary for pickling
         MODEL = model_from_config(
             graph_params=params["graph"],
             model_params=params["model"],
             modalities_params=params["modalities"],
         )
-        MODEL.patient_data = DATA
+        MODEL.patient_data = inference_data
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
         nwalkers = ndim * params["sampling"]["walkers_per_dim"]
         report.success(
             f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
-            f"{len(DATA)} patients"
+            f"{len(inference_data)} patients"
         )
 
     if args.ti:
+        global INV_TEMP
         with report.status("Prepare thermodynamic integration..."):
             # make sure path to output file exists
             args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -306,18 +319,11 @@ def main(args: argparse.Namespace):
             "accept_rates": [],
         }
         for i,inv_temp in enumerate(temp_schedule):
-            report.print(f"TI round {i+1}/{len(temp_schedule)} with β = {inv_temp}")
+            INV_TEMP = inv_temp
+            report.print(f"TI round {i+1}/{len(temp_schedule)} with β = {INV_TEMP}")
 
             # set up backend
             hdf5_backend = emcee.backends.HDFBackend(args.output, name=f"ti/{i+1:0>2d}")
-
-            # create log-probability function
-            def log_prob_fn(theta):
-                """Compute log-probability of parameter sample `theta`."""
-                llh = MODEL.likelihood(given_params=theta, log=True)
-                if np.isinf(llh):
-                    return -np.inf, -np.inf
-                return inv_temp * llh, llh
 
             burnin_info = run_mcmc_with_burnin(
                 nwalkers, ndim, log_prob_fn, nsteps,
@@ -346,16 +352,6 @@ def main(args: argparse.Namespace):
 
             # prepare backend
             hdf5_backend = emcee.backends.HDFBackend(args.output, name="mcmc")
-
-            def log_prob_fn(theta,) -> float:
-                """Compute the log-probability of data loaded in `model`, given the
-                parameters `theta`.
-
-                Note that the `llh` is also passed as second return value to be stored
-                in the `emcee` blobs, where it is also stored in the TI case.
-                """
-                llh = MODEL.likelihood(given_params=theta, log=True)
-                return llh, llh
 
             report.success(f"Prepared sampling params & backend at {args.output}")
 

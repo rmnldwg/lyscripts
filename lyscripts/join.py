@@ -35,11 +35,11 @@ def add_arguments(parser: argparse.ArgumentParser):
     and run the respective main function when chosen.
     """
     parser.add_argument(
-        "inputs", nargs='+', type=Path,
+        "-i", "--inputs", nargs='+', type=Path, required=True,
         help="List of paths to inference-ready CSV datasets to concatente."
     )
     parser.add_argument(
-        "output", type=Path,
+        "-o", "--output", type=Path, required=True,
         help="Location to store the concatenated CSV file."
     )
 
