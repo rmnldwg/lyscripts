@@ -8,42 +8,70 @@ import emcee
 import numpy as np
 import yaml
 
-from .helpers import model_from_config, report
+from .helpers import clean_docstring, model_from_config, report
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--params", default="params.yaml",
-        help="Parameter file containing model specifications (YAML)"
+
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
     )
+    add_arguments(parser)
+
+
+def add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
     parser.add_argument(
-        "--num", type=int,
+        "num", type=int,
         help="Number of synthetic patient records to generate",
     )
     parser.add_argument(
-        "--set-theta", nargs="+",
-        help="Set the spread probs and parameters for time marginalization by hand"
-    )
-    parser.add_argument(
-        "--load-theta", choices=["mean", "max_llh"],
-        help="Use either the mean or the maximum likelihood estimate from drawn samples"
-    )
-    parser.add_argument(
-        "--samples", default="models/samples.hdf5",
-        help="Path to the samples (HDF5 file) if a method to load them was chosen"
-    )
-    parser.add_argument(
-        "--output", default="data/synthetic.csv",
+        "output", type=Path,
         help="Path where to store the generated synthetic data",
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--params", default="./params.yaml", type=Path,
+        help="Parameter file containing model specifications"
+    )
 
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--set-theta", nargs="+", type=float,
+        help="Set the spread probs and parameters for time marginalization by hand"
+    )
+    group.add_argument(
+        "--load-theta", choices=["mean", "max_llh"], default="mean",
+        help="Use either the mean or the maximum likelihood estimate from drawn samples"
+    )
+
+    parser.add_argument(
+        "--samples", default="./models/samples.hdf5", type=Path,
+        help="Path to the samples if a method to load them was chosen"
+    )
+
+    parser.set_defaults(run_main=main)
+
+
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
     with report.status("Read in parameters..."):
-        params_path = Path(args.params)
-        with open(params_path, mode='r') as params_file:
+        with open(args.params, mode='r') as params_file:
             params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {params_path}")
+        report.success(f"Read in params from {args.params}")
 
     with report.status("Create model..."):
         MODEL = model_from_config(
@@ -66,9 +94,8 @@ if __name__ == "__main__":
             report.success("Assigned given parameters to model")
     else:
         with report.status(f"Load samples and choose their {args.load_theta} value..."):
-            samples_path = Path(args.samples)
             backend = emcee.backends.HDFBackend(
-                samples_path,
+                args.samples,
                 read_only=True,
                 name="mcmc"
             )
@@ -101,7 +128,14 @@ if __name__ == "__main__":
         report.success(f"Created synthetic data of {args.num} patients.")
 
     with report.status("Save generated dataset..."):
-        output_path = Path(args.output)
-        output_path.parent.mkdir(exist_ok=True)
-        synthetic_data.to_csv(output_path, index=None)
-        report.success(f"Saved generated dataset to {output_path}")
+        args.output.parent.mkdir(exist_ok=True)
+        synthetic_data.to_csv(args.output, index=None)
+        report.success(f"Saved generated dataset to {args.output}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)

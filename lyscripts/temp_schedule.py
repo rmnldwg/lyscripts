@@ -12,13 +12,51 @@ the interval $[0, 1]$ and then transform each point by computing $\\beta_i^k$ wh
 $k$ could e.g. be 5.
 """
 import argparse
+from pathlib import Path
 from typing import Callable, List, Union
 
 import numpy as np
 import yaml
 from rich.panel import Panel
 
-from .helpers import report
+from .helpers import clean_docstring, report
+
+
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    add_arguments(parser)
+
+
+def add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
+    parser.add_argument(
+        "--method", choices=SCHEDULES.keys(), default=list(SCHEDULES.keys())[0],
+        help="Choose the method to distribute the inverse temperature."
+    )
+    parser.add_argument(
+        "--num", default=32, type=int,
+        help="Number of inverse temperatures in the schedule"
+    )
+    parser.add_argument(
+        "--pow", default=4, type=int,
+        help="If a power schedule is chosen, use this as power"
+    )
+
+    parser.set_defaults(run_main=main)
 
 
 def tolist(func: Callable) -> Callable:
@@ -57,26 +95,21 @@ SCHEDULES = {
 }
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--method", choices=SCHEDULES.keys(), default=list(SCHEDULES.keys())[0],
-        help="Choose the method to distribute the inverse temperature."
-    )
-    parser.add_argument(
-        "--num", default=32, type=int,
-        help="Number of inverse temperatures in the schedule"
-    )
-    parser.add_argument(
-        "--pow", default=4, type=int,
-        help="If a power schedule is chosen, use this as power"
-    )
-
-    args = parser.parse_args()
-
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
     with report.status(f"Create {args.method} sequence of length {args.num}..."):
         func = SCHEDULES[args.method]
         schedule = func(args.num, args.pow)
         yaml_output = yaml.dump({"temp_schedule": schedule})
         report.success(f"Created {args.method} sequence of length {args.num}")
         report.print(Panel(yaml_output, expand=False))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)

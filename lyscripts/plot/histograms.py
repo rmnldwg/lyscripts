@@ -22,6 +22,56 @@ USZ_COLOR_LIST = [USZ_BLUE, USZ_ORANGE, USZ_GREEN, USZ_RED, USZ_GRAY]
 HATCH_LIST = ["////", r"\\\\", "||||", "----", "oooo"]
 
 
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    add_arguments(parser)
+
+
+def add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
+    parser.add_argument(
+        "input", type=Path,
+        help="File path of the computed risks or prevalences (HDF5)"
+    )
+    parser.add_argument(
+        "plots", type=Path,
+        help="Output directory for the plot"
+    )
+
+    parser.add_argument(
+        "--names", nargs="+",
+        help="List of names of computed risks/prevalences to combine into one plot"
+    )
+    parser.add_argument(
+        "--title",
+        help="Title of the plot"
+    )
+    parser.add_argument(
+        "--bins", default=50, type=int,
+        help="Number of bins to put the computed values into"
+    )
+    parser.add_argument(
+        "--mplstyle", default="./.mplstyle", type=Path,
+        help="Path to the MPL stylesheet"
+    )
+
+    parser.set_defaults(run_main=main)
+
+
 def get_size(width="single", unit="cm", ratio="golden"):
     """Get optimal figure size for a range of scenarios."""
     if width == "single":
@@ -50,38 +100,12 @@ def get_label(attrs) -> str:
     return " | ".join(label)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--input", default="models/risks.hdf5",
-        help="File path of the computed risks or prevalences (HDF5)"
-    )
-    parser.add_argument(
-        "--mplstyle", default=".mplstyle",
-        help="Path to the MPL stylesheet"
-    )
-    parser.add_argument(
-        "--names", nargs="+",
-        help="List of names of computed risks/prevalences to combine into one plot"
-    )
-    parser.add_argument(
-        "--bins", default=50, type=int,
-        help="Number of bins to put the computed values into"
-    )
-    parser.add_argument(
-        "--title",
-        help="Title of the plot"
-    )
-    parser.add_argument(
-        "--plots",
-        help="Output directory for the plot"
-    )
-
-    args = parser.parse_args()
-
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
     with report.status("Read in computed values..."):
-        input_path = Path(args.input)
-        with h5py.File(name=input_path, mode="r") as h5_file:
+        with h5py.File(name=args.input, mode="r") as h5_file:
             values = []
             labels = []
             num_matches = []
@@ -109,12 +133,11 @@ if __name__ == "__main__":
             min_value = np.min(lines, where=~np.isnan(lines), initial=min_value)
             max_value = np.max(lines, where=~np.isnan(lines), initial=max_value)
 
-        report.success(f"Read in computed values from {input_path}")
+        report.success(f"Read in computed values from {args.input}")
 
     with report.status("Apply MPL stylesheet..."):
-        stylesheet_path = Path(args.mplstyle)
-        plt.style.use(stylesheet_path)
-        report.success(f"Applied MPL stylesheet from {stylesheet_path}")
+        plt.style.use(args.mplstyle)
+        report.success(f"Applied MPL stylesheet from {args.mplstyle}")
 
     with report.status("Set up figure..."):
         fig, ax = plt.subplots(figsize=get_size())
@@ -153,8 +176,15 @@ if __name__ == "__main__":
         report.success(f"Plotted {len(values)} histograms")
 
     with report.status("Save plots..."):
-        plots_path = Path(args.plots)
-        plots_path.mkdir(exist_ok=True)
-        plt.savefig(plots_path / f"{args.title}.png", dpi=200)
-        plt.savefig(plots_path / f"{args.title}.svg")
-        report.success(f"Stored plots at {plots_path}")
+        args.plots.mkdir(exist_ok=True)
+        plt.savefig(args.plots / f"{args.title}.png", dpi=200)
+        plt.savefig(args.plots / f"{args.title}.svg")
+        report.success(f"Stored plots at {args.plots}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)

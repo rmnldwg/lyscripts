@@ -10,45 +10,66 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .helpers import report
+from .helpers import clean_docstring, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    add_arguments(parser)
+
+
+def add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
     parser.add_argument(
-        "-i", "--input", default="data/joined.csv",
+        "input", type=Path,
         help="The path to the full dataset to split."
     )
     parser.add_argument(
-        "-p", "--params", default="params.yaml",
-        help="Path to parameter YAML file."
-    )
-    parser.add_argument(
-        "-o", "--output", default="data/folds",
+        "output", type=Path,
         help="Folder to store the split CSV files in."
     )
 
-    # Parse arguments and prepare paths
-    args = parser.parse_args()
-    input_path = Path(args.input)
-    params_path = Path(args.params)
-    output_dir = Path(args.output)
-    output_dir.mkdir(exist_ok=True)
+    parser.add_argument(
+        "-p", "--params", default="./params.yaml", type=Path,
+        help="Path to parameter YAML file."
+    )
 
+    parser.set_defaults(run_main=main)
+
+
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
     with report.status("Read in parameters..."):
-        with open(params_path, mode='r') as params_file:
+        with open(args.params, mode='r') as params_file:
             params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {params_path}")
+        report.success(f"Read in params from {args.params}")
 
 
     with report.status("Reading in concatenated CSV file..."):
         header = [0,1] if params["model"]["class"] == "Unilateral" else [0,1,2]
-        concatenated_df = pd.read_csv(input_path, header=header)
-        report.success(f"Read in concatenated CSV file from {input_path}")
+        concatenated_df = pd.read_csv(args.input, header=header)
+        report.success(f"Read in concatenated CSV file from {args.input}")
 
     with report.status("Split data into sets for training & "):
+        args.output.mkdir(exist_ok=True)
         shuffled_df = concatenated_df.sample(
             frac=1.,
             replace=False,
@@ -71,11 +92,19 @@ if __name__ == "__main__":
                 ignore_index=True
             )
 
-            eval_df.to_csv(output_dir / f"{fold_id}_eval.csv", index=None)
-            train_df.to_csv(output_dir / f"{fold_id}_train.csv", index=None)
+            eval_df.to_csv(args.output / f"{fold_id}_eval.csv", index=None)
+            train_df.to_csv(args.output / f"{fold_id}_train.csv", index=None)
             report.print(f"+ split data into train & eval sets for round {fold_id}")
 
         report.success(
             "Split data into train & eval sets for all "
             f"{len(params['cross-validation']['folds'])} folds"
         )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)

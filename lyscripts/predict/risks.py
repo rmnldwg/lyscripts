@@ -10,11 +10,47 @@ import emcee
 import h5py
 import lymph
 import numpy as np
-import pandas as pd
 import yaml
 from rich.progress import track
 
-from ..helpers import model_from_config, report
+from ..helpers import clean_docstring, model_from_config, report
+
+
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    add_arguments(parser)
+
+
+def add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
+    parser.add_argument(
+        "model", type=Path,
+        help="Path to drawn samples (HDF5)"
+    )
+    parser.add_argument(
+        "output", default="./models/risks.hdf5", type=Path,
+        help="Output path for predicted risks (HDF5 file)"
+    )
+    parser.add_argument(
+        "--params", default="./params.yaml", type=Path,
+        help="Path to parameter file"
+    )
+
+    parser.set_defaults(run_main=main)
 
 
 def predicted_risk(
@@ -100,45 +136,23 @@ def predicted_risk(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--model", required=True,
-        help="Path to drawn samples (HDF5)"
-    )
-    parser.add_argument(
-        "--data", default=None,
-        help="Path to the data file if risk is to be compared to prevalence"
-    )
-    parser.add_argument(
-        "--params", default="params.yaml",
-        help="Path to parameter file (YAML)"
-    )
-    parser.add_argument(
-        "--risks", default="models/risks.hdf5",
-        help="Output path for predicted risks (HDF5 file)"
-    )
 
     args = parser.parse_args()
 
-    with report.status("Read in parameters..."):
-        params_path = Path(args.params)
-        with open(params_path, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {params_path}")
 
-    if args.data is not None:
-        with report.status("Read in training data..."):
-            data_path = Path(args.data)
-            # Only read in two header rows when using the Unilateral model
-            is_unilateral = params["model"]["class"] == "Unilateral"
-            header = [0, 1] if is_unilateral else [0, 1, 2]
-            DATA = pd.read_csv(data_path, header=header)
-            report.success(f"Read in training data from {data_path}")
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
+    with report.status("Read in parameters..."):
+        with open(args.params, mode='r') as params_file:
+            params = yaml.safe_load(params_file)
+        report.success(f"Read in params from {args.params}")
 
     with report.status("Loading samples..."):
-        model_path = Path(args.model)
-        reader = emcee.backends.HDFBackend(model_path, read_only=True)
+        reader = emcee.backends.HDFBackend(args.model, read_only=True)
         SAMPLES = reader.get_chain(flat=True)
-        report.success(f"Loaded samples with shape {SAMPLES.shape} from {model_path}")
+        report.success(f"Loaded samples with shape {SAMPLES.shape} from {args.model}")
 
     with report.status("Set up model..."):
         MODEL = model_from_config(
@@ -150,10 +164,9 @@ if __name__ == "__main__":
             f"Set up {type(MODEL)} model with {ndim} parameters"
         )
 
-    risks_path = Path(args.risks)
-    risks_path.parent.mkdir(exist_ok=True)
+    args.output.parent.mkdir(exist_ok=True)
     num_risks = len(params["risks"])
-    with h5py.File(risks_path, mode="w") as risks_storage:
+    with h5py.File(args.output, mode="w") as risks_storage:
         for i,scenario in enumerate(params["risks"]):
             risks = predicted_risk(
                 model=MODEL,
@@ -170,4 +183,6 @@ if __name__ == "__main__":
                     risks_dset.attrs[key] = val
                 except TypeError:
                     pass
-        report.success(f"Computed risks of {num_risks} scenarios stored at {risks_path}")
+        report.success(
+            f"Computed risks of {num_risks} scenarios stored at {args.output}"
+        )

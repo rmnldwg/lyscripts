@@ -1,5 +1,7 @@
 """
-Evaluate the performance of the model.
+Evaluate the performance of the trained model by computing quantities like the
+Bayesian information criterion (BIC) or (if thermodynamic integration was performed)
+the actual evidence (with error) of the model.
 """
 import argparse
 import json
@@ -13,7 +15,53 @@ import pandas as pd
 import yaml
 from scipy.integrate import trapezoid
 
-from .helpers import model_from_config, report
+from .helpers import clean_docstring, model_from_config, report
+
+
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    add_arguments(parser)
+
+
+def add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
+    parser.add_argument(
+        "data", type=Path,
+        help="Path to the tables of patient data (CSV)."
+    )
+    parser.add_argument(
+        "model", type=Path,
+        help="Path to model output files (HDF5)."
+    )
+
+    parser.add_argument(
+        "-p", "--params", default="./params.yaml", type=Path,
+        help="Path to parameter file"
+    )
+    parser.add_argument(
+        "--plots", default="./plots", type=Path,
+        help="Directory for storing plots"
+    )
+    parser.add_argument(
+        "--metrics", default="./metrics.json", type=Path,
+        help="Path to metrics file"
+    )
+
+    parser.set_defaults(run_main=main)
 
 
 def comp_bic(
@@ -48,6 +96,10 @@ def comp_evidence_error(
     deviations the provided `errors`, which should be the standard deviations of the
     `accuracies`. Then, each of the drawn sequence of accuracies is integrated over
     `temp_schedule`.
+
+    The resulting `num` evidences can probably be thought of as
+    possible "samples" of the evidence and hence their standard deviation can be seen
+    as the evidence's error.
     """
     drawn_accuracies = np.random.normal(
         loc=accuracies,
@@ -58,55 +110,31 @@ def comp_evidence_error(
     return np.std(integrals)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "-d", "--data", required=True,
-        help="Path to the tables of patient data (CSV)."
-    )
-    parser.add_argument(
-        "-m", "--model", required=True,
-        help="Path to model output files (HDF5)."
-    )
-    parser.add_argument(
-        "-p", "--params", default="params.yaml",
-        help="Path to parameter file (YAML)."
-    )
-    parser.add_argument(
-        "--plots", default="plots",
-        help="Directory for storing plots"
-    )
-    parser.add_argument(
-        "--metrics", default="metrics.json",
-        help="Path to metrics file (JSON)."
-    )
-
-    args = parser.parse_args()
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
     metrics = {}
 
     with report.status("Read in parameters..."):
-        params_path = Path(args.params)
-        with open(params_path, mode='r') as params_file:
+        with open(args.params, mode='r') as params_file:
             params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {params_path}")
+        report.success(f"Read in params from {args.params}")
 
     with report.status("Open samples from emcee backend..."):
-        model_path = Path(args.model)
-        backend = emcee.backends.HDFBackend(model_path, read_only=True, name="mcmc")
-        nstep = backend.iteration
+        backend = emcee.backends.HDFBackend(args.model, read_only=True, name="mcmc")
         chain = backend.get_chain(flat=True)
 
         # use blobs, because also for TI, this is the unscaled log-prob
         log_probs = backend.get_blobs()
-        report.success(f"Opened samples from emcee backend from {model_path}")
+        report.success(f"Opened samples from emcee backend from {args.model}")
 
     with report.status("Read in patient data..."):
-        data_path = Path(args.data)
         # Only read in two header rows when using the Unilateral model
         is_unilateral = params["model"]["class"] == "Unilateral"
         header = [0, 1] if is_unilateral else [0, 1, 2]
-        DATA = pd.read_csv(data_path, header=header)
-        report.success(f"Read in patient data from {data_path}")
+        DATA = pd.read_csv(args.data, header=header)
+        report.success(f"Read in patient data from {args.data}")
 
     with report.status("Recreate model & load data..."):
         MODEL = model_from_config(
@@ -116,7 +144,6 @@ if __name__ == "__main__":
         )
         MODEL.patient_data = DATA
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        nwalkers = ndim * params["sampling"]["walkers_per_dim"]
         report.success(
             f"Recreated {type(MODEL)} model with {ndim} parameters and loaded "
             f"{len(DATA)} patients"
@@ -174,7 +201,7 @@ if __name__ == "__main__":
             report.success("Computed metrics for sides separately")
 
 
-    h5_file = h5py.File(name=model_path, mode="r")
+    h5_file = h5py.File(args.model, mode="r")
     # check if TI has been performed
     if "ti" in h5_file:
         with report.status("Compute results of thermodynamic integration..."):
@@ -189,7 +216,7 @@ if __name__ == "__main__":
             errors = np.zeros_like(temp_schedule)
             for i,round in enumerate(h5_file["ti"]):
                 reader = emcee.backends.HDFBackend(
-                    model_path,
+                    args.model,
                     name=f"ti/{round}",
                     read_only=True,
                 )
@@ -206,21 +233,19 @@ if __name__ == "__main__":
             )
 
         with report.status("Plot β vs accuracy..."):
-            plot_path = Path(args.plots) / "ti" / "accuracies.csv"
-            plot_path.parent.mkdir(exist_ok=True)
+            args.plots.parent.mkdir(exist_ok=True)
 
             tmp_df = pd.DataFrame(
                 np.array([temp_schedule, accuracies]).T,
                 columns=["β", "accuracy"],
             )
-            tmp_df.to_csv(plot_path, index=False)
-            report.success(f"Plotted β vs accuracy at {plot_path}")
+            tmp_df.to_csv(args.plots, index=False)
+            report.success(f"Plotted β vs accuracy at {args.plots}")
 
     with report.status("Write out metrics..."):
         # store metrics in JSON file
-        metrics_path = Path(args.metrics)
-        metrics_path.parent.mkdir(parents=True, exist_ok=True)
-        metrics_path.touch(exist_ok=True)
+        args.metrics.parent.mkdir(parents=True, exist_ok=True)
+        args.metrics.touch(exist_ok=True)
 
         # further populate metrics dictionary
         metrics["BIC"] = comp_bic(
@@ -232,7 +257,15 @@ if __name__ == "__main__":
         metrics["mean_llh"] = np.mean(log_probs)
 
         # write out metrics again
-        with open(metrics_path, mode="w") as metrics_file:
+        with open(args.metrics, mode="w") as metrics_file:
             json.dump(metrics, metrics_file)
 
-        report.success(f"Wrote out metrics to {metrics_path}")
+        report.success(f"Wrote out metrics to {args.metrics}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)

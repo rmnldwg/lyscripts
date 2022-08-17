@@ -14,7 +14,53 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .helpers import CustomProgress, model_from_config, report
+from .helpers import CustomProgress, clean_docstring, model_from_config, report
+
+
+def add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    add_arguments(parser)
+
+
+def add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
+    parser.add_argument(
+        "input", type=Path,
+        help="Path to training data files"
+    )
+    parser.add_argument(
+        "output", type=Path,
+        help="Path to the HDF5 file to store the results in"
+    )
+
+    parser.add_argument(
+        "--params", default="./params.yaml", type=Path,
+        help="Path to parameter file"
+    )
+    parser.add_argument(
+        "--plots", default="./plots", type=Path,
+        help="Directory to store plot of acor times",
+    )
+    parser.add_argument(
+        "--ti", action="store_true",
+        help="Perform thermodynamic integration"
+    )
+
+    parser.set_defaults(run_main=main)
 
 
 class ConvenienceSampler(emcee.EnsembleSampler):
@@ -212,45 +258,21 @@ def run_mcmc_with_burnin(
         return burnin_result
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "-i", "--input", required=True,
-        help="Path to training data files"
-    )
-    parser.add_argument(
-        "-o", "--output", required=True,
-        help="Path to the HDF5 file to store the results in"
-    )
-    parser.add_argument(
-        "--params", default="params.yaml",
-        help="Path to parameter YAML file"
-    )
-    parser.add_argument(
-        "--plots", default="plots",
-        help="Directory to store plot of acor times",
-    )
-    parser.add_argument(
-        "--ti", action="store_true",
-        help="Perform thermodynamic integration"
-    )
-
-    # Parse arguments and prepare paths
-    args = parser.parse_args()
-
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
     with report.status("Read in parameters..."):
-        params_path = Path(args.params)
-        with open(params_path, mode='r') as params_file:
+        with open(args.params, mode='r') as params_file:
             params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {params_path}")
+        report.success(f"Read in params from {args.params}")
 
     with report.status("Read in training data..."):
-        input_path = Path(args.input)
         # Only read in two header rows when using the Unilateral model
         is_unilateral = params["model"]["class"] == "Unilateral"
         header = [0, 1] if is_unilateral else [0, 1, 2]
-        DATA = pd.read_csv(input_path, header=header)
-        report.success(f"Read in training data from {input_path}")
+        DATA = pd.read_csv(args.input, header=header)
+        report.success(f"Read in training data from {args.input}")
 
     with report.status("Set up model & load data..."):
         MODEL = model_from_config(
@@ -269,8 +291,7 @@ if __name__ == "__main__":
     if args.ti:
         with report.status("Prepare thermodynamic integration..."):
             # make sure path to output file exists
-            output_path = Path(args.output)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
+            args.output.parent.mkdir(parents=True, exist_ok=True)
 
             # set up sampling params
             temp_schedule = params["sampling"]["temp_schedule"]
@@ -288,7 +309,7 @@ if __name__ == "__main__":
             report.print(f"TI round {i+1}/{len(temp_schedule)} with β = {inv_temp}")
 
             # set up backend
-            hdf5_backend = emcee.backends.HDFBackend(output_path, name=f"ti/{i+1:0>2d}")
+            hdf5_backend = emcee.backends.HDFBackend(args.output, name=f"ti/{i+1:0>2d}")
 
             # create log-probability function
             def log_prob_fn(theta):
@@ -310,22 +331,21 @@ if __name__ == "__main__":
 
         # copy last sampling round over to a group in the HDF5 file called "mcmc"
         # because that is what other scripts expect to see, e.g. for plotting risks
-        h5_file = h5py.File(output_path, "r+")
+        h5_file = h5py.File(args.output, "r+")
         h5_file.copy(f"ti/{len(temp_schedule):0>2d}", h5_file, name="mcmc")
         report.success("Finished thermodynamic integration.")
 
     else:
         with report.status("Prepare sampling params & backend..."):
             # make sure path to output file exists
-            output_path = Path(args.output)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
+            args.output.parent.mkdir(parents=True, exist_ok=True)
 
             # set up sampling params
             ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
             nwalkers = ndim * params["sampling"]["walkers_per_dim"]
 
             # prepare backend
-            hdf5_backend = emcee.backends.HDFBackend(output_path, name="mcmc")
+            hdf5_backend = emcee.backends.HDFBackend(args.output, name="mcmc")
 
             def log_prob_fn(theta,) -> float:
                 """Compute the log-probability of data loaded in `model`, given the
@@ -337,7 +357,7 @@ if __name__ == "__main__":
                 llh = MODEL.likelihood(given_params=theta, log=True)
                 return llh, llh
 
-            report.success(f"Prepared sampling params & backend at {output_path}")
+            report.success(f"Prepared sampling params & backend at {args.output}")
 
         burnin_info = run_mcmc_with_burnin(
             nwalkers, ndim, log_prob_fn,
@@ -353,16 +373,23 @@ if __name__ == "__main__":
         }
 
     with report.status("Store plots about burnin phases..."):
-        plot_path = Path(args.plots)
-        plot_path.mkdir(parents=True, exist_ok=True)
+        args.plots.mkdir(parents=True, exist_ok=True)
 
         for name, y_axis in plots.items():
             tmp_df = pd.DataFrame(
                 np.array([x_axis, y_axis]).T,
                 columns=["x", name],
             )
-            tmp_df.to_csv(plot_path/(name + ".csv"), index=False)
+            tmp_df.to_csv(args.plots/(name + ".csv"), index=False)
 
         report.success(
-            f"Stored {len(plots)} plots about burnin phases at {plot_path}"
+            f"Stored {len(plots)} plots about burnin phases at {args.plots}"
         )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)
