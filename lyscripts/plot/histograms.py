@@ -177,8 +177,8 @@ def main(args: argparse.Namespace):
 
     with report.status("Save plots..."):
         args.output.parent.mkdir(exist_ok=True)
-        plt.savefig(args.plots.with_suffix(".png"), dpi=300)
-        plt.savefig(args.plots.with_suffix(".svg"))
+        plt.savefig(args.output.with_suffix(".png"), dpi=300)
+        plt.savefig(args.output.with_suffix(".svg"))
         report.success(f"Stored plots at {args.output}")
 
 

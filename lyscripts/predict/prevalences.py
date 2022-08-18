@@ -230,7 +230,22 @@ def predicted_prevalence(
         pattern_df = pd.DataFrame(columns=mi)
         pattern_df["prev"] = nested_to_pandas(pattern)
         pattern_df["info", "tumor", "t_stage"] = t_stage
-        pattern_df["info", "tumor", "midline_extension"] = midline_ext
+
+        if isinstance(model, lymph.MidlineBilateral) and midline_ext is None:
+            # if midline_ext is None, provide the MidlineBilateral model with two
+            # patients: One with and one without midline extension. Then, marginalize
+            # over the two cases using the empirical probability of a midline extension
+            # (see below)
+            pattern_ext = pattern_df.copy()
+            pattern_ext["info", "tumor", "midline_extension"] = True
+            pattern_noext = pattern_df.copy()
+            pattern_noext["info", "tumor", "midline_extension"] = False
+            pattern_df = pd.concat([pattern_ext, pattern_noext], ignore_index=True)
+        else:
+            pattern_df["info", "tumor", "midline_extension"] = midline_ext
+
+    else:
+        raise TypeError(f"{type(model)} is not a supported model")
 
     model.patient_data = pattern_df
 
@@ -239,6 +254,7 @@ def predicted_prevalence(
         if isinstance(model, lymph.MidlineBilateral):
             model.check_and_assign(sample)
             if midline_ext is None:
+                # marginalize over patients with and without midline extension
                 prevalences[i] = (
                     midline_ext_prob * model.ext.likelihood(log=False) +
                     (1. - midline_ext_prob) * model.noext.likelihood(log=False)
