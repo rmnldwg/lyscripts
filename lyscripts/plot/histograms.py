@@ -87,7 +87,7 @@ def get_label(attrs) -> str:
         "midline_ext": lambda x: "ext" if x else "noext"
     }
     for key,func in transforms.items():
-        if key in attrs:
+        if key in attrs and attrs[key] is not None:
             label.append(func(attrs[key]))
     return " | ".join(label)
 
