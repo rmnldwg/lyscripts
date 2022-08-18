@@ -11,15 +11,7 @@ import scipy as sp
 from cycler import cycler
 
 from ..helpers import clean_docstring, report
-
-# define colors
-USZ_BLUE = '#005ea8'
-USZ_GREEN = '#00afa5'
-USZ_RED = '#ae0060'
-USZ_ORANGE = '#f17900'
-USZ_GRAY = '#c5d5db'
-USZ_COLOR_LIST = [USZ_BLUE, USZ_ORANGE, USZ_GREEN, USZ_RED, USZ_GRAY]
-HATCH_LIST = ["////", r"\\\\", "||||", "----", "oooo"]
+from . import COLORS
 
 
 def _add_parser(
@@ -144,11 +136,11 @@ def main(args: argparse.Namespace):
         fig.suptitle(args.title)
         hist_cycl = (
             cycler(histtype=["stepfilled", "step"])
-            * cycler(color=USZ_COLOR_LIST)
+            * cycler(color=list(COLORS.values()))
         )
         line_cycl = (
             cycler(linestyle=["-", "--"])
-            * cycler(color=USZ_COLOR_LIST)
+            * cycler(color=list(COLORS.values()))
         )
         report.success("Set up figure")
         hist_kwargs = {
@@ -170,7 +162,7 @@ def main(args: argparse.Namespace):
             )
             if not np.isnan(a):
                 post = sp.stats.beta.pdf(x / 100., a+1, n-a+1) / 100.
-                ax.plot(x, post, label=f"{a:d}/{n:d}", **lstyle)
+                ax.plot(x, post, label=f"{int(a)}/{int(n)}", **lstyle)
             ax.legend()
             ax.set_xlabel("probability [%]")
         report.success(f"Plotted {len(values)} histograms")

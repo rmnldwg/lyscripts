@@ -8,6 +8,15 @@ from pathlib import Path
 from ..helpers import clean_docstring
 from . import __doc__, corner, histograms
 
+# define USZ colors
+COLORS = {
+    "blue": '#005ea8',
+    "orange": '#f17900',
+    "green": '#00afa5',
+    "red": '#ae0060',
+    "gray": '#c5d5db',
+}
+
 
 def _add_parser(
     subparsers: argparse._SubParsersAction,
