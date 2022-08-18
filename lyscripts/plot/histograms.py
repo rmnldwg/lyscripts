@@ -48,8 +48,8 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="File path of the computed risks or prevalences (HDF5)"
     )
     parser.add_argument(
-        "plots", type=Path,
-        help="Output directory for the plot"
+        "output", type=Path,
+        help="Output path for the plot"
     )
 
     parser.add_argument(
@@ -176,10 +176,10 @@ def main(args: argparse.Namespace):
         report.success(f"Plotted {len(values)} histograms")
 
     with report.status("Save plots..."):
-        args.plots.mkdir(exist_ok=True)
-        plt.savefig(args.plots / f"{args.title}.png", dpi=200)
-        plt.savefig(args.plots / f"{args.title}.svg")
-        report.success(f"Stored plots at {args.plots}")
+        args.output.parent.mkdir(exist_ok=True)
+        plt.savefig(args.plots.with_suffix(".png"), dpi=300)
+        plt.savefig(args.plots.with_suffix(".svg"))
+        report.success(f"Stored plots at {args.output}")
 
 
 if __name__ == "__main__":

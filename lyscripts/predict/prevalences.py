@@ -87,6 +87,18 @@ def get_match_idx(
 
     return match_idx
 
+def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
+    """Get the prevalence of midline extension from `data` for `t_stage`."""
+    if data.columns.nlevels == 2:
+        raise ValueError(
+            "Unilateral data contains no information about midline extension"
+        )
+    is_t_stage = data["info", "tumor", "t_stage"] == t_stage
+    eligible_data = data[is_t_stage]
+    has_midline_ext = eligible_data["info", "tumor", "midline_extension"] == True
+    matching_data = eligible_data[has_midline_ext]
+    return len(matching_data) / len(eligible_data)
+
 def observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
     data: pd.DataFrame,
@@ -165,7 +177,8 @@ def predicted_prevalence(
     model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
     samples: np.ndarray,
     t_stage: str,
-    midline_ext: bool = False,
+    midline_ext: Optional[bool] = None,
+    midline_ext_prob: float = 0.3,
     modality_spsn: Optional[List[float]] = None,
     invert: bool = False,
     description: Optional[str] = None,
@@ -225,7 +238,12 @@ def predicted_prevalence(
     for i,sample in enumerate_samples:
         if isinstance(model, lymph.MidlineBilateral):
             model.check_and_assign(sample)
-            if midline_ext:
+            if midline_ext is None:
+                prevalences[i] = (
+                    midline_ext_prob * model.ext.likelihood(log=False) +
+                    (1. - midline_ext_prob) * model.noext.likelihood(log=False)
+                )
+            elif midline_ext:
                 prevalences[i] = model.ext.likelihood(log=False)
             else:
                 prevalences[i] = model.noext.likelihood(log=False)
@@ -276,6 +294,7 @@ def main(args: argparse.Namespace):
                 model=MODEL,
                 samples=SAMPLES,
                 description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
+                midline_ext_prob=get_midline_ext_prob(DATA, scenario["t_stage"]),
                 **scenario
             )
             prevalences_dset = prevalences_storage.create_dataset(

@@ -38,7 +38,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Path to model output files (HDF5)."
     )
     parser.add_argument(
-        "plots", type=Path,
+        "output", type=Path,
         help="Path to output corner plot (SVG)."
     )
     parser.add_argument(
@@ -63,8 +63,6 @@ def main(args: argparse.Namespace):
         report.success(f"Opened model as emcee backend from {args.model}")
 
     with report.status("Plot corner plot..."):
-        args.plots.mkdir(parents=True, exist_ok=True)
-
         graph = graph_from_config(params["graph"])
         model_cls = getattr(lymph, params["model"]["class"])
         model = model_cls(graph=graph, **params["model"]["kwargs"])
@@ -118,9 +116,11 @@ def main(args: argparse.Namespace):
             labels=labels,
             show_titles=True,
         )
-        fig.savefig(args.plots / "corner.svg")
-        fig.savefig(args.plots / "corner.png", dpi=300)
-        report.success(f"Saved corner plot to {args.plots}")
+        # make sure directory exists
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(args.output.with_suffix(".svg"))
+        fig.savefig(args.output.with_suffix(".png"), dpi=300)
+        report.success(f"Saved corner plot to {args.output}")
 
 
 if __name__ == "__main__":
