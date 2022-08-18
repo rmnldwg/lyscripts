@@ -11,7 +11,15 @@ import scipy as sp
 from cycler import cycler
 
 from ..helpers import clean_docstring, report
-from . import COLORS
+
+# define USZ colors
+COLORS = {
+    "blue": '#005ea8',
+    "orange": '#f17900',
+    "green": '#00afa5',
+    "red": '#ae0060',
+    "gray": '#c5d5db',
+}
 
 
 def _add_parser(
