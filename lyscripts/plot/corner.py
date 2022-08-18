@@ -9,38 +9,61 @@ import emcee
 import lymph
 import yaml
 
-from ..helpers import graph_from_config, report
+from ..helpers import clean_docstring, graph_from_config, report
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+
+def _add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    _add_arguments(parser)
+
+
+def _add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
     parser.add_argument(
-        "-m", "--model", required=True,
+        "model", type=Path,
         help="Path to model output files (HDF5)."
     )
     parser.add_argument(
-        "-p", "--params", default="params.yaml",
-        help="Path to parameter file (YAML)."
-    )
-    parser.add_argument(
-        "--plots", default="plots/corner",
+        "plots", type=Path,
         help="Path to output corner plot (SVG)."
     )
+    parser.add_argument(
+        "-p", "--params", default="./params.yaml", type=Path,
+        help="Path to parameter file"
+    )
 
-    args = parser.parse_args()
+    parser.set_defaults(run_main=main)
 
+
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
     with report.status("Read in parameters..."):
         with open(args.params, mode='r') as params_file:
             params = yaml.safe_load(params_file)
         report.success(f"Read in params from {args.params}")
 
     with report.status("Open model as emcee backend..."):
-        model_path = Path(args.model)
-        backend = emcee.backends.HDFBackend(model_path, read_only=True)
-        report.success(f"Opened model as emcee backend from {model_path}")
+        backend = emcee.backends.HDFBackend(args.model, read_only=True)
+        report.success(f"Opened model as emcee backend from {args.model}")
 
     with report.status("Plot corner plot..."):
-        plot_path = Path(args.plots)
-        plot_path.mkdir(parents=True, exist_ok=True)
+        args.plots.mkdir(parents=True, exist_ok=True)
 
         graph = graph_from_config(params["graph"])
         model_cls = getattr(lymph, params["model"]["class"])
@@ -95,6 +118,14 @@ if __name__ == "__main__":
             labels=labels,
             show_titles=True,
         )
-        fig.savefig(plot_path / "corner.svg")
-        fig.savefig(plot_path / "corner.png", dpi=300)
-        report.success(f"Saved corner plot to {plot_path}")
+        fig.savefig(args.plots / "corner.svg")
+        fig.savefig(args.plots / "corner.png", dpi=300)
+        report.success(f"Saved corner plot to {args.plots}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    _add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)

@@ -10,16 +10,58 @@ import numpy as np
 import scipy as sp
 from cycler import cycler
 
-from ..helpers import report
+from ..helpers import clean_docstring, report
+from . import COLORS
 
-# define colors
-USZ_BLUE = '#005ea8'
-USZ_GREEN = '#00afa5'
-USZ_RED = '#ae0060'
-USZ_ORANGE = '#f17900'
-USZ_GRAY = '#c5d5db'
-USZ_COLOR_LIST = [USZ_BLUE, USZ_ORANGE, USZ_GREEN, USZ_RED, USZ_GRAY]
-HATCH_LIST = ["////", r"\\\\", "||||", "----", "oooo"]
+
+def _add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    _add_arguments(parser)
+
+
+def _add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
+    parser.add_argument(
+        "input", type=Path,
+        help="File path of the computed risks or prevalences (HDF5)"
+    )
+    parser.add_argument(
+        "plots", type=Path,
+        help="Output directory for the plot"
+    )
+
+    parser.add_argument(
+        "--names", nargs="+",
+        help="List of names of computed risks/prevalences to combine into one plot"
+    )
+    parser.add_argument(
+        "--title",
+        help="Title of the plot"
+    )
+    parser.add_argument(
+        "--bins", default=50, type=int,
+        help="Number of bins to put the computed values into"
+    )
+    parser.add_argument(
+        "--mplstyle", default="./.mplstyle", type=Path,
+        help="Path to the MPL stylesheet"
+    )
+
+    parser.set_defaults(run_main=main)
 
 
 def get_size(width="single", unit="cm", ratio="golden"):
@@ -45,43 +87,17 @@ def get_label(attrs) -> str:
         "midline_ext": lambda x: "ext" if x else "noext"
     }
     for key,func in transforms.items():
-        if key in attrs:
+        if key in attrs and attrs[key] is not None:
             label.append(func(attrs[key]))
     return " | ".join(label)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--input", default="models/risks.hdf5",
-        help="File path of the computed risks or prevalences (HDF5)"
-    )
-    parser.add_argument(
-        "--mplstyle", default=".mplstyle",
-        help="Path to the MPL stylesheet"
-    )
-    parser.add_argument(
-        "--names", nargs="+",
-        help="List of names of computed risks/prevalences to combine into one plot"
-    )
-    parser.add_argument(
-        "--bins", default=50, type=int,
-        help="Number of bins to put the computed values into"
-    )
-    parser.add_argument(
-        "--title",
-        help="Title of the plot"
-    )
-    parser.add_argument(
-        "--plots",
-        help="Output directory for the plot"
-    )
-
-    args = parser.parse_args()
-
+def main(args: argparse.Namespace):
+    """
+    Run main program with `args` parsed by argparse.
+    """
     with report.status("Read in computed values..."):
-        input_path = Path(args.input)
-        with h5py.File(name=input_path, mode="r") as h5_file:
+        with h5py.File(name=args.input, mode="r") as h5_file:
             values = []
             labels = []
             num_matches = []
@@ -109,23 +125,22 @@ if __name__ == "__main__":
             min_value = np.min(lines, where=~np.isnan(lines), initial=min_value)
             max_value = np.max(lines, where=~np.isnan(lines), initial=max_value)
 
-        report.success(f"Read in computed values from {input_path}")
+        report.success(f"Read in computed values from {args.input}")
 
     with report.status("Apply MPL stylesheet..."):
-        stylesheet_path = Path(args.mplstyle)
-        plt.style.use(stylesheet_path)
-        report.success(f"Applied MPL stylesheet from {stylesheet_path}")
+        plt.style.use(args.mplstyle)
+        report.success(f"Applied MPL stylesheet from {args.mplstyle}")
 
     with report.status("Set up figure..."):
         fig, ax = plt.subplots(figsize=get_size())
         fig.suptitle(args.title)
         hist_cycl = (
             cycler(histtype=["stepfilled", "step"])
-            * cycler(color=USZ_COLOR_LIST)
+            * cycler(color=list(COLORS.values()))
         )
         line_cycl = (
             cycler(linestyle=["-", "--"])
-            * cycler(color=USZ_COLOR_LIST)
+            * cycler(color=list(COLORS.values()))
         )
         report.success("Set up figure")
         hist_kwargs = {
@@ -147,14 +162,21 @@ if __name__ == "__main__":
             )
             if not np.isnan(a):
                 post = sp.stats.beta.pdf(x / 100., a+1, n-a+1) / 100.
-                ax.plot(x, post, label=f"{a}/{n}", **lstyle)
+                ax.plot(x, post, label=f"{int(a)}/{int(n)}", **lstyle)
             ax.legend()
             ax.set_xlabel("probability [%]")
         report.success(f"Plotted {len(values)} histograms")
 
     with report.status("Save plots..."):
-        plots_path = Path(args.plots)
-        plots_path.mkdir(exist_ok=True)
-        plt.savefig(plots_path / f"{args.title}.png", dpi=200)
-        plt.savefig(plots_path / f"{args.title}.svg")
-        report.success(f"Stored plots at {plots_path}")
+        args.plots.mkdir(exist_ok=True)
+        plt.savefig(args.plots / f"{args.title}.png", dpi=200)
+        plt.savefig(args.plots / f"{args.title}.svg")
+        report.success(f"Stored plots at {args.plots}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    _add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)
