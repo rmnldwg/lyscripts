@@ -1,0 +1,175 @@
+"""
+Plot how the accuracy develops over the course of a thermodynamic integration run.
+"""
+import argparse
+from pathlib import Path
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from cycler import cycler
+
+from ..helpers import clean_docstring, report
+
+# define USZ colors
+COLORS = {
+    "blue": '#005ea8',
+    "orange": '#f17900',
+    "green": '#00afa5',
+    "red": '#ae0060',
+    "gray": '#c5d5db',
+}
+LINE_CYCLER = cycler(linestyle=["-", "--"]) * cycler(color=list(COLORS.values()))
+
+def _add_parser(
+    subparsers: argparse._SubParsersAction,
+    help_formatter,
+):
+    """
+    Add an `ArgumentParser` to the subparsers action.
+    """
+    parser = subparsers.add_parser(
+        Path(__file__).name.replace(".py", ""),
+        description=clean_docstring(__doc__),
+        help=clean_docstring(__doc__),
+        formatter_class=help_formatter,
+    )
+    _add_arguments(parser)
+
+
+def _add_arguments(parser: argparse.ArgumentParser):
+    """
+    Add arguments needed to run this script to a `subparsers` instance
+    and run the respective main function when chosen.
+    """
+    parser.add_argument(
+        "inputs", type=Path, nargs="+",
+        help="Paths to the CSV files containing the stored TI runs"
+    )
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "-o", "--output", type=Path,
+        help="Path to where the plot should be stored (PNG and SVG)"
+    )
+    group.add_argument(
+        "--show", action="store_true",
+        help="Show the plot instead of saving it"
+    )
+
+    parser.add_argument(
+        "--title", default=None,
+        help="Title of the plot"
+    )
+    parser.add_argument(
+        "--labels", type=str, nargs="+", default=[],
+        help="Labels for the individual data series"
+    )
+    parser.add_argument(
+        "--power", default=5., type=float,
+        help="Scale the x-axis with this power"
+    )
+    parser.add_argument(
+        "--mplstyle", default="./.mplstyle", type=Path,
+        help="Path to the MPL stylesheet"
+    )
+
+    parser.set_defaults(run_main=main)
+
+
+def get_size(width="single", unit="cm", ratio="golden"):
+    """Get optimal figure size for a range of scenarios."""
+    if width == "single":
+        width = 10
+    elif width == "full":
+        width = 16
+
+    ratio = 1.618 if ratio == "golden" else ratio
+    width = width / 2.54 if unit == "cm" else width
+    height = width / ratio
+    return (width, height)
+
+
+def main(args: argparse.Namespace):
+    """
+    Load the CSV files where the sampling processes stored the accuracies during
+    the thermodynamic integration processes and plot them against the inverse
+    temparature to get a visual idea of how the evidence developed.
+    """
+    with report.status("Apply MPL stylesheet..."):
+        plt.style.use(args.mplstyle)
+        report.success(f"Applied MPL stylesheet from {args.mplstyle}")
+
+    with report.status("Load CSV file(s)..."):
+        accuracy_series = []
+        min_acc = np.inf
+        max_acc = -np.inf
+        for input in args.inputs:
+            tmp = pd.read_csv(input)
+            min_acc = np.min([min_acc, *tmp["accuracy"]])
+            max_acc = np.max([max_acc, *tmp["accuracy"]])
+            accuracy_series.append(tmp)
+            report.print(f"+ read in {input}")
+        report.success("Loaded CSV file(s)")
+
+    with report.status("Prepare figure..."):
+        fig, ax = plt.subplots(figsize=get_size())
+        if args.title is not None:
+            fig.suptitle(args.title)
+
+        ax.set_xlabel("inverse temperature $\\beta$")
+        xticks = np.linspace(0., 1., 7)
+        xticklabels = [f"{x**args.power:.2g}" for x in xticks]
+        ax.set_xticks(ticks=xticks, labels=xticklabels)
+        ax.set_xlim(left=0., right=1.)
+
+        ax.set_ylabel("accuracy $\\mathcal{A}(\\beta)$")
+        ax.set_yscale("symlog")
+        ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(800))
+        ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+        ax.ticklabel_format(axis="y", style="sci", scilimits=(2,2))
+        report.success("Prepared figure")
+
+    with report.status("Plot series..."):
+        for i,series in enumerate(accuracy_series):
+            last_acc = series['accuracy'].values[-1]
+            try:
+                label = args.labels[i] + " $\\mathcal{A}(1)$ = " + f"{last_acc:g}"
+            except IndexError:
+                label = None,
+            if "stddev" in series:
+                ax.errorbar(
+                    series["β"]**(1./args.power),
+                    series["accuracy"],
+                    yerr=series["stddev"],
+                    label=label,
+                )
+            else:
+                ax.plot(
+                    series["β"]**(1./args.power),
+                    series["accuracy"],
+                    label=label,
+                )
+        if len(args.labels) > 0:
+            ax.legend()
+        report.success("Plotted series")
+
+    if args.show:
+        with report.status("Display the plot..."):
+            plt.show()
+            report.success("Showed the plot")
+    else:
+        with report.status("Store plot..."):
+            args.output.parent.mkdir(exist_ok=True)
+            plt.savefig(args.output.with_suffix(".png"))
+            plt.savefig(args.output.with_suffix(".svg"))
+            report.success(f"Stored plots at {args.output}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    _add_arguments(parser)
+
+    args = parser.parse_args()
+    args.run_main(args)

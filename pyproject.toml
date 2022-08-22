@@ -51,7 +51,7 @@ doc = [
 write_to = "lyscripts/_version.py"
 local_scheme = "no-local-version"
 
-[tools.setuptools.dynamic]
+[tool.setuptools.dynamic]
 version = {attr = "lyscripts._version.version"}
 
 [tool.isort]

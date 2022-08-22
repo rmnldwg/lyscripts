@@ -3,7 +3,7 @@ import argparse
 from .. import _exit
 from ..helpers import clean_docstring
 from ..rich_argparse import RichHelpFormatter
-from . import __doc__, corner, histograms
+from . import __doc__, corner, histograms, thermo_int
 
 parser = argparse.ArgumentParser(
     prog="lyscripts",
@@ -17,6 +17,8 @@ subparsers = parser.add_subparsers()
 # this `subparsers` object
 corner._add_parser(subparsers, help_formatter=parser.formatter_class)
 histograms._add_parser(subparsers, help_formatter=parser.formatter_class)
+thermo_int._add_parser(subparsers, help_formatter=parser.formatter_class)
+
 
 args = parser.parse_args()
 args.run_main(args)
