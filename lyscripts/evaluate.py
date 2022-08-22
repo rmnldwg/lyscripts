@@ -107,7 +107,18 @@ def compute_evidence(
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    To evaluate the performance of a sampling round, this program follows these steps:
+
+    1. Read in the paramter file `params.yaml` and the data that was used for inference
+    2. Recreate an instance of the model that was used during the training stage
+    3. If thermodynamic integration (TI) was performed, compute the accuracy for every
+    TI step and integrate over it to obtain the evidence. This is computed for a number
+    of samples of the computed accuracies to also obtain an error on the evidence.
+    4. Use the recreated model and data to compute quantities like the mean and maximum
+    likelihood, as well as the Bayesian information criterion (BIC).
+
+    Everything computed is then stored in a `metrics.json` file and for TI, a CSV is
+    created that shows how the accuracy developed during the runs.
     """
     metrics = {}
 
@@ -115,14 +126,6 @@ def main(args: argparse.Namespace):
         with open(args.params, mode='r') as params_file:
             params = yaml.safe_load(params_file)
         report.success(f"Read in params from {args.params}")
-
-    with report.status("Open samples from emcee backend..."):
-        backend = emcee.backends.HDFBackend(args.model, read_only=True, name="mcmc")
-        chain = backend.get_chain(flat=True)
-
-        # use blobs, because also for TI, this is the unscaled log-prob
-        log_probs = backend.get_blobs()
-        report.success(f"Opened samples from emcee backend from {args.model}")
 
     with report.status("Read in patient data..."):
         # Only read in two header rows when using the Unilateral model
@@ -144,7 +147,6 @@ def main(args: argparse.Namespace):
             f"{len(DATA)} patients"
         )
 
-
     h5_file = h5py.File(args.model, mode="r")
     # check if TI has been performed
     if "ti" in h5_file:
@@ -158,16 +160,16 @@ def main(args: argparse.Namespace):
                 )
             nwalker = ndim * params["sampling"]["walkers_per_dim"]
             nsteps = params["sampling"]["nsteps"]
-            log_probs = np.zeros(shape=(num_temps, nsteps * nwalker))
+            ti_log_probs = np.zeros(shape=(num_temps, nsteps * nwalker))
             for i,round in enumerate(h5_file["ti"]):
                 reader = emcee.backends.HDFBackend(
                     args.model,
                     name=f"ti/{round}",
                     read_only=True,
                 )
-                log_probs[i] = reader.get_blobs(flat=True)
+                ti_log_probs[i] = reader.get_blobs(flat=True)
 
-            evidence, evidence_std = compute_evidence(temp_schedule, log_probs)
+            evidence, evidence_std = compute_evidence(temp_schedule, ti_log_probs)
             metrics["evidence"] = evidence
             metrics["evidence_std"] = evidence_std
             report.success(
@@ -180,13 +182,19 @@ def main(args: argparse.Namespace):
             tmp_df = pd.DataFrame(
                 np.array([
                     temp_schedule,
-                    np.mean(log_probs, axis=1),
-                    np.std(log_probs, axis=1)
+                    np.mean(ti_log_probs, axis=1),
+                    np.std(ti_log_probs, axis=1)
                 ]).T,
                 columns=["β", "accuracy", "std"],
             )
             tmp_df.to_csv(args.plots, index=False)
             report.success(f"Plotted β vs accuracy at {args.plots}")
+
+    with report.status("Open samples from emcee backend..."):
+        backend = emcee.backends.HDFBackend(args.model, read_only=True, name="mcmc")
+        # use blobs, because also for TI, this is the unscaled log-prob
+        final_log_probs = backend.get_blobs()
+        report.success(f"Opened samples from emcee backend from {args.model}")
 
     with report.status("Write out metrics..."):
         # store metrics in JSON file
@@ -195,12 +203,12 @@ def main(args: argparse.Namespace):
 
         # further populate metrics dictionary
         metrics["BIC"] = comp_bic(
-            log_probs,
+            final_log_probs,
             len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric,
             len(DATA),
         )
-        metrics["max_llh"] = np.max(log_probs)
-        metrics["mean_llh"] = np.mean(log_probs)
+        metrics["max_llh"] = np.max(final_log_probs)
+        metrics["mean_llh"] = np.mean(final_log_probs)
 
         # write out metrics again
         with open(args.metrics, mode="w") as metrics_file:
