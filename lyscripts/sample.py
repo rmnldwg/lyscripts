@@ -81,6 +81,7 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         self,
         min_steps: int = 0,
         max_steps: int = 10000,
+        thin_by: int = 1,
         initial_state: Optional[Union[emcee.State, np.ndarray]] = None,
         check_interval: int = 100,
         trust_threshold: float = 50.,
@@ -88,7 +89,8 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         progress_desc: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Any]:
-        """Run a round of sampling with at least `min_steps` and at most `max_steps`.
+        """Run a round of sampling with at least `min_steps`, at most `max_steps` and
+        only keep every `thin_by` step.
 
         Every `check_interval` iterations, convergence is checked based on
         three criteria:
@@ -125,6 +127,7 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         samples_iterator = self.sample(
             initial_state=initial_state,
             iterations=max_steps,
+            thin_by=thin_by,
             **kwargs
         )
         # wrap the iteration over samples in a rich tracker,
@@ -197,6 +200,7 @@ def run_mcmc_with_burnin(
     sampling_kwargs: Optional[dict] = None,
     burnin: Optional[int] = None,
     keep_burnin: bool = False,
+    thin_by: int = 1,
     verbose: bool = True,
 ) -> Dict[str, Any]:
     """
@@ -211,6 +215,8 @@ def run_mcmc_with_burnin(
     When `burnin` is not given, the burnin phase will still take place and it will
     sample until convergence using convergence criteria defined via `sampling_kwargs`,
     after which it will draw another `nsteps` samples.
+
+    Only every `thin_by` step will be made persistent.
 
     If `verbose` is set to `True`, the progress will be displayed.
 
@@ -251,6 +257,7 @@ def run_mcmc_with_burnin(
         sampler.run_sampling(
             min_steps=nsteps,
             max_steps=nsteps,
+            thin_by=thin_by,
             initial_state=burnin_result["final_state"],
             progress_desc="Sampling" if verbose else None,
         )
@@ -310,6 +317,7 @@ def main(args: argparse.Namespace):
             temp_schedule = params["sampling"]["temp_schedule"]
             nsteps = params["sampling"]["nsteps"]
             burnin = params["sampling"]["burnin"]
+            thin_by = params["sampling"]["thin_by"]
             report.success("Prepared thermodynamic integration.")
 
         # record some information about each burnin phase
@@ -330,6 +338,7 @@ def main(args: argparse.Namespace):
                 persistent_backend=hdf5_backend,
                 burnin=burnin,
                 keep_burnin=False,
+                thin_by=thin_by,
                 verbose=True
             )
             plots["acor_times"].append(burnin_info["acor_times"][-1])
