@@ -20,7 +20,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install .[docs]
       - name: Build docs
-        run: pdoc -o ./docs ./lyscripts
+        run: pdoc -o ./docs --math lyscripts
       - name: Deploy docs to GitHub pages
         uses: peaceiris/actions-gh-pages@v3
         with:
