@@ -38,6 +38,13 @@
             <input type="search" placeholder="Search..." role="searchbox" aria-label="search"
                    pattern=".+" required>
 
+        <h2>Contents</h2>
+        <ul>
+  <li><a href="#what-are-these-lyscripts">What are these <code>lyscripts</code>?</a></li>
+  <li><a href="#installation">Installation</a></li>
+  <li><a href="#usage">Usage</a></li>
+</ul>
+
 
         <h2>Submodules</h2>
         <ul>
@@ -72,7 +79,107 @@
                     <h1 class="modulename">
 lyscripts    </h1>
 
-                        <div class="docstring"><p></p>
+                        <div class="docstring"><p><a href="https://github.com/rmnldwg/lyscripts/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat" alt="MIT license" /></a>
+<a href="https://github.com/rmnldwg/lyscripts"><img src="https://img.shields.io/badge/rmnldwg%2Flymph-grey.svg?style=flat&amp;logo=github" alt="GitHub repo" /></a>
+<a href="https://pypi.org/project/lyscripts/"><img src="https://github.com/rmnldwg/lyscripts/actions/workflows/build.yml/badge.svg?style=flat" alt="build badge" /></a>
+<a href="https://rmnldwg.github.io/lyscripts/"><img src="https://github.com/rmnldwg/lyscripts/actions/workflows/docs.yml/badge.svg?style=flat" alt="docs badge" /></a></p>
+
+<h2 id="what-are-these-lyscripts">What are these <code><a href="">lyscripts</a></code>?</h2>
+
+<p>This package provides convenient scripts for performing inference and learning regarding the lymphatic spread of head &amp; neck cancer. Essentially, it provides a <em>command line interface</em> (CLI) to the <a href="https://github.com/rmnldwg/lymph"><code>lymph</code></a> library.</p>
+
+<p>We are making these "convenience" scripts public, because doing so is one necessary requirement to making our research easily and fully reproducible. There exists another repository, <a href="https://github.com/rmnldwg/lynference"><code>lynference</code></a>, where we store the pipelines that produce(d) our published results in a persistent way. Head over there to learn more about how to reproduce our work.</p>
+
+<h2 id="installation">Installation</h2>
+
+<p>These scripts can be installed via <code>pip</code>:</p>
+
+<div class="pdoc-code codehilite"><pre><span></span><code>pip install lyscripts
+</code></pre></div>
+
+<p>or installed from source by cloning this repo</p>
+
+<div class="pdoc-code codehilite"><pre><span></span><code>git clone https://github.com/rmnldwg/lyscripts.git
+<span class="nb">cd</span> lyscripts
+pip install .
+</code></pre></div>
+
+<h2 id="usage">Usage</h2>
+
+<p>After installing the package, run <code>python -m lyscripts --help</code> to see the following output:</p>
+
+<pre><code>usage: lyscripts [-h] [-v]
+                 {generate,join,clean,split,sample,evaluate,predict,plot,
+                  temp_schedule}
+                 ...
+
+Utility for performing common tasks w.r.t. the inference and prediction tasks one can
+use the `lymph` package for.
+
+
+POSITIONAL ARGUMENTS
+  {generate,join,clean,split,sample,
+   evaluate,predict,plot,temp_schedule}
+    generate                            Generate synthetic patient data for testing
+                                        purposes.
+
+    join                                Join datasets from different sources (but of
+                                        the same format) into one.
+
+    clean                               Transform the enhanced lyDATA CSV files into a
+                                        format that can be used by the lymph model
+                                        using this package's utilities.
+
+    split                               Split the full dataset into cross-validation
+                                        folds according to the content of the
+                                        params.yaml file.
+
+    sample                              Learn the spread probabilities of the HMM for
+                                        lymphatic tumor progression using the
+                                        preprocessed data as input and MCMC as
+                                        sampling method.
+
+    evaluate                            Evaluate the performance of the trained model
+                                        by computing quantities like the Bayesian
+                                        information criterion (BIC) or (if
+                                        thermodynamic integration was performed) the
+                                        actual evidence (with error) of the model.
+
+    predict                             This module provides functions and scripts to
+                                        predict the risk of hidden involvement, given
+                                        observed diagnoses, and prevalences of
+                                        patterns for diagnostic modalities.
+
+    plot                                Provide various plotting utilities for
+                                        displaying results of e.g. the inference or
+                                        prediction process.
+
+    temp_schedule                       Generate inverse temperature schedules for
+                                        thermodynamic integration using various
+                                        different methods.
+
+                                        Thermodynamic integration is quite sensitive
+                                        to the specific schedule which is used. I
+                                        noticed in my models, that within the interval
+                                        $[0, 0.1]$, the increase in the expected
+                                        log-likelihood is very steep. Hence, the
+                                        inverse temparature $\beta$ must be more
+                                        densely spaced in the beginning.
+
+                                        This can be achieved by using a power
+                                        sequence: Generate $n$ linearly spaced points
+                                        in the interval $[0, 1]$ and then transform
+                                        each point by computing $\beta_i^k$ where $k$
+                                        could e.g. be 5.
+
+
+OPTIONAL ARGUMENTS
+  -h, --help                            show this help message and exit
+  -v, --version                         Display the version of lyscripts (default:
+                                        False)
+</code></pre>
+
+<p>Each of the individual subcommands provides a help page like this respectively that detail the positional and optional arguments along with their function.</p>
 </div>
 
                         <input id="lyscripts-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
