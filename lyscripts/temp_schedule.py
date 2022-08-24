@@ -97,7 +97,36 @@ SCHEDULES = {
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    Simply calls the specified function and computes a schedule in two lines of code.
+
+    The help page - by calling `python -m lyscripts temp_schedule` - shows:
+
+    ```
+    usage: lyscripts temp_schedule [-h] [--method {geometric,linear,power}]
+                                [--num NUM] [--pow POW]
+
+    Generate inverse temperature schedules for thermodynamic integration using various
+    different methods.
+
+    Thermodynamic integration is quite sensitive to the specific schedule which is used.
+    I noticed in my models, that within the interval $[0, 0.1]$, the increase in the
+    expected log-likelihood is very steep. Hence, the inverse temparature $\beta$ must
+    be more densely spaced in the beginning.
+
+    This can be achieved by using a power sequence: Generate $n$ linearly spaced points
+    in the interval $[0, 1]$ and then transform each point by computing $\beta_i^k$
+    where $k$ could e.g. be 5.
+
+
+    OPTIONAL ARGUMENTS
+    -h, --help                         show this help message and exit
+    --method {geometric,linear,power}  Choose the method to distribute the inverse
+                                        temperature. (default: geometric)
+    --num NUM                          Number of inverse temperatures in the schedule
+                                        (default: 32)
+    --pow POW                          If a power schedule is chosen, use this as
+                                        power (default: 4)
+    ```
     """
     with report.status(f"Create {args.method} sequence of length {args.num}..."):
         func = SCHEDULES[args.method]

@@ -102,7 +102,30 @@ def get_label(attrs) -> str:
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    The CLI's signature (can be asked for via `python -m lyscripts plot histograms
+    --help`) defines the function and its arguments in the following way:
+
+    ```
+    usage: lyscripts plot histograms [-h] [--names NAMES [NAMES ...]] [--title TITLE]
+                                    [--bins BINS] [--mplstyle MPLSTYLE]
+                                    input output
+
+    Plot computed risks and prevalences into a beautiful histogram.
+
+
+    POSITIONAL ARGUMENTS
+    input                      File path of the computed risks or prevalences (HDF5)
+    output                     Output path for the plot
+
+    OPTIONAL ARGUMENTS
+    -h, --help                 show this help message and exit
+    --names NAMES [NAMES ...]  List of names of computed risks/prevalences to combine
+                                into one plot (default: None)
+    --title TITLE              Title of the plot (default: None)
+    --bins BINS                Number of bins to put the computed values into
+                                (default: 50)
+    --mplstyle MPLSTYLE        Path to the MPL stylesheet (default: ./.mplstyle)
+    ```
     """
     with report.status("Read in computed values..."):
         with h5py.File(name=args.input, mode="r") as h5_file:

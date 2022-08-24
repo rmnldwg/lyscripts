@@ -55,7 +55,23 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    The output from `python -m lyscripts split --help` looks like this:
+
+    ```
+    usage: lyscripts split [-h] [-p PARAMS] input output
+
+    Split the full dataset into cross-validation folds according to the content of the
+    params.yaml file.
+
+
+    POSITIONAL ARGUMENTS
+    input                The path to the full dataset to split.
+    output               Folder to store the split CSV files in.
+
+    OPTIONAL ARGUMENTS
+    -h, --help           show this help message and exit
+    -p, --params PARAMS  Path to parameter YAML file. (default: ./params.yaml)
+    ```
     """
     with report.status("Read in parameters..."):
         with open(args.params, mode='r') as params_file:

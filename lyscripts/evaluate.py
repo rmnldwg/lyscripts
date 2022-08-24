@@ -72,7 +72,7 @@ def comp_bic(
     """
     Compute the negative one half of the Bayesian Information Criterion (BIC).
 
-    The BIC is defined as
+    The BIC is defined as [^1]
     $$ BIC = k \\ln{n} - 2 \\ln{\\hat{L}} $$
     where $k$ is the number of parameters `num_params`, $n$ the number of datapoints
     `num_data` and $\\hat{L}$ the maximum likelihood estimate of the `log_prob`.
@@ -80,6 +80,8 @@ def comp_bic(
     approximation of the model evidence:
     $$ p(D \\mid m) \\approx \\exp{\\left( - BIC / 2 \\right)} $$
     which is why this function returns the negative one half of it.
+
+    [^1]: https://en.wikipedia.org/wiki/Bayesian_information_criterion
     """
     return np.max(log_probs) - num_params * np.log(num_data) / 2.
 
@@ -111,14 +113,39 @@ def main(args: argparse.Namespace):
 
     1. Read in the paramter file `params.yaml` and the data that was used for inference
     2. Recreate an instance of the model that was used during the training stage
-    3. If thermodynamic integration (TI) was performed, compute the accuracy for every
-    TI step and integrate over it to obtain the evidence. This is computed for a number
-    of samples of the computed accuracies to also obtain an error on the evidence.
+    3. If thermodynamic integration (TI) [^2] was performed, compute the accuracy for
+    every TI step and integrate over it to obtain the evidence. This is computed for
+    a number of samples of the computed accuracies to also obtain an error on the
+    evidence.
     4. Use the recreated model and data to compute quantities like the mean and maximum
     likelihood, as well as the Bayesian information criterion (BIC).
 
     Everything computed is then stored in a `metrics.json` file and for TI, a CSV is
     created that shows how the accuracy developed during the runs.
+
+    The output of running `python -m lyscripts evaluate --help` shows this:
+
+    ```
+    usage: lyscripts evaluate [-h] [-p PARAMS] [--plots PLOTS] [--metrics METRICS]
+                            data model
+
+    Evaluate the performance of the trained model by computing quantities like the
+    Bayesian information criterion (BIC) or (if thermodynamic integration was performed)
+    the actual evidence (with error) of the model.
+
+
+    POSITIONAL ARGUMENTS
+    data                 Path to the tables of patient data (CSV).
+    model                Path to model output files (HDF5).
+
+    OPTIONAL ARGUMENTS
+    -h, --help           show this help message and exit
+    -p, --params PARAMS  Path to parameter file (default: ./params.yaml)
+    --plots PLOTS        Directory for storing plots (default: ./plots)
+    --metrics METRICS    Path to metrics file (default: ./metrics.json)
+    ```
+
+    [^2]: https://doi.org/10.1007/s11571-021-09696-9
     """
     metrics = {}
 

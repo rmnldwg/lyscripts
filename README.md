@@ -5,7 +5,7 @@
 
 ## What are these `lyscripts`?
 
-This package provides convenient scripts for performing inference and learning regarding the lymphatic spread of head & neck cancer. Essentially, it provides a _command line interface_ (CLI) to the [`lymph`](https://github.com/rmnldwg/lymph) library.
+This package provides convenient scripts for performing inference and learning regarding the lymphatic spread of head & neck cancer. Essentially, it provides a *command line interface* (CLI) to the [`lymph`](https://github.com/rmnldwg/lymph) library.
 
 We are making these "convenience" scripts public, because doing so is one necessary requirement to making our research easily and fully reproducible. There exists another repository, [`lynference`](https://github.com/rmnldwg/lynference), where we store the pipelines that produce(d) our published results in a persistent way. Head over there to learn more about how to reproduce our work.
 
