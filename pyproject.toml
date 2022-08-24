@@ -43,7 +43,7 @@ dev = [
     "pycln",
     "pylint",
 ]
-doc = [
+docs = [
     "pdoc"
 ]
 
