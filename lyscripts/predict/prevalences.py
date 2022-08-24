@@ -273,7 +273,29 @@ def predicted_prevalence(
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    This subprogram's call signature can be obtained via `python -m lyscripts predict
+    prevalences --help` and shows this:
+
+    ```
+    usage: lyscripts predict prevalences [-h] [--params PARAMS] model data output
+
+    Predict prevalences of diagnostic patterns using the samples that were inferred
+    using the model via MCMC sampling and compare them to the prevalence in the data.
+
+    This essentially amounts to computing the data likelihood under the model and
+    comparing it to the empirical likelihood of a given pattern of lymphatic
+    progression.
+
+
+    POSITIONAL ARGUMENTS
+    model            Path to drawn samples (HDF5)
+    data             Path to the data file to compare prediction and data prevalence
+    output           Output path for predicted prevalences (HDF5 file)
+
+    OPTIONAL ARGUMENTS
+    -h, --help       show this help message and exit
+    --params PARAMS  Path to parameter file (default: ./params.yaml)
+    ```
     """
     with report.status("Read in parameters..."):
         with open(args.params, mode='r') as params_file:

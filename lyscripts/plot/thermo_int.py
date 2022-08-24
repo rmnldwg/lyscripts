@@ -1,5 +1,8 @@
 """
 Plot how the accuracy develops over the course of a thermodynamic integration run.
+
+This can also be used to compare how the accuracy of different models develops during
+thermdynamic integration.
 """
 import argparse
 from pathlib import Path
@@ -94,8 +97,38 @@ def get_size(width="single", unit="cm", ratio="golden"):
 def main(args: argparse.Namespace):
     """
     Load the CSV files where the sampling processes stored the accuracies during
-    the thermodynamic integration processes and plot them against the inverse
+    the thermodynamic integration [^1] processes and plot them against the inverse
     temparature to get a visual idea of how the evidence developed.
+
+    The function's help page shows this:
+
+    ```
+    usage: lyscripts plot thermo_int [-h] [-o OUTPUT | --show] [--title TITLE]
+                                    [--labels LABELS [LABELS ...]] [--power POWER]
+                                    [--mplstyle MPLSTYLE]
+                                    inputs [inputs ...]
+
+    Plot how the accuracy develops over the course of a thermodynamic integration run.
+
+    This can also be used to compare how the accuracy of different models develops
+    during thermdynamic integration.
+
+
+    POSITIONAL ARGUMENTS
+    inputs                        Paths to the CSV files containing the stored TI runs
+
+    OPTIONAL ARGUMENTS
+    -h, --help                    show this help message and exit
+    -o, --output OUTPUT           Path to where the plot should be stored (PNG and
+                                    SVG) (default: None)
+    --show                        Show the plot instead of saving it (default: False)
+    --title TITLE                 Title of the plot (default: None)
+    --labels LABELS [LABELS ...]  Labels for the individual data series (default: [])
+    --power POWER                 Scale the x-axis with this power (default: 5.0)
+    --mplstyle MPLSTYLE           Path to the MPL stylesheet (default: ./.mplstyle)
+    ```
+
+    [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
     with report.status("Apply MPL stylesheet..."):
         plt.style.use(args.mplstyle)

@@ -53,6 +53,22 @@ def main(args: argparse.Namespace):
     in the same format.
 
     In the end, the joined `pd.DataFrame` is stored at the desired location.
+
+    It's command help when running `python -m lyscripts join --help` shows
+
+    ```
+    usage: lyscripts join [-h] -i INPUTS [INPUTS ...] -o OUTPUT
+
+    Join datasets from different sources (but of the same format) into one.
+
+
+    OPTIONAL ARGUMENTS
+    -h, --help                        show this help message and exit
+    -i, --inputs INPUTS [INPUTS ...]  List of paths to inference-ready CSV datasets to
+                                        concatenate. (default: None)
+    -o, --output OUTPUT               Location to store the concatenated CSV file.
+                                        (default: None)
+    ```
     """
     with report.status("Reading & concatenating CSV files..."):
         concatenated_df = pd.DataFrame()
