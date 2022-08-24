@@ -1,5 +1,5 @@
 """
-Generate synthetic patient data for testing purposes.
+Generate synthetic patient data for testing and validation purposes.
 """
 import argparse
 from pathlib import Path
@@ -66,7 +66,34 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    The CLI's help for this subcommand (`python -m lyscripts generate --help`) shows:
+
+    ```
+    usage: lyscripts generate [-h] [--params PARAMS]
+                            [--set-theta SET_THETA [SET_THETA ...] | --load-theta
+                            {mean,max_llh}] [--samples SAMPLES]
+                            num output
+
+    Generate synthetic patient data for testing purposes.
+
+
+    POSITIONAL ARGUMENTS
+    num                                   Number of synthetic patient records to
+                                            generate
+    output                                Path where to store the generated synthetic
+                                            data
+
+    OPTIONAL ARGUMENTS
+    -h, --help                            show this help message and exit
+    --params PARAMS                       Parameter file containing model specifications
+                                            (default: ./params.yaml)
+    --set-theta SET_THETA [SET_THETA      Set the spread probs and parameters for time
+    ...]                                  marginalization by hand (default: None)
+    --load-theta {mean,max_llh}           Use either the mean or the maximum likelihood
+                                            estimate from drawn samples (default: mean)
+    --samples SAMPLES                     Path to the samples if a method to load them
+                                            was chosen (default: ./models/samples.hdf5)
+    ```
     """
     with report.status("Read in parameters..."):
         with open(args.params, mode='r') as params_file:

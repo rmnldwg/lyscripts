@@ -1,6 +1,13 @@
 """
 Learn the spread probabilities of the HMM for lymphatic tumor progression using
 the preprocessed data as input and MCMC as sampling method.
+
+This is the central script performing for our project on modelling lymphatic spread
+in head & neck cancer. We use it for model comparison via the thermodynamic
+integration functionality and use the sampled parameter estimates for risk
+predictions. This risk estimate may in turn some day guide clinicians to make more
+objective decisions with respect to defining the *elective clinical target volume*
+(CTV-N) in radiotherapy.
 """
 import argparse
 import warnings
@@ -278,7 +285,48 @@ def log_prob_fn(theta: np.array) -> float:
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    First, this program reads in the parameter YAML file and the CSV training data.
+    After that, it parses the loaded configuration and creates an instance of the model
+    that loads the training data.
+
+    From there - depending on the user input - it either performs thermodynamic
+    integration [^1] to compute the data's evidence given this particular model or it
+    draws directly from the posterior of the parameters given the data. In the latter
+    case it automatically samples until convergence. It uses the amazing
+    [`emcee`](https://github.com/dfm/emcee) library for the MCMC process.
+
+    The drawn samples are always stored in and HDF5 file and some progress about the
+    sampling procedures is stored as well (acceptance rates of samples, estimates
+    of the chains' autocorrelation times and the accuracy during the runs).
+
+    Th help via `python -m lyscripts sample --help` shows this output:
+
+    ```
+    usage: lyscripts sample [-h] [--params PARAMS] [--plots PLOTS] [--ti] input output
+
+    Learn the spread probabilities of the HMM for lymphatic tumor progression using the
+    preprocessed data as input and MCMC as sampling method.
+
+    This is the central script performing for our project on modelling lymphatic spread
+    in head & neck cancer. We use it for model comparison via the thermodynamic
+    integration functionality and use the sampled parameter estimates for risk
+    predictions. This risk estimate may in turn some day guide clinicians to make more
+    objective decisions with respect to defining the _elective clinical target volume_
+    (CTV-N) in radiotherapy.
+
+
+    POSITIONAL ARGUMENTS
+    input            Path to training data files
+    output           Path to the HDF5 file to store the results in
+
+    OPTIONAL ARGUMENTS
+    -h, --help       show this help message and exit
+    --params PARAMS  Path to parameter file (default: ./params.yaml)
+    --plots PLOTS    Directory to store plot of acor times (default: ./plots)
+    --ti             Perform thermodynamic integration (default: False)
+    ```
+
+    [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
     with report.status("Read in parameters..."):
         with open(args.params, mode='r') as params_file:
