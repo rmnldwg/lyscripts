@@ -1,5 +1,9 @@
 """
 Generate a corner plot of the drawn samples.
+
+A corner plot is a combination of 1D and 2D marginals of probability distributions.
+The library I use for this is built on `matplotlib` and is called
+[`corner`](https://github.com/dfm/corner.py).
 """
 import argparse
 from pathlib import Path
@@ -51,7 +55,23 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    This (sub)subrogram shows the following help message when asking for it
+    via `python -m lyscripts plot corner --help`
+
+    ```
+    usage: lyscripts plot corner [-h] [-p PARAMS] model output
+
+    Generate a corner plot of the drawn samples.
+
+
+    POSITIONAL ARGUMENTS
+    model                Path to model output files (HDF5).
+    output               Path to output corner plot (SVG).
+
+    OPTIONAL ARGUMENTS
+    -h, --help           show this help message and exit
+    -p, --params PARAMS  Path to parameter file (default: ./params.yaml)
+    ```
     """
     with report.status("Read in parameters..."):
         with open(args.params, mode='r') as params_file:

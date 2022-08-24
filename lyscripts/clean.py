@@ -55,7 +55,24 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def main(args: argparse.Namespace):
     """
-    Run main program with `args` parsed by argparse.
+    When running `python -m lyscripts clean --help` the output is the following:
+
+    ```
+    usage: lyscripts clean [-h] [-p PARAMS] input output
+
+    Transform the enhanced lyDATA CSV files into a format that can be used by the lymph
+    model using this package's utilities.
+
+
+    POSITIONAL ARGUMENTS
+    input                Path to the enhanced lyDATA CSV file to transform.
+    output               Path to the cleand CSV file ready for inference.
+
+    OPTIONAL ARGUMENTS
+    -h, --help           show this help message and exit
+    -p, --params PARAMS  Path to the params file to use for the transformation.
+                        (default: ./params.yaml)
+    ```
     """
     with report.status("Read in parameters..."):
         with open(args.params, mode='r') as params_file:
