@@ -70,7 +70,7 @@ instance/
 .scrapy
 
 # documentation
-/docs/**
+/docs
 
 # PyBuilder
 target/
