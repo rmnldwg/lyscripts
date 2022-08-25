@@ -170,7 +170,7 @@ def get_modalities_subset(
     selection: List[str],
 ) -> Dict[str, List[float]]:
     """
-    Of the `defined_modalities` return only thos mentioned in the `selection`.
+    Of the `defined_modalities` return only those mentioned in the `selection`.
     """
     selected_modalities = {}
     for mod in selection:

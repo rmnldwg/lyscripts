@@ -331,20 +331,19 @@ def main(args: argparse.Namespace):
 
     POSITIONAL ARGUMENTS
     input                                 Path to training data files
-    output                                Path to the HDF5 file to store the results
-                                            in
+    output                                Path to the HDF5 file to store the results in
 
     OPTIONAL ARGUMENTS
     -h, --help                            show this help message and exit
     --params PARAMS                       Path to parameter file (default:
-                                            ./params.yaml)
+                                          ./params.yaml)
     --modalities MODALITIES [MODALITIES   List of modalities for inference. Must be
     ...]                                  defined in `params.yaml` (default:
-                                            ['max_llh'])
+                                          ['max_llh'])
     --plots PLOTS                         Directory to store plot of acor times
-                                            (default: ./plots)
+                                          (default: ./plots)
     --ti                                  Perform thermodynamic integration (default:
-                                            False)
+                                          False)
     ```
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9

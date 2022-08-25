@@ -237,7 +237,7 @@ def main(args: argparse.Namespace):
     POSITIONAL ARGUMENTS
     input                                 Path to a LyProX-style CSV file
     output                                Destination for LyProX-style output file
-                                            including the consensus
+                                          including the consensus
 
     OPTIONAL ARGUMENTS
     -h, --help                            show this help message and exit
@@ -245,17 +245,16 @@ def main(args: argparse.Namespace):
     {max_llh,rank,logic_or,logic_and}     ['max_llh'])
     [{max_llh,rank,logic_or,logic_and}
     ...]
-    -p, --params PARAMS                   Path to parameter file (default:
-                                            params.yaml)
+    -p, --params PARAMS                   Path to parameter file (default: params.yaml)
     --modalities MODALITIES [MODALITIES   List of modalities for enhancement. Must be
     ...]                                  defined in `params.yaml` (default: ['CT',
-                                            'MRI', 'PET', 'FNA', 'diagnostic_consensus',
-                                            'pathology', 'pCT'])
+                                          'MRI', 'PET', 'FNA', 'diagnostic_consensus',
+                                          'pathology', 'pCT'])
     --sublvls SUBLVLS [SUBLVLS ...]       Indicate what kinds of sublevels exist
-                                            (default: ['a', 'b'])
+                                          (default: ['a', 'b'])
     --lnls-with-sub LNLS_WITH_SUB         List of LNLs where sublevel reporting has
     [LNLS_WITH_SUB ...]                   been performed or is common (default: ['I',
-                                            'II', 'V'])
+                                          'II', 'V'])
     ```
     """
     with report.status("Read CSV file..."):
