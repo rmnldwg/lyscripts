@@ -21,7 +21,13 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .helpers import CustomProgress, clean_docstring, model_from_config, report
+from .helpers import (
+    CustomProgress,
+    clean_docstring,
+    get_modalities_subset,
+    model_from_config,
+    report,
+)
 
 
 def _add_parser(
@@ -57,6 +63,11 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--params", default="./params.yaml", type=Path,
         help="Path to parameter file"
+    )
+    parser.add_argument(
+        "--modalities", nargs="+",
+        default=["max_llh"],
+        help="List of modalities for inference. Must be defined in `params.yaml`"
     )
     parser.add_argument(
         "--plots", default="./plots", type=Path,
@@ -345,7 +356,10 @@ def main(args: argparse.Namespace):
         MODEL = model_from_config(
             graph_params=params["graph"],
             model_params=params["model"],
-            modalities_params=params["modalities"],
+            modalities_params=get_modalities_subset(
+                defined_modalities=params["modalities"],
+                selection=args.modalities,
+            ),
         )
         MODEL.patient_data = inference_data
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric

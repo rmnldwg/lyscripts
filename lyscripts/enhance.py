@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .helpers import clean_docstring, report
+from .helpers import clean_docstring, get_modalities_subset, report
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 # pylint: disable=singleton-comparison
@@ -66,8 +66,9 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Path to parameter file"
     )
     parser.add_argument(
-        "-s", "--sublevel", action="store_true",
-        help="Fill information about sub- & super levels where possible"
+        "--modalities", nargs="+",
+        default=["CT", "MRI", "PET", "FNA", "diagnostic_consensus", "pathology", "pCT"],
+        help="List of modalities for enhancement. Must be defined in `params.yaml`"
     )
     parser.add_argument(
         "--sublvls", nargs="+", default=["a", "b"],
@@ -261,7 +262,10 @@ def main(args: argparse.Namespace):
     with report.status("Read in parameters..."):
         with open(args.params, 'r') as params_file:
             params = yaml.safe_load(params_file)
-        modalities = params["modalities"]
+        modalities = get_modalities_subset(
+            defined_modalities=params["modalities"],
+            selection=args.modalities,
+        )
         report.success(f"Read in parameters from {args.params}")
 
     with report.status("Compute consensus of modalities..."):
@@ -324,26 +328,25 @@ def main(args: argparse.Namespace):
             f"the methods {args.consensus}"
         )
 
-    if args.sublevel:
-        with report.status("Fixing sub- & super level fields..."):
-            data_modalities = set(
-                data.columns.get_level_values(0)
-            ).intersection(
-                [*modalities.keys(), *args.consensus]
-            )
-            for mod in data_modalities:
-                for side in ["ipsi", "contra"]:
-                    for lnl in args.lnls_with_sub:
-                        sublvl_values = get_sublvl_values(
-                            data[mod,side], lnl, args.sublvls
-                        )
-                        if sublvl_values is None:
-                            continue
-                        sublvl_involved = np.any(sublvl_values==True, axis=1)
-                        sublvls_healthy = np.all(sublvl_values==False, axis=1)
-                        data.loc[sublvl_involved, (mod,side,lnl)] = True
-                        data.loc[sublvls_healthy, (mod,side,lnl)] = False
-            report.success("Fixed sub- & super level fields.")
+    with report.status("Fixing sub- & super level fields..."):
+        data_modalities = set(
+            data.columns.get_level_values(0)
+        ).intersection(
+            [*modalities.keys(), *args.consensus]
+        )
+        for mod in data_modalities:
+            for side in ["ipsi", "contra"]:
+                for lnl in args.lnls_with_sub:
+                    sublvl_values = get_sublvl_values(
+                        data[mod,side], lnl, args.sublvls
+                    )
+                    if sublvl_values is None:
+                        continue
+                    sublvl_involved = np.any(sublvl_values==True, axis=1)
+                    sublvls_healthy = np.all(sublvl_values==False, axis=1)
+                    data.loc[sublvl_involved, (mod,side,lnl)] = True
+                    data.loc[sublvls_healthy, (mod,side,lnl)] = False
+        report.success("Fixed sub- & super level fields.")
 
     with report.status("Saving enhanced file..."):
         args.output.parent.mkdir(exist_ok=True)

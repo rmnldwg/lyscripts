@@ -164,3 +164,18 @@ def nested_to_pandas(nested_dict: dict) -> pd.DataFrame:
             flat_dict[(outer_key, inner_key)] = value
 
     return pd.DataFrame(flat_dict, index=[0])
+
+def get_modalities_subset(
+    defined_modalities: Dict[str, List[float]],
+    selection: List[str],
+) -> Dict[str, List[float]]:
+    """
+    Of the `defined_modalities` return only thos mentioned in the `selection`.
+    """
+    selected_modalities = {}
+    for mod in selection:
+        try:
+            selected_modalities[mod] = defined_modalities[mod]
+        except KeyError as key_err:
+            raise KeyError(f"Modality {mod} has not been defined yet") from key_err
+    return selected_modalities
