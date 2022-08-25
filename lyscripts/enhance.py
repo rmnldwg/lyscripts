@@ -69,6 +69,14 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "-s", "--sublevel", action="store_true",
         help="Fill information about sub- & super levels where possible"
     )
+    parser.add_argument(
+        "--sublvls", nargs="+", default=["a", "b"],
+        help="Indicate what kinds of sublevels exist"
+    )
+    parser.add_argument(
+        "--lnls-with-sub", nargs="+", default=["I", "II", "V"],
+        help="List of LNLs where sublevel reporting has been performed or is common"
+    )
 
     parser.set_defaults(run_main=main)
 
@@ -201,6 +209,50 @@ CONSENSUS_FUNCS = {
 
 def main(args: argparse.Namespace):
     """
+    Below is the help output (call with `python -m lyscripts enhance --help`)
+
+    ```
+    usage: lyscripts enhance [-h]
+                            [-c {max_llh,rank,logic_or,logic_and}
+    [{max_llh,rank,logic_or,logic_and} ...]]
+                            [-p PARAMS] [-s] [--sublvls SUBLVLS [SUBLVLS ...]]
+                            [--lnls-with-sub LNLS_WITH_SUB [LNLS_WITH_SUB ...]]
+                            input output
+
+    Enhance a LyProX-style CSV dataset in two ways:
+
+    1. Add consensus diagnoses based on all available modalities using on of two
+    methods: `max_llh` infers the most likely true state of involvement given only the
+    available diagnoses. `rank` uses the available diagnositc modalities and ranks them
+    based on their respective sensitivity and specificity.
+
+    2. Complete sub- & super-level fields. This means that if a dataset reports LNLs IIa
+    and IIb separately, this script will add the column for LNL II and fill it with the
+    correct values. Conversely, if e.g. LNL II is reported to be healthy, we can assume
+    the sublevels IIa and IIb would have been reported as healthy, too.
+
+
+    POSITIONAL ARGUMENTS
+    input                                 Path to a LyProX-style CSV file
+    output                                Destination for LyProX-style output file
+                                            including the consensus
+
+    OPTIONAL ARGUMENTS
+    -h, --help                            show this help message and exit
+    -c, --consensus                       Choose consensus method(s) (default:
+    {max_llh,rank,logic_or,logic_and}     ['max_llh'])
+    [{max_llh,rank,logic_or,logic_and}
+    ...]
+    -p, --params PARAMS                   Path to parameter file (default:
+                                            params.yaml)
+    -s, --sublevel                        Fill information about sub- & super levels
+                                            where possible (default: False)
+    --sublvls SUBLVLS [SUBLVLS ...]       Indicate what kinds of sublevels exist
+                                            (default: ['a', 'b'])
+    --lnls-with-sub LNLS_WITH_SUB         List of LNLs where sublevel reporting has
+    [LNLS_WITH_SUB ...]                   been performed or is common (default: ['I',
+                                            'II', 'V'])
+    ```
     """
     with report.status("Read CSV file..."):
         data = pd.read_csv(args.input, header=[0,1,2])
@@ -210,8 +262,6 @@ def main(args: argparse.Namespace):
         with open(args.params, 'r') as params_file:
             params = yaml.safe_load(params_file)
         modalities = params["modalities"]
-        lnls_with_sub = params["lnls_with_sub"]
-        sub_ids = params["sub_ids"]
         report.success(f"Read in parameters from {args.params}")
 
     with report.status("Compute consensus of modalities..."):
@@ -283,9 +333,9 @@ def main(args: argparse.Namespace):
             )
             for mod in data_modalities:
                 for side in ["ipsi", "contra"]:
-                    for lnl in lnls_with_sub:
+                    for lnl in args.lnls_with_sub:
                         sublvl_values = get_sublvl_values(
-                            data[mod,side], lnl, sub_ids
+                            data[mod,side], lnl, args.sublvls
                         )
                         if sublvl_values is None:
                             continue
