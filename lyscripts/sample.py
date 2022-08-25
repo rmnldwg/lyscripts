@@ -313,7 +313,10 @@ def main(args: argparse.Namespace):
     Th help via `python -m lyscripts sample --help` shows this output:
 
     ```
-    usage: lyscripts sample [-h] [--params PARAMS] [--plots PLOTS] [--ti] input output
+    usage: lyscripts sample [-h] [--params PARAMS]
+                            [--modalities MODALITIES [MODALITIES ...]] [--plots PLOTS]
+                            [--ti]
+                            input output
 
     Learn the spread probabilities of the HMM for lymphatic tumor progression using the
     preprocessed data as input and MCMC as sampling method.
@@ -322,19 +325,26 @@ def main(args: argparse.Namespace):
     in head & neck cancer. We use it for model comparison via the thermodynamic
     integration functionality and use the sampled parameter estimates for risk
     predictions. This risk estimate may in turn some day guide clinicians to make more
-    objective decisions with respect to defining the _elective clinical target volume_
+    objective decisions with respect to defining the *elective clinical target volume*
     (CTV-N) in radiotherapy.
 
 
     POSITIONAL ARGUMENTS
-    input            Path to training data files
-    output           Path to the HDF5 file to store the results in
+    input                                 Path to training data files
+    output                                Path to the HDF5 file to store the results
+                                            in
 
     OPTIONAL ARGUMENTS
-    -h, --help       show this help message and exit
-    --params PARAMS  Path to parameter file (default: ./params.yaml)
-    --plots PLOTS    Directory to store plot of acor times (default: ./plots)
-    --ti             Perform thermodynamic integration (default: False)
+    -h, --help                            show this help message and exit
+    --params PARAMS                       Path to parameter file (default:
+                                            ./params.yaml)
+    --modalities MODALITIES [MODALITIES   List of modalities for inference. Must be
+    ...]                                  defined in `params.yaml` (default:
+                                            ['max_llh'])
+    --plots PLOTS                         Directory to store plot of acor times
+                                            (default: ./plots)
+    --ti                                  Perform thermodynamic integration (default:
+                                            False)
     ```
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9

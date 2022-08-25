@@ -216,7 +216,8 @@ def main(args: argparse.Namespace):
     usage: lyscripts enhance [-h]
                             [-c {max_llh,rank,logic_or,logic_and}
     [{max_llh,rank,logic_or,logic_and} ...]]
-                            [-p PARAMS] [-s] [--sublvls SUBLVLS [SUBLVLS ...]]
+                            [-p PARAMS] [--modalities MODALITIES [MODALITIES ...]]
+                            [--sublvls SUBLVLS [SUBLVLS ...]]
                             [--lnls-with-sub LNLS_WITH_SUB [LNLS_WITH_SUB ...]]
                             input output
 
@@ -246,8 +247,10 @@ def main(args: argparse.Namespace):
     ...]
     -p, --params PARAMS                   Path to parameter file (default:
                                             params.yaml)
-    -s, --sublevel                        Fill information about sub- & super levels
-                                            where possible (default: False)
+    --modalities MODALITIES [MODALITIES   List of modalities for enhancement. Must be
+    ...]                                  defined in `params.yaml` (default: ['CT',
+                                            'MRI', 'PET', 'FNA', 'diagnostic_consensus',
+                                            'pathology', 'pCT'])
     --sublvls SUBLVLS [SUBLVLS ...]       Indicate what kinds of sublevels exist
                                             (default: ['a', 'b'])
     --lnls-with-sub LNLS_WITH_SUB         List of LNLs where sublevel reporting has
