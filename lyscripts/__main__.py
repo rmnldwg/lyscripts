@@ -7,6 +7,7 @@ import argparse
 from . import (
     _exit,
     clean,
+    enhance,
     evaluate,
     generate,
     join,
@@ -48,6 +49,7 @@ if __name__ == "__main__":
     # this `subparsers` object
     generate._add_parser(subparsers, help_formatter=parser.formatter_class)
     join._add_parser(subparsers, help_formatter=parser.formatter_class)
+    enhance._add_parser(subparsers, help_formatter=parser.formatter_class)
     clean._add_parser(subparsers, help_formatter=parser.formatter_class)
     split._add_parser(subparsers, help_formatter=parser.formatter_class)
     sample._add_parser(subparsers, help_formatter=parser.formatter_class)
