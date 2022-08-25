@@ -5,8 +5,8 @@ lymph model using this package's utilities.
 import argparse
 import warnings
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-import lymph
 import pandas as pd
 import yaml
 
@@ -53,6 +53,62 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
+def lyprox_to_lymph(
+    data: pd.DataFrame,
+    method: str = "unilateral",
+    convert_t_stage: Optional[Dict[int, Any]] = None
+) -> pd.DataFrame:
+    """
+    Convert [LyProX](https://lyprox.org) `data` into `pd.DataFrame` that the
+    [lymph](https://github.com/rmnldwg/lymph) package can use for sampling.
+
+    This conversion can be done according to a given `method` out of three that
+    specifies `"unilateral"`, `"bilateral"` or `"midline"`, depending on the class
+    that is later supposed to load the data.
+
+    `convert_t_stage` is a dictionary that maps from the range of T-stages in the
+    LyProX `data` (keys) to T-stages that the lymph library is supposed to work with
+    (values). It could look like this (which is also the default):
+
+    ```python
+    convert_t_stage = {
+        0: 'early',
+        1: 'early',
+        2: 'early',
+        3: 'late',
+        4: 'late'
+    }
+    ```
+    """
+    t_stage_data = data[("tumor", "1", "t_stage")]
+    midline_extension_data = data[("tumor", "1", "extension")]
+
+    # Extract modalities
+    top_lvl_headers = set(data.columns.get_level_values(0))
+    modalities = [h for h in top_lvl_headers if h not in ["tumor", "patient"]]
+    diagnostic_data = data[modalities].drop(columns=["date"], level=2)
+
+    if convert_t_stage is None:
+        convert_t_stage = {
+            0: "early",
+            1: "early",
+            2: "early",
+            3: "late",
+            4: "late"
+        }
+    diagnostic_data[("info", "tumor", "t_stage")] = [
+        convert_t_stage[t] for t in t_stage_data.values
+    ]
+
+    if method == "midline":
+        diagnostic_data[("info", "tumor", "midline_extension")] = midline_extension_data
+    elif method == "unilateral":
+        diagnostic_data = diagnostic_data.drop(columns=["contra"], level=1)
+        diagnostic_data.columns = diagnostic_data.columns.droplevel(1)
+
+    return diagnostic_data
+
+
 def main(args: argparse.Namespace):
     """
     When running `python -m lyscripts clean --help` the output is the following:
@@ -86,7 +142,7 @@ def main(args: argparse.Namespace):
             "Bilateral": "midline",
             "MidlineBilateral": "midline",
         }[params["model"]["class"]]
-        cleaned_df = lymph.utils.lyprox_to_lymph(enhanced_df, method=method)
+        cleaned_df = lyprox_to_lymph(enhanced_df, method=method)
         report.success(f"Read in CSV file from {args.input}")
 
     with report.status("Saving cleaned dataset..."):
