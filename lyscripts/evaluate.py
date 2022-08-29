@@ -165,9 +165,7 @@ def main(args: argparse.Namespace):
         MODEL = model_from_config(
             graph_params=params["graph"],
             model_params=params["model"],
-            modalities_params=params["modalities"],
         )
-        MODEL.patient_data = DATA
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
         report.success(
             f"Recreated {type(MODEL)} model with {ndim} parameters and loaded "
@@ -230,9 +228,7 @@ def main(args: argparse.Namespace):
 
         # further populate metrics dictionary
         metrics["BIC"] = comp_bic(
-            final_log_probs,
-            len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric,
-            len(DATA),
+            final_log_probs, ndim, len(DATA),
         )
         metrics["max_llh"] = np.max(final_log_probs)
         metrics["mean_llh"] = np.mean(final_log_probs)

@@ -21,7 +21,13 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .helpers import CustomProgress, clean_docstring, model_from_config, report
+from .helpers import (
+    CustomProgress,
+    clean_docstring,
+    get_modalities_subset,
+    model_from_config,
+    report,
+)
 
 
 def _add_parser(
@@ -57,6 +63,11 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--params", default="./params.yaml", type=Path,
         help="Path to parameter file"
+    )
+    parser.add_argument(
+        "--modalities", nargs="+",
+        default=["max_llh"],
+        help="List of modalities for inference. Must be defined in `params.yaml`"
     )
     parser.add_argument(
         "--plots", default="./plots", type=Path,
@@ -302,7 +313,10 @@ def main(args: argparse.Namespace):
     Th help via `python -m lyscripts sample --help` shows this output:
 
     ```
-    usage: lyscripts sample [-h] [--params PARAMS] [--plots PLOTS] [--ti] input output
+    usage: lyscripts sample [-h] [--params PARAMS]
+                            [--modalities MODALITIES [MODALITIES ...]] [--plots PLOTS]
+                            [--ti]
+                            input output
 
     Learn the spread probabilities of the HMM for lymphatic tumor progression using the
     preprocessed data as input and MCMC as sampling method.
@@ -311,19 +325,25 @@ def main(args: argparse.Namespace):
     in head & neck cancer. We use it for model comparison via the thermodynamic
     integration functionality and use the sampled parameter estimates for risk
     predictions. This risk estimate may in turn some day guide clinicians to make more
-    objective decisions with respect to defining the _elective clinical target volume_
+    objective decisions with respect to defining the *elective clinical target volume*
     (CTV-N) in radiotherapy.
 
 
     POSITIONAL ARGUMENTS
-    input            Path to training data files
-    output           Path to the HDF5 file to store the results in
+    input                                 Path to training data files
+    output                                Path to the HDF5 file to store the results in
 
     OPTIONAL ARGUMENTS
-    -h, --help       show this help message and exit
-    --params PARAMS  Path to parameter file (default: ./params.yaml)
-    --plots PLOTS    Directory to store plot of acor times (default: ./plots)
-    --ti             Perform thermodynamic integration (default: False)
+    -h, --help                            show this help message and exit
+    --params PARAMS                       Path to parameter file (default:
+                                          ./params.yaml)
+    --modalities MODALITIES [MODALITIES   List of modalities for inference. Must be
+    ...]                                  defined in `params.yaml` (default:
+                                          ['max_llh'])
+    --plots PLOTS                         Directory to store plot of acor times
+                                          (default: ./plots)
+    --ti                                  Perform thermodynamic integration (default:
+                                          False)
     ```
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
@@ -345,7 +365,10 @@ def main(args: argparse.Namespace):
         MODEL = model_from_config(
             graph_params=params["graph"],
             model_params=params["model"],
-            modalities_params=params["modalities"],
+            modalities_params=get_modalities_subset(
+                defined_modalities=params["modalities"],
+                selection=args.modalities,
+            ),
         )
         MODEL.patient_data = inference_data
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric

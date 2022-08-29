@@ -1,6 +1,16 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+<a name="0.5.6"></a>
+## [0.5.6] - 2022-08-29
+
+### Bug Fixes
+- can choose list of defined mods in params. This allows one to choose different lists of modalities for e.g. the `enhance` script and the `sampling` one.
+
+### Documentation
+- correct typos in the changed docstrings
+- update docstring of changed scripts
+
 <a name="0.5.5"></a>
 ## [0.5.5] - 2022-08-25
 
@@ -31,7 +41,8 @@
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.5...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.6...HEAD
+[0.5.6]: https://github.com/rmnldwg/lyscripts/compare/0.5.5...0.5.6
 [0.5.5]: https://github.com/rmnldwg/lyscripts/compare/0.5.4...0.5.5
 [0.5.4]: https://github.com/rmnldwg/lyscripts/compare/0.5.3...0.5.4
 [0.5.3]: https://github.com/rmnldwg/lyscripts/compare/0.5.2...0.5.3
