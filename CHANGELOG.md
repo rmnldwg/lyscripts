@@ -1,6 +1,15 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+<a name="0.5.7"></a>
+## [0.5.7] - 2022-08-29
+
+### Bug Fixes
+- fix `enhance`'s issue with varying LNLs across modalities ([#8])
+
+### Features
+- add progress bar to `enhance` script
+
 <a name="0.5.6"></a>
 ## [0.5.6] - 2022-08-29
 
@@ -41,8 +50,11 @@
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.6...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.7...HEAD
+[0.5.7]: https://github.com/rmnldwg/lyscripts/compare/0.5.6...0.5.7
 [0.5.6]: https://github.com/rmnldwg/lyscripts/compare/0.5.5...0.5.6
 [0.5.5]: https://github.com/rmnldwg/lyscripts/compare/0.5.4...0.5.5
 [0.5.4]: https://github.com/rmnldwg/lyscripts/compare/0.5.3...0.5.4
 [0.5.3]: https://github.com/rmnldwg/lyscripts/compare/0.5.2...0.5.3
+
+[#8]: https://github.com/rmnldwg/lyscripts/issues/8
