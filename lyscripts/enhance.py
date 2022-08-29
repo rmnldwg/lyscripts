@@ -20,6 +20,7 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import yaml
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 from .helpers import clean_docstring, get_modalities_subset, report
 
@@ -270,65 +271,61 @@ def main(args: argparse.Namespace):
         )
         report.success(f"Read in parameters from {args.params}")
 
-    with report.status("Compute consensus of modalities..."):
-        # pylint: disable=too-many-function-args
-        available_mod_keys = set(
-            data.columns.get_level_values(0)
-        ).intersection(
-            modalities.keys()
+    # with report.status("Compute consensus of modalities..."):
+    available_mod_keys = set(
+        data.columns.get_level_values(0)
+    ).intersection(
+        modalities.keys()
+    )
+    available_mods = {key: modalities[key] for key in available_mod_keys}
+    lnl_union = set().union(
+        *[data[mod,"ipsi"].columns for mod in available_mod_keys]
+    )
+
+    consensus = pd.DataFrame(
+        index=data.index,
+        columns=pd.MultiIndex.from_product(
+            [args.consensus, ["ipsi", "contra"], lnl_union]
         )
-        available_mods = {key: modalities[key] for key in available_mod_keys}
-        num_mods = len(available_mods)
+    )
 
-        first_mod = list(available_mods)[0]
-        lnls = data[first_mod, "ipsi"].columns
-        num_lnls = len(lnls)
-        num_patients = len(data)
-
+    progress = Progress(
+        SpinnerColumn(),
+        *Progress.get_default_columns(),
+        TimeElapsedColumn(),
+        console=report,
+    )
+    with progress:
+        enhance_task = progress.add_task(
+            description="Compute consensus of modalities...",
+            total=2 * len(data),
+        )
         for side in ["ipsi", "contra"]:
-            # stack observations from different modalities on top of each other
-            observation_stack = np.empty(
-                shape=(num_patients, num_lnls, num_mods)
-            )
-            for i, mod in enumerate(available_mods.keys()):
-                observation_stack[:,:,i] = data[mod, side].values
-
-            # replace NaNs with Nones
-            observation_stack = np.where(
-                pd.isna(observation_stack),
-                None, observation_stack
-            )
-
-            # initialize empty DataFrame for one consensus method and side
-            consensus_data = {}
-            for cons in args.consensus:
-                consensus_multiidx = pd.MultiIndex.from_product(
-                    [[cons], [side], lnls]
-                )
-                consensus_data[cons] = pd.DataFrame(
-                    index=data.index,
-                    columns=consensus_multiidx
-                )
-
             # go through patients and LNLs and compute consensus for each
-            for p in range(num_patients):
-                for l in range(num_lnls):
-                    observations = observation_stack[p,l]
+            for p,patient in data.iterrows():
+                for lnl in lnl_union:
+                    observations = ()
+                    for mod in available_mods.keys():
+                        try:
+                            add_obs = patient[mod,side,lnl]
+                            add_obs = None if pd.isna(add_obs) else add_obs
+                        except KeyError:
+                            add_obs = None
+                        observations = (*observations, add_obs)
                     for cons in args.consensus:
-                        consensus_data[cons].iloc[p,l] = (
+                        consensus[cons, side, lnl].iloc[p] = (
                             CONSENSUS_FUNCS[cons](
                                 tuple(observations),
                                 available_mods.values()
                             )
                         )
+                progress.update(enhance_task, advance=1)
+        data = data.join(consensus)
 
-            for cons in args.consensus:
-                data = data.join(consensus_data[cons])
-
-        report.success(
-            "Computed consensus of observations according to "
-            f"the methods {args.consensus}"
-        )
+    report.success(
+        "Computed consensus of observations according to "
+        f"the methods {args.consensus}"
+    )
 
     with report.status("Fixing sub- & super level fields..."):
         data_modalities = set(
