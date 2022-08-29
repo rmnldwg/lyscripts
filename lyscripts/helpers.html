@@ -101,6 +101,9 @@
             <li>
                     <a class="function" href="#nested_to_pandas">nested_to_pandas</a>
             </li>
+            <li>
+                    <a class="function" href="#get_modalities_subset">get_modalities_subset</a>
+            </li>
     </ul>
 
 
@@ -291,6 +294,21 @@ to parse and process the raw data from different institutions</p>
 </span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a>            <span class="n">flat_dict</span><span class="p">[(</span><span class="n">outer_key</span><span class="p">,</span> <span class="n">inner_key</span><span class="p">)]</span> <span class="o">=</span> <span class="n">value</span>
 </span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a>
 </span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">flat_dict</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a>
+</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a><span class="k">def</span> <span class="nf">get_modalities_subset</span><span class="p">(</span>
+</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a>    <span class="n">defined_modalities</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a>    <span class="n">selection</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
+</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a>    <span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a><span class="sd">    Of the `defined_modalities` return only those mentioned in the `selection`.</span>
+</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a>    <span class="n">selected_modalities</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a>    <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">selection</span><span class="p">:</span>
+</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a>        <span class="k">try</span><span class="p">:</span>
+</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a>            <span class="n">selected_modalities</span><span class="p">[</span><span class="n">mod</span><span class="p">]</span> <span class="o">=</span> <span class="n">defined_modalities</span><span class="p">[</span><span class="n">mod</span><span class="p">]</span>
+</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a>        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">key_err</span><span class="p">:</span>
+</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a>            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Modality </span><span class="si">{</span><span class="n">mod</span><span class="si">}</span><span class="s2"> has not been defined yet&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">key_err</span>
+</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a>    <span class="k">return</span> <span class="n">selected_modalities</span>
 </span></pre></div>
 
 
@@ -814,6 +832,39 @@ tuples as keys in a dictionary.</p>
 
             <div class="docstring"><p>Transform a nested dictionary with empty values into a pandas DataFrame with
 a multiindex. This method also works with missing values, but only for two levels.</p>
+</div>
+
+
+                </section>
+                <section id="get_modalities_subset">
+                            <input id="get_modalities_subset-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">get_modalities_subset</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">defined_modalities</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>,</span><span class="param">	<span class="n">selection</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span></span><span class="return-annotation">) -> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>:</span></span>
+
+                <label class="view-source-button" for="get_modalities_subset-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#get_modalities_subset"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="get_modalities_subset-169"><a href="#get_modalities_subset-169"><span class="linenos">169</span></a><span class="k">def</span> <span class="nf">get_modalities_subset</span><span class="p">(</span>
+</span><span id="get_modalities_subset-170"><a href="#get_modalities_subset-170"><span class="linenos">170</span></a>    <span class="n">defined_modalities</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+</span><span id="get_modalities_subset-171"><a href="#get_modalities_subset-171"><span class="linenos">171</span></a>    <span class="n">selection</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+</span><span id="get_modalities_subset-172"><a href="#get_modalities_subset-172"><span class="linenos">172</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
+</span><span id="get_modalities_subset-173"><a href="#get_modalities_subset-173"><span class="linenos">173</span></a>    <span class="sd">&quot;&quot;&quot;</span>
+</span><span id="get_modalities_subset-174"><a href="#get_modalities_subset-174"><span class="linenos">174</span></a><span class="sd">    Of the `defined_modalities` return only those mentioned in the `selection`.</span>
+</span><span id="get_modalities_subset-175"><a href="#get_modalities_subset-175"><span class="linenos">175</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="get_modalities_subset-176"><a href="#get_modalities_subset-176"><span class="linenos">176</span></a>    <span class="n">selected_modalities</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span id="get_modalities_subset-177"><a href="#get_modalities_subset-177"><span class="linenos">177</span></a>    <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">selection</span><span class="p">:</span>
+</span><span id="get_modalities_subset-178"><a href="#get_modalities_subset-178"><span class="linenos">178</span></a>        <span class="k">try</span><span class="p">:</span>
+</span><span id="get_modalities_subset-179"><a href="#get_modalities_subset-179"><span class="linenos">179</span></a>            <span class="n">selected_modalities</span><span class="p">[</span><span class="n">mod</span><span class="p">]</span> <span class="o">=</span> <span class="n">defined_modalities</span><span class="p">[</span><span class="n">mod</span><span class="p">]</span>
+</span><span id="get_modalities_subset-180"><a href="#get_modalities_subset-180"><span class="linenos">180</span></a>        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">key_err</span><span class="p">:</span>
+</span><span id="get_modalities_subset-181"><a href="#get_modalities_subset-181"><span class="linenos">181</span></a>            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Modality </span><span class="si">{</span><span class="n">mod</span><span class="si">}</span><span class="s2"> has not been defined yet&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">key_err</span>
+</span><span id="get_modalities_subset-182"><a href="#get_modalities_subset-182"><span class="linenos">182</span></a>    <span class="k">return</span> <span class="n">selected_modalities</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Of the <code>defined_modalities</code> return only those mentioned in the <code>selection</code>.</p>
 </div>
 
 
