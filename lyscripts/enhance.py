@@ -20,6 +20,7 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import yaml
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 from .helpers import clean_docstring, get_modalities_subset, report
 
@@ -270,25 +271,35 @@ def main(args: argparse.Namespace):
         )
         report.success(f"Read in parameters from {args.params}")
 
-    with report.status("Compute consensus of modalities..."):
-        # pylint: disable=too-many-function-args
-        available_mod_keys = set(
-            data.columns.get_level_values(0)
-        ).intersection(
-            modalities.keys()
-        )
-        available_mods = {key: modalities[key] for key in available_mod_keys}
-        lnl_union = set().union(
-            *[data[mod,"ipsi"].columns for mod in available_mod_keys]
-        )
+    # with report.status("Compute consensus of modalities..."):
+    available_mod_keys = set(
+        data.columns.get_level_values(0)
+    ).intersection(
+        modalities.keys()
+    )
+    available_mods = {key: modalities[key] for key in available_mod_keys}
+    lnl_union = set().union(
+        *[data[mod,"ipsi"].columns for mod in available_mod_keys]
+    )
 
-        consensus = pd.DataFrame(
-            index=data.index,
-            columns=pd.MultiIndex.from_product(
-                [args.consensus, ["ipsi", "contra"], lnl_union]
-            )
+    consensus = pd.DataFrame(
+        index=data.index,
+        columns=pd.MultiIndex.from_product(
+            [args.consensus, ["ipsi", "contra"], lnl_union]
         )
+    )
 
+    progress = Progress(
+        SpinnerColumn(),
+        *Progress.get_default_columns(),
+        TimeElapsedColumn(),
+        console=report,
+    )
+    with progress:
+        enhance_task = progress.add_task(
+            description="Compute consensus of modalities...",
+            total=2 * len(data),
+        )
         for side in ["ipsi", "contra"]:
             # go through patients and LNLs and compute consensus for each
             for p,patient in data.iterrows():
@@ -308,12 +319,13 @@ def main(args: argparse.Namespace):
                                 available_mods.values()
                             )
                         )
+                progress.update(enhance_task, advance=1)
         data = data.join(consensus)
 
-        report.success(
-            "Computed consensus of observations according to "
-            f"the methods {args.consensus}"
-        )
+    report.success(
+        "Computed consensus of observations according to "
+        f"the methods {args.consensus}"
+    )
 
     with report.status("Fixing sub- & super level fields..."):
         data_modalities = set(
