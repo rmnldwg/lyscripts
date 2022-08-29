@@ -278,52 +278,37 @@ def main(args: argparse.Namespace):
             modalities.keys()
         )
         available_mods = {key: modalities[key] for key in available_mod_keys}
-        num_mods = len(available_mods)
+        lnl_union = set().union(
+            *[data[mod,"ipsi"].columns for mod in available_mod_keys]
+        )
 
-        first_mod = list(available_mods)[0]
-        lnls = data[first_mod, "ipsi"].columns
-        num_lnls = len(lnls)
-        num_patients = len(data)
+        consensus = pd.DataFrame(
+            index=data.index,
+            columns=pd.MultiIndex.from_product(
+                [args.consensus, ["ipsi", "contra"], lnl_union]
+            )
+        )
 
         for side in ["ipsi", "contra"]:
-            # stack observations from different modalities on top of each other
-            observation_stack = np.empty(
-                shape=(num_patients, num_lnls, num_mods)
-            )
-            for i, mod in enumerate(available_mods.keys()):
-                observation_stack[:,:,i] = data[mod, side].values
-
-            # replace NaNs with Nones
-            observation_stack = np.where(
-                pd.isna(observation_stack),
-                None, observation_stack
-            )
-
-            # initialize empty DataFrame for one consensus method and side
-            consensus_data = {}
-            for cons in args.consensus:
-                consensus_multiidx = pd.MultiIndex.from_product(
-                    [[cons], [side], lnls]
-                )
-                consensus_data[cons] = pd.DataFrame(
-                    index=data.index,
-                    columns=consensus_multiidx
-                )
-
             # go through patients and LNLs and compute consensus for each
-            for p in range(num_patients):
-                for l in range(num_lnls):
-                    observations = observation_stack[p,l]
+            for p,patient in data.iterrows():
+                for lnl in lnl_union:
+                    observations = ()
+                    for mod in available_mods.keys():
+                        try:
+                            add_obs = patient[mod,side,lnl]
+                            add_obs = None if pd.isna(add_obs) else add_obs
+                        except KeyError:
+                            add_obs = None
+                        observations = (*observations, add_obs)
                     for cons in args.consensus:
-                        consensus_data[cons].iloc[p,l] = (
+                        consensus[cons, side, lnl].iloc[p] = (
                             CONSENSUS_FUNCS[cons](
                                 tuple(observations),
                                 available_mods.values()
                             )
                         )
-
-            for cons in args.consensus:
-                data = data.join(consensus_data[cons])
+        data = data.join(consensus)
 
         report.success(
             "Computed consensus of observations according to "
