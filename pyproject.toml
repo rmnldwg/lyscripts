@@ -50,6 +50,9 @@ docs = [
     "pdoc"
 ]
 
+[project.scripts]
+lyscripts = "lyscripts:main"
+
 [tool.setuptools_scm]
 write_to = "lyscripts/_version.py"
 local_scheme = "no-local-version"
