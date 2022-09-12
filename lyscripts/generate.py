@@ -66,7 +66,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def main(args: argparse.Namespace):
     """
-    The CLI's help for this subcommand (`python -m lyscripts generate --help`) shows:
+    The CLI's help for this subcommand (`lyscripts generate --help`) shows:
 
     ```
     usage: lyscripts generate [-h] [--params PARAMS]

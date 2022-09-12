@@ -54,7 +54,7 @@ def main(args: argparse.Namespace):
 
     In the end, the joined `pd.DataFrame` is stored at the desired location.
 
-    It's command help when running `python -m lyscripts join --help` shows
+    It's command help when running `lyscripts join --help` shows
 
     ```
     usage: lyscripts join [-h] -i INPUTS [INPUTS ...] -o OUTPUT

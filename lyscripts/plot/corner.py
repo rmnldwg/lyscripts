@@ -56,7 +56,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 def main(args: argparse.Namespace):
     """
     This (sub)subrogram shows the following help message when asking for it
-    via `python -m lyscripts plot corner --help`
+    via `lyscripts plot corner --help`
 
     ```
     usage: lyscripts plot corner [-h] [-p PARAMS] model output

@@ -211,7 +211,7 @@ CONSENSUS_FUNCS = {
 
 def main(args: argparse.Namespace):
     """
-    Below is the help output (call with `python -m lyscripts enhance --help`)
+    Below is the help output (call with `lyscripts enhance --help`)
 
     ```
     usage: lyscripts enhance [-h]

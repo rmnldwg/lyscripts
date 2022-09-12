@@ -310,7 +310,7 @@ def main(args: argparse.Namespace):
     sampling procedures is stored as well (acceptance rates of samples, estimates
     of the chains' autocorrelation times and the accuracy during the runs).
 
-    Th help via `python -m lyscripts sample --help` shows this output:
+    Th help via `lyscripts sample --help` shows this output:
 
     ```
     usage: lyscripts sample [-h] [--params PARAMS]
