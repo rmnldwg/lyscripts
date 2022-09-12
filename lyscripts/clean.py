@@ -111,7 +111,7 @@ def lyprox_to_lymph(
 
 def main(args: argparse.Namespace):
     """
-    When running `python -m lyscripts clean --help` the output is the following:
+    When running `lyscripts clean --help` the output is the following:
 
     ```
     usage: lyscripts clean [-h] [-p PARAMS] input output

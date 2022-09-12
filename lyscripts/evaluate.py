@@ -123,7 +123,7 @@ def main(args: argparse.Namespace):
     Everything computed is then stored in a `metrics.json` file and for TI, a CSV is
     created that shows how the accuracy developed during the runs.
 
-    The output of running `python -m lyscripts evaluate --help` shows this:
+    The output of running `lyscripts evaluate --help` shows this:
 
     ```
     usage: lyscripts evaluate [-h] [-p PARAMS] [--plots PLOTS] [--metrics METRICS]

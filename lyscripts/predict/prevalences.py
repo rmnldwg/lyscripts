@@ -90,9 +90,7 @@ def get_match_idx(
 def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     """Get the prevalence of midline extension from `data` for `t_stage`."""
     if data.columns.nlevels == 2:
-        raise ValueError(
-            "Unilateral data contains no information about midline extension"
-        )
+        return None
     is_t_stage = data["info", "tumor", "t_stage"] == t_stage
     eligible_data = data[is_t_stage]
     has_midline_ext = eligible_data["info", "tumor", "midline_extension"] == True
@@ -273,7 +271,7 @@ def predicted_prevalence(
 
 def main(args: argparse.Namespace):
     """
-    This subprogram's call signature can be obtained via `python -m lyscripts predict
+    This subprogram's call signature can be obtained via `lyscripts predict
     prevalences --help` and shows this:
 
     ```
