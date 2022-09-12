@@ -99,7 +99,7 @@ def main(args: argparse.Namespace):
     """
     Simply calls the specified function and computes a schedule in two lines of code.
 
-    The help page - by calling `python -m lyscripts temp_schedule` - shows:
+    The help page - by calling `lyscripts temp_schedule` - shows:
 
     ```
     usage: lyscripts temp_schedule [-h] [--method {geometric,linear,power}]

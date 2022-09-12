@@ -102,7 +102,7 @@ def get_label(attrs) -> str:
 
 def main(args: argparse.Namespace):
     """
-    The CLI's signature (can be asked for via `python -m lyscripts plot histograms
+    The CLI's signature (can be asked for via `lyscripts plot histograms
     --help`) defines the function and its arguments in the following way:
 
     ```

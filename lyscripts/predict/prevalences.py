@@ -271,7 +271,7 @@ def predicted_prevalence(
 
 def main(args: argparse.Namespace):
     """
-    This subprogram's call signature can be obtained via `python -m lyscripts predict
+    This subprogram's call signature can be obtained via `lyscripts predict
     prevalences --help` and shows this:
 
     ```

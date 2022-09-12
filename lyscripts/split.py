@@ -55,7 +55,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def main(args: argparse.Namespace):
     """
-    The output from `python -m lyscripts split --help` looks like this:
+    The output from `lyscripts split --help` looks like this:
 
     ```
     usage: lyscripts split [-h] [-p PARAMS] input output

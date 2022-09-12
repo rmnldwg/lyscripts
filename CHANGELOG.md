@@ -1,6 +1,21 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+<a name="0.5.8"></a>
+## [0.5.8] - 2022-09-12
+
+### Bug Fixes
+- The function `get_midline_ext_prob` in the prevalence prediction now
+does not throw an error anymore when unilateral data is provided, but
+returns `None` instead. Fixes [#11]
+
+### Features
+- add entry points to CLI. This enables one to call `lyscripts ...` directly, instead of having to use `python -m lyscripts ...` all the time.
+
+### Documentation
+- add social card to README
+- remove `python -m` prefix from command usage in docstrings
+
 <a name="0.5.7"></a>
 ## [0.5.7] - 2022-08-29
 
@@ -50,7 +65,8 @@
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.7...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.8...HEAD
+[0.5.8]: https://github.com/rmnldwg/lyscripts/compare/0.5.7...0.5.8
 [0.5.7]: https://github.com/rmnldwg/lyscripts/compare/0.5.6...0.5.7
 [0.5.6]: https://github.com/rmnldwg/lyscripts/compare/0.5.5...0.5.6
 [0.5.5]: https://github.com/rmnldwg/lyscripts/compare/0.5.4...0.5.5
@@ -58,3 +74,4 @@
 [0.5.3]: https://github.com/rmnldwg/lyscripts/compare/0.5.2...0.5.3
 
 [#8]: https://github.com/rmnldwg/lyscripts/issues/8
+[#11]: https://github.com/rmnldwg/lyscripts/issues/11
