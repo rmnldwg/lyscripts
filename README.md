@@ -1,4 +1,4 @@
-![social card](./github-social-card.png)
+![social card](https://raw.githubusercontent.com/rmnldwg/lyscripts/main/github-social-card.png)
 
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/rmnldwg/lyscripts/blob/main/LICENSE)
 [![GitHub repo](https://img.shields.io/badge/rmnldwg%2Flymph-grey.svg?style=flat&logo=github)](https://github.com/rmnldwg/lyscripts)
