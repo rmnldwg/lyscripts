@@ -1,6 +1,15 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+<a name="0.5.9"></a>
+## [0.5.9] - 2022-09-16
+
+### Documentation
+- don't use relative path for social card
+
+### Features
+- `sample` command has a new optional argument `--pools` with which one can adjust the number of multiprocessing pools used during the sampling procedure. Fixes [#13]
+
 <a name="0.5.8"></a>
 ## [0.5.8] - 2022-09-12
 
@@ -65,7 +74,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.8...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.9...HEAD
+[0.5.9]: https://github.com/rmnldwg/lyscripts/compare/0.5.8...0.5.9
 [0.5.8]: https://github.com/rmnldwg/lyscripts/compare/0.5.7...0.5.8
 [0.5.7]: https://github.com/rmnldwg/lyscripts/compare/0.5.6...0.5.7
 [0.5.6]: https://github.com/rmnldwg/lyscripts/compare/0.5.5...0.5.6
@@ -75,3 +85,4 @@ returns `None` instead. Fixes [#11]
 
 [#8]: https://github.com/rmnldwg/lyscripts/issues/8
 [#11]: https://github.com/rmnldwg/lyscripts/issues/11
+[#13]: https://github.com/rmnldwg/lyscripts/issues/13
