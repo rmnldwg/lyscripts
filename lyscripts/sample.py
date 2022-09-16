@@ -10,6 +10,7 @@ objective decisions with respect to defining the *elective clinical target volum
 (CTV-N) in radiotherapy.
 """
 import argparse
+import os
 import warnings
 from multiprocessing import Pool
 from pathlib import Path
@@ -77,8 +78,29 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--ti", action="store_true",
         help="Perform thermodynamic integration"
     )
+    parser.add_argument(
+        "--pools", type=int, required=False,
+        help=(
+            "Number of parallel worker pools (CPU cores) to use. If not provided, it "
+            "will use all cores. If set to zero, multiprocessing will not be used."
+        )
+    )
 
     parser.set_defaults(run_main=main)
+
+
+class DummyPool:
+    """
+    Dummy class returning `None` instead of a `Pool` instance when the user chose not
+    to use multiprocessing.
+    """
+    _processes = "no parallel"
+
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
 
 
 class ConvenienceSampler(emcee.EnsembleSampler):
@@ -219,6 +241,7 @@ def run_mcmc_with_burnin(
     burnin: Optional[int] = None,
     keep_burnin: bool = False,
     thin_by: int = 1,
+    npools: Optional[int] = None,
     verbose: bool = True,
 ) -> Dict[str, Any]:
     """
@@ -243,7 +266,19 @@ def run_mcmc_with_burnin(
     if sampling_kwargs is None:
         sampling_kwargs = {}
 
-    with Pool() as pool:
+    if npools is None:
+        npools = os.cpu_count()
+    elif npools == 0:
+        selected_pool = DummyPool()
+    elif 0 < npools:
+        npools = np.minimum(npools, os.cpu_count())
+        selected_pool = Pool(npools)
+    else:
+        raise ValueError(
+            "Number of pools must be integer larger or equal to 0 (or `None`)"
+        )
+
+    with selected_pool as pool:
         # Burnin phase
         if keep_burnin:
             burnin_backend = persistent_backend
@@ -257,14 +292,14 @@ def run_mcmc_with_burnin(
 
         if burnin is None:
             burnin_result = burnin_sampler.run_sampling(
-                progress_desc="Burn-in " if verbose else None,
+                progress_desc=f"Burn-in ({selected_pool._processes} cores)" if verbose else None,
                 **sampling_kwargs,
             )
         else:
             burnin_result = burnin_sampler.run_sampling(
                 min_steps=burnin,
                 max_steps=burnin,
-                progress_desc="Burn-in " if verbose else None,
+                progress_desc=f"Burn-in ({selected_pool._processes} cores)" if verbose else None,
             )
 
         # persistent sampling phase
@@ -277,7 +312,7 @@ def run_mcmc_with_burnin(
             max_steps=nsteps,
             thin_by=thin_by,
             initial_state=burnin_result["final_state"],
-            progress_desc="Sampling" if verbose else None,
+            progress_desc=f"Sampling ({selected_pool._processes} cores)" if verbose else None,
         )
 
         return burnin_result
@@ -315,7 +350,7 @@ def main(args: argparse.Namespace):
     ```
     usage: lyscripts sample [-h] [--params PARAMS]
                             [--modalities MODALITIES [MODALITIES ...]] [--plots PLOTS]
-                            [--ti]
+                            [--ti] [--pools POOLS]
                             input output
 
     Learn the spread probabilities of the HMM for lymphatic tumor progression using the
@@ -337,13 +372,18 @@ def main(args: argparse.Namespace):
     -h, --help                            show this help message and exit
     --params PARAMS                       Path to parameter file (default:
                                           ./params.yaml)
-    --modalities MODALITIES [MODALITIES   List of modalities for inference. Must be
-    ...]                                  defined in `params.yaml` (default:
+    --modalities MODALITIES [MODALITIES ...]
+                                          List of modalities for inference. Must be
+                                          defined in `params.yaml` (default:
                                           ['max_llh'])
     --plots PLOTS                         Directory to store plot of acor times
                                           (default: ./plots)
     --ti                                  Perform thermodynamic integration (default:
                                           False)
+    --pools POOLS                         Number of parallel worker pools (CPU cores)
+                                          to use. If not provided, it will use all
+                                          cores. If set to zero, multiprocessing will
+                                          not be used. (default: None)
     ```
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
@@ -410,7 +450,8 @@ def main(args: argparse.Namespace):
                 burnin=burnin,
                 keep_burnin=False,
                 thin_by=thin_by,
-                verbose=True
+                verbose=True,
+                npools=args.pools,
             )
             plots["acor_times"].append(burnin_info["acor_times"][-1])
             plots["accept_rates"].append(burnin_info["accept_rates"][-1])
@@ -441,6 +482,7 @@ def main(args: argparse.Namespace):
             persistent_backend=hdf5_backend,
             sampling_kwargs=params["sampling"]["kwargs"],
             verbose=True,
+            npools=args.pools,
         )
         x_axis = np.array(burnin_info["iterations"])
         plots = {
