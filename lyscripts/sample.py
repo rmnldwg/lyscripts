@@ -413,6 +413,7 @@ def main(args: argparse.Namespace):
         MODEL.patient_data = inference_data
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
         nwalkers = ndim * params["sampling"]["walkers_per_dim"]
+        thin_by = params["sampling"]["thin_by"]
         report.success(
             f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
             f"{len(inference_data)} patients"
@@ -428,7 +429,6 @@ def main(args: argparse.Namespace):
             temp_schedule = params["sampling"]["temp_schedule"]
             nsteps = params["sampling"]["nsteps"]
             burnin = params["sampling"]["burnin"]
-            thin_by = params["sampling"]["thin_by"]
             report.success("Prepared thermodynamic integration.")
 
         # record some information about each burnin phase
@@ -467,10 +467,6 @@ def main(args: argparse.Namespace):
             # make sure path to output file exists
             args.output.parent.mkdir(parents=True, exist_ok=True)
 
-            # set up sampling params
-            ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-            nwalkers = ndim * params["sampling"]["walkers_per_dim"]
-
             # prepare backend
             hdf5_backend = emcee.backends.HDFBackend(args.output, name="mcmc")
 
@@ -481,6 +477,7 @@ def main(args: argparse.Namespace):
             nsteps=params["sampling"]["nsteps"],
             persistent_backend=hdf5_backend,
             sampling_kwargs=params["sampling"]["kwargs"],
+            thin_by=thin_by,
             verbose=True,
             npools=args.pools,
         )
