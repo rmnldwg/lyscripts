@@ -20,7 +20,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install .[docs]
       - name: Build docs
-        run: python -m pdoc -o ./docs --math ./lyscripts
+        run: >
+          python -m pdoc
+          -o ./docs
+          --math
+          --favicon https://raw.githubusercontent.com/rmnldwg/lyscripts/main/favicon.png
+          ./lyscripts
       - name: Deploy docs to GitHub pages
         uses: peaceiris/actions-gh-pages@v3
         with:
