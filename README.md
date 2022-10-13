@@ -29,7 +29,7 @@ pip install .
 
 ## Usage
 
-After installing the package, run `python -m lyscripts --help` to see the following output:
+After installing the package, run `lyscripts --help` to see the following output:
 
 ```
 usage: lyscripts [-h] [-v]
