@@ -267,18 +267,17 @@ def run_mcmc_with_burnin(
         sampling_kwargs = {}
 
     if npools is None:
-        npools = os.cpu_count()
+        created_pool = Pool(os.cpu_count())
     elif npools == 0:
-        selected_pool = DummyPool()
+        created_pool = DummyPool()
     elif 0 < npools:
-        npools = np.minimum(npools, os.cpu_count())
-        selected_pool = Pool(npools)
+        created_pool = Pool(np.minimum(npools, os.cpu_count()))
     else:
         raise ValueError(
             "Number of pools must be integer larger or equal to 0 (or `None`)"
         )
 
-    with selected_pool as pool:
+    with created_pool as pool:
         # Burnin phase
         if keep_burnin:
             burnin_backend = persistent_backend
@@ -292,14 +291,14 @@ def run_mcmc_with_burnin(
 
         if burnin is None:
             burnin_result = burnin_sampler.run_sampling(
-                progress_desc=f"Burn-in ({selected_pool._processes} cores)" if verbose else None,
+                progress_desc=f"Burn-in ({created_pool._processes} cores)" if verbose else None,
                 **sampling_kwargs,
             )
         else:
             burnin_result = burnin_sampler.run_sampling(
                 min_steps=burnin,
                 max_steps=burnin,
-                progress_desc=f"Burn-in ({selected_pool._processes} cores)" if verbose else None,
+                progress_desc=f"Burn-in ({created_pool._processes} cores)" if verbose else None,
             )
 
         # persistent sampling phase
@@ -312,7 +311,7 @@ def run_mcmc_with_burnin(
             max_steps=nsteps,
             thin_by=thin_by,
             initial_state=burnin_result["final_state"],
-            progress_desc=f"Sampling ({selected_pool._processes} cores)" if verbose else None,
+            progress_desc=f"Sampling ({created_pool._processes} cores)" if verbose else None,
         )
 
         return burnin_result
@@ -413,6 +412,7 @@ def main(args: argparse.Namespace):
         MODEL.patient_data = inference_data
         ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
         nwalkers = ndim * params["sampling"]["walkers_per_dim"]
+        thin_by = params["sampling"]["thin_by"]
         report.success(
             f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
             f"{len(inference_data)} patients"
@@ -428,7 +428,6 @@ def main(args: argparse.Namespace):
             temp_schedule = params["sampling"]["temp_schedule"]
             nsteps = params["sampling"]["nsteps"]
             burnin = params["sampling"]["burnin"]
-            thin_by = params["sampling"]["thin_by"]
             report.success("Prepared thermodynamic integration.")
 
         # record some information about each burnin phase
@@ -467,10 +466,6 @@ def main(args: argparse.Namespace):
             # make sure path to output file exists
             args.output.parent.mkdir(parents=True, exist_ok=True)
 
-            # set up sampling params
-            ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-            nwalkers = ndim * params["sampling"]["walkers_per_dim"]
-
             # prepare backend
             hdf5_backend = emcee.backends.HDFBackend(args.output, name="mcmc")
 
@@ -481,6 +476,7 @@ def main(args: argparse.Namespace):
             nsteps=params["sampling"]["nsteps"],
             persistent_backend=hdf5_backend,
             sampling_kwargs=params["sampling"]["kwargs"],
+            thin_by=thin_by,
             verbose=True,
             npools=args.pools,
         )

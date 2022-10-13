@@ -204,8 +204,8 @@ def rank_consensus(
 CONSENSUS_FUNCS = {
     "max_llh": maxllh_consensus,
     "rank": rank_consensus,
-    "logic_or": lambda obs, *_args, **_kwargs: and_consensus(obs),
-    "logic_and": lambda obs, *_args, **_kwargs: or_consensus(obs),
+    "logic_or": lambda obs, *_args, **_kwargs: or_consensus(obs),
+    "logic_and": lambda obs, *_args, **_kwargs: and_consensus(obs),
 }
 
 

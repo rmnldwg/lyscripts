@@ -45,7 +45,7 @@ def exit(args: argparse.Namespace):
         report.print("No command chosen. Exiting...")
 
 def main():
-    """The mian entry point of the CLI."""
+    """The main entry point of the CLI."""
     parser = argparse.ArgumentParser(
         prog="lyscripts",
         description=clean_docstring(__doc__),

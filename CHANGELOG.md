@@ -1,6 +1,17 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+<a name="0.5.10"></a>
+## [0.5.10] - 2022-10-13
+
+### Bug Fixes
+- pick correct consensus method for enhancement ([#17])
+- sample does not crash when `pools` not given ([#16])
+- add thinning to convergence sampling, too ([#15])
+
+### Documentation
+- fix typos & add favicon to docs
+
 <a name="0.5.9"></a>
 ## [0.5.9] - 2022-09-16
 
@@ -74,7 +85,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.9...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.10...HEAD
+[0.5.10]: https://github.com/rmnldwg/lyscripts/compare/0.5.9...0.5.10
 [0.5.9]: https://github.com/rmnldwg/lyscripts/compare/0.5.8...0.5.9
 [0.5.8]: https://github.com/rmnldwg/lyscripts/compare/0.5.7...0.5.8
 [0.5.7]: https://github.com/rmnldwg/lyscripts/compare/0.5.6...0.5.7
@@ -86,3 +98,6 @@ returns `None` instead. Fixes [#11]
 [#8]: https://github.com/rmnldwg/lyscripts/issues/8
 [#11]: https://github.com/rmnldwg/lyscripts/issues/11
 [#13]: https://github.com/rmnldwg/lyscripts/issues/13
+[#15]: https://github.com/rmnldwg/lyscripts/issues/15
+[#16]: https://github.com/rmnldwg/lyscripts/issues/16
+[#17]: https://github.com/rmnldwg/lyscripts/issues/17
