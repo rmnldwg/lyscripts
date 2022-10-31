@@ -16,7 +16,7 @@ import yaml
 from rich.progress import track
 
 from ..helpers import clean_docstring, model_from_config, report
-from . import clean_pattern
+from ._utils import clean_pattern
 
 
 def _add_parser(

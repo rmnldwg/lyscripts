@@ -19,12 +19,12 @@ from rich.progress import track
 
 from ..helpers import (
     clean_docstring,
+    flatten,
     get_lnls,
     model_from_config,
-    nested_to_pandas,
     report,
 )
-from . import clean_pattern
+from ._utils import clean_pattern
 
 
 def _add_parser(
@@ -88,6 +88,30 @@ def get_match_idx(
 
     return match_idx
 
+def does_t_stage_match(data: pd.DataFrame, t_stage: str) -> pd.Index:
+    """Return the indices of the `data` where the `t_stage` of the patients matches."""
+    if data.columns.nlevels == 2:
+        return data["info", "t_stage"] == t_stage
+    elif data.columns.nlevels == 3:
+        return data["info", "tumor", "t_stage"] == t_stage
+    else:
+        raise ValueError("Data has neither 2 nor 3 header rows")
+
+def does_midline_ext_match(
+    data: pd.DataFrame,
+    midline_ext: Optional[bool] = None
+) -> pd.Index:
+    """
+    Return the indices of the `data` where the `midline_ext` of the patients matches.
+    """
+    if midline_ext is None or data.columns.nlevels == 2:
+        return True
+
+    if data.columns.nlevels == 3:
+        return data["info", "tumor", "midline_ext"] == midline_ext
+    else:
+        raise ValueError("Data has neither 2 nor 3 header rows")
+
 def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     """Get the prevalence of midline extension from `data` for `t_stage`."""
     if data.columns.nlevels == 2:
@@ -97,6 +121,40 @@ def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     has_midline_ext = eligible_data["info", "tumor", "midline_extension"] == True
     matching_data = eligible_data[has_midline_ext]
     return len(matching_data) / len(eligible_data)
+
+def create_patient_row(
+    pattern: Dict[str, Dict[str, bool]],
+    t_stage: str,
+    midline_ext: Optional[bool] = None,
+    make_unilateral: bool = False,
+) -> pd.DataFrame:
+    """
+    Create a pandas `DataFrame` representing a single patient from the specified
+    involvement `pattern`, along with their `t_stage` and `midline_ext` (if provided).
+    If `midline_ext` is not provided, the function creates two patient rows. One of a
+    patient _with_ and one of a patient _without_ a midline extention. And the returned
+    `patient_row` will only contain the `ipsi` part of the pattern when one tells the
+    function to `make_unilateral`.
+    """
+    if make_unilateral:
+        flat_pattern = flatten({"prev": pattern["ipsi"]})
+        patient_row = pd.DataFrame(flat_pattern, index=[0])
+        patient_row["info", "t_stage"] = t_stage
+        return patient_row
+
+    flat_pattern = flatten({"prev": pattern})
+    patient_row = pd.DataFrame(flat_pattern, index=[0])
+    patient_row["info", "tumor", "t_stage"] = t_stage
+    if midline_ext is not None:
+        patient_row["info", "tumor", "midline_ext"] = midline_ext
+        return patient_row
+
+    with_midline_ext = patient_row.copy()
+    with_midline_ext["info", "tumor", "midline_ext"] = True
+    without_midline_ext = patient_row.copy()
+    without_midline_ext["info", "tumor", "midline_ext"] = False
+
+    return with_midline_ext.append(without_midline_ext).reset_index()
 
 def observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
@@ -121,39 +179,23 @@ def observed_prevalence(
     """
     pattern = clean_pattern(pattern, lnls)
 
-    # get the data we care about
-    has_midline_ext = True
-    if data.columns.nlevels == 3:
-        is_bilateral = True
-        is_t_stage = data["info", "tumor", "t_stage"] == t_stage
-        if midline_ext is not None:
-            has_midline_ext = data["info", "tumor", "midline_extension"] == midline_ext
-    elif data.columns.nlevels == 2:
-        is_bilateral = False
-        is_t_stage = data["info", "t_stage"] == t_stage
-    else:
-        raise ValueError("Data must contain either 2 or 3 levels.")
+    has_matching_t_stage = does_t_stage_match(data, t_stage)
+    has_matching_midline_ext = does_midline_ext_match(data, midline_ext)
 
-    eligible_data = data.loc[is_t_stage & has_midline_ext, modality]
+    eligible_data = data.loc[has_matching_t_stage & has_matching_midline_ext, modality]
     eligible_data = eligible_data.dropna(axis="index", how="all")
 
     # filter the data by the LNL pattern they report
     do_lnls_match = False if invert else True
-    if is_bilateral:
-        do_lnls_match = get_match_idx(
-            do_lnls_match,
-            pattern["ipsi"],
-            eligible_data["ipsi"],
-            lnls=lnls,
-            invert=invert
-        )
-        do_lnls_match = get_match_idx(
-            do_lnls_match,
-            pattern["contra"],
-            eligible_data["contra"],
-            lnls=lnls,
-            invert=invert
-        )
+    if data.columns.nlevels == 2:
+        for side in ["ipsi", "contra"]:
+            do_lnls_match = get_match_idx(
+                do_lnls_match,
+                pattern[side],
+                eligible_data[side],
+                lnls=lnls,
+                invert=invert
+            )
     else:
         do_lnls_match = get_match_idx(
             do_lnls_match,
@@ -162,6 +204,7 @@ def observed_prevalence(
             lnls=lnls,
             invert=invert,
         )
+
     matching_data = eligible_data.loc[do_lnls_match]
     return len(matching_data), len(eligible_data)
 
@@ -207,40 +250,16 @@ def predicted_prevalence(
 
     # ensure the `pattern` is complete
     lnls = get_lnls(model)
-    for side in ["ipsi", "contra"]:
-        if side not in pattern:
-            pattern[side] = {}
-        pattern[side] = {lnl: pattern[side].get(lnl, None) for lnl in lnls}
+    pattern = clean_pattern(pattern, lnls)
 
     if isinstance(model, lymph.Unilateral):
-        # make DataFrame with one row from `pattern`
-        pattern_df = nested_to_pandas({"prev": pattern["ipsi"]})
-        pattern_df["info", "t_stage"] = t_stage
-
+        patient_row = create_patient_row(pattern, t_stage, make_unilateral=True)
     elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
-        # make DataFrame with one row from `pattern`
-        mi = pd.MultiIndex.from_product([["prev"], ["ipsi", "contra"], lnls])
-        pattern_df = pd.DataFrame(columns=mi)
-        pattern_df["prev"] = nested_to_pandas(pattern)
-        pattern_df["info", "tumor", "t_stage"] = t_stage
-
-        if isinstance(model, lymph.MidlineBilateral) and midline_ext is None:
-            # if midline_ext is None, provide the MidlineBilateral model with two
-            # patients: One with and one without midline extension. Then, marginalize
-            # over the two cases using the empirical probability of a midline extension
-            # (see below)
-            pattern_ext = pattern_df.copy()
-            pattern_ext["info", "tumor", "midline_extension"] = True
-            pattern_noext = pattern_df.copy()
-            pattern_noext["info", "tumor", "midline_extension"] = False
-            pattern_df = pd.concat([pattern_ext, pattern_noext], ignore_index=True)
-        else:
-            pattern_df["info", "tumor", "midline_extension"] = midline_ext
-
+        patient_row = create_patient_row(pattern, t_stage, midline_ext)
     else:
         raise TypeError(f"{type(model)} is not a supported model")
 
-    model.patient_data = pattern_df
+    model.patient_data = patient_row
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
     for i,sample in enumerate_samples:
