@@ -15,7 +15,6 @@ import lymph
 import numpy as np
 import pandas as pd
 import yaml
-from rich.progress import track
 
 from ..helpers import (
     clean_docstring,
@@ -24,7 +23,7 @@ from ..helpers import (
     model_from_config,
     report,
 )
-from ._utils import clean_pattern
+from ._utils import clean_pattern, rich_enumerate
 
 
 def _add_parser(
@@ -243,17 +242,6 @@ def predicted_prevalence(
     else:
         model.modalities = {"prev": modality_spsn}
 
-    # wrap the iteration over samples in a rich progressbar if `verbose`
-    enumerate_samples = enumerate(samples)
-    if description is not None:
-        enumerate_samples = track(
-            enumerate_samples,
-            description=description,
-            total=len(samples),
-            console=report,
-            transient=True
-        )
-
     prevalences = np.zeros(shape=len(samples), dtype=float)
 
     if isinstance(model, lymph.Unilateral):
@@ -266,7 +254,7 @@ def predicted_prevalence(
     model.patient_data = patient_row
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
-    for i,sample in enumerate_samples:
+    for i,sample in rich_enumerate(samples, description):
         if isinstance(model, lymph.MidlineBilateral):
             model.check_and_assign(sample)
             if midline_ext is None:

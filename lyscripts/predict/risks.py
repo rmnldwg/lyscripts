@@ -13,10 +13,9 @@ import h5py
 import lymph
 import numpy as np
 import yaml
-from rich.progress import track
 
 from ..helpers import clean_docstring, get_lnls, model_from_config, report
-from ._utils import clean_pattern
+from ._utils import clean_pattern, rich_enumerate
 
 
 def _add_parser(
@@ -33,7 +32,6 @@ def _add_parser(
         formatter_class=help_formatter,
     )
     _add_arguments(parser)
-
 
 def _add_arguments(parser: argparse.ArgumentParser):
     """
@@ -101,23 +99,12 @@ def predicted_risk(
     else:
         model.modalities = {"risk": [1., 1.]}
 
-    # wrap the iteration over samples in a rich progressbar if `verbose`
-    enumerate_samples = enumerate(samples)
-    if description is not None:
-        enumerate_samples = track(
-            enumerate_samples,
-            description=description,
-            total=len(samples),
-            console=report,
-            transient=True,
-        )
-
     risks = np.zeros(shape=len(samples), dtype=float)
 
     if isinstance(model, lymph.Unilateral):
         given_diagnosis = {"risk": given_diagnosis["ipsi"]}
 
-        for i,sample in enumerate_samples:
+        for i,sample in rich_enumerate(samples, description):
             risks[i] = model.risk(
                 involvement=involvement["ipsi"],
                 given_params=sample,
@@ -131,7 +118,7 @@ def predicted_risk(
 
     given_diagnosis = {"risk": given_diagnosis}
 
-    for i,sample in enumerate_samples:
+    for i,sample in rich_enumerate(samples, description):
         risks[i] = model.risk(
             involvement=involvement,
             given_params=sample,
