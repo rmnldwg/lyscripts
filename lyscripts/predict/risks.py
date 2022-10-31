@@ -15,7 +15,7 @@ import numpy as np
 import yaml
 from rich.progress import track
 
-from ..helpers import clean_docstring, model_from_config, report
+from ..helpers import clean_docstring, get_lnls, model_from_config, report
 from ._utils import clean_pattern
 
 
@@ -47,6 +47,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "output", default="./models/risks.hdf5", type=Path,
         help="Output path for predicted risks (HDF5 file)"
+    )
+    parser.add_argument(
+        "--thin", default=1, type=int,
+        help="Take only every n-th sample"
     )
     parser.add_argument(
         "--params", default="./params.yaml", type=Path,
@@ -88,7 +92,9 @@ def predicted_risk(
 
     Set `verbose` to `True` for a visualization of the progress.
     """
-    given_diagnosis = clean_pattern(given_diagnosis)
+    lnls = get_lnls(model)
+    involvement = clean_pattern(involvement, lnls)
+    given_diagnosis = clean_pattern(given_diagnosis, lnls)
 
     if given_diagnosis_spsn is not None:
         model.modalities = {"risk": given_diagnosis_spsn}
@@ -191,7 +197,7 @@ def main(args: argparse.Namespace):
         for i,scenario in enumerate(params["risks"]):
             risks = predicted_risk(
                 model=MODEL,
-                samples=SAMPLES,
+                samples=SAMPLES[::args.thin],
                 description=f"Compute risks for scenario {i+1}/{num_risks}...",
                 **scenario
             )

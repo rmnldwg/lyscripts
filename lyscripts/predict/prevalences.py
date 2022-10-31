@@ -61,6 +61,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Output path for predicted prevalences (HDF5 file)"
     )
     parser.add_argument(
+        "--thin", default=1, type=int,
+        help="Take only every n-th sample"
+    )
+    parser.add_argument(
         "--params", default="./params.yaml", type=Path,
         help="Path to parameter file"
     )
@@ -116,10 +120,11 @@ def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     """Get the prevalence of midline extension from `data` for `t_stage`."""
     if data.columns.nlevels == 2:
         return None
-    is_t_stage = data["info", "tumor", "t_stage"] == t_stage
-    eligible_data = data[is_t_stage]
-    has_midline_ext = eligible_data["info", "tumor", "midline_extension"] == True
-    matching_data = eligible_data[has_midline_ext]
+
+    has_matching_t_stage = does_t_stage_match(data, t_stage)
+    eligible_data = data[has_matching_t_stage]
+    has_matching_midline_ext = does_midline_ext_match(eligible_data, midline_ext=True)
+    matching_data = eligible_data[has_matching_midline_ext]
     return len(matching_data) / len(eligible_data)
 
 def create_patient_row(
@@ -230,10 +235,13 @@ def predicted_prevalence(
 
     Use `invert` to compute 1 - p.
     """
-    if modality_spsn is None:
-        modality_spsn = [1., 1.]
+    lnls = get_lnls(model)
+    pattern = clean_pattern(pattern, lnls)
 
-    model.modalities = {"prev": modality_spsn}
+    if modality_spsn is None:
+        model.modalities = {"prev": [1., 1.]}
+    else:
+        model.modalities = {"prev": modality_spsn}
 
     # wrap the iteration over samples in a rich progressbar if `verbose`
     enumerate_samples = enumerate(samples)
@@ -247,10 +255,6 @@ def predicted_prevalence(
         )
 
     prevalences = np.zeros(shape=len(samples), dtype=float)
-
-    # ensure the `pattern` is complete
-    lnls = get_lnls(model)
-    pattern = clean_pattern(pattern, lnls)
 
     if isinstance(model, lymph.Unilateral):
         patient_row = create_patient_row(pattern, t_stage, make_unilateral=True)
@@ -342,7 +346,7 @@ def main(args: argparse.Namespace):
         for i,scenario in enumerate(params["prevalences"]):
             prevalences = predicted_prevalence(
                 model=MODEL,
-                samples=SAMPLES,
+                samples=SAMPLES[::args.thin],
                 description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
                 midline_ext_prob=get_midline_ext_prob(DATA, scenario["t_stage"]),
                 **scenario
@@ -361,8 +365,10 @@ def main(args: argparse.Namespace):
                     prevalences_dset.attrs[key] = val
                 except TypeError:
                     pass
-            prevalences_dset.attrs["num_match"] = float(num_match)
-            prevalences_dset.attrs["num_total"] = float(num_total)
+
+            prevalences_dset.attrs["num_match"] = num_match
+            prevalences_dset.attrs["num_total"] = num_total
+
         report.success(
             f"Computed prevalences of {num_prevalences} scenarios stored at "
             f"{args.output}"
