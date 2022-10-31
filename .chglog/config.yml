@@ -10,7 +10,7 @@ options:
         - feat
         - fix
         - perf
-        - refactor
+        - refac
         - docs
         - chore
   issues:
@@ -29,7 +29,7 @@ options:
       feat: Features
       fix: Bug Fixes
       perf: Performance Improvements
-      refactor: Code Refactoring
+      refac: Code Refactoring
       docs: Documentation
       chore: Maintenance
   header:

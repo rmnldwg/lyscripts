@@ -29,7 +29,7 @@ repos:
     - feat        # a new feature was implemented (bump MINOR version)
     - fix         # an issue or bug has been fixed (bump PATCH version)
     - perf        # performance improvements that do not alter existing behaviour
-    - refactor    # update shuffles code around but does not alter functionality
+    - refac       # update shuffles code around but does not alter functionality
     - remove      # a feature or functionality is removed
     - style       # source code is improved w.r.t. its code quality
     - test        # commits enhance or add to the test suite

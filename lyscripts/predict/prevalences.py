@@ -24,6 +24,7 @@ from ..helpers import (
     nested_to_pandas,
     report,
 )
+from . import clean_pattern
 
 
 def _add_parser(
@@ -118,13 +119,7 @@ def observed_prevalence(
 
     When `invert` is set to `True`, the function returns 1 minus the prevalence.
     """
-    # make sure the pattern has the right form
-    if pattern is None:
-        pattern = {}
-    for side in ["ipsi", "contra"]:
-        if side not in pattern:
-            pattern[side] = {}
-        pattern[side] = {lnl: pattern[side].get(lnl, None) for lnl in lnls}
+    pattern = clean_pattern(pattern, lnls)
 
     # get the data we care about
     has_midline_ext = True

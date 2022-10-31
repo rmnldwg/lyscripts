@@ -16,6 +16,7 @@ import yaml
 from rich.progress import track
 
 from ..helpers import clean_docstring, model_from_config, report
+from . import clean_pattern
 
 
 def _add_parser(
@@ -87,8 +88,7 @@ def predicted_risk(
 
     Set `verbose` to `True` for a visualization of the progress.
     """
-    if given_diagnosis is None:
-        given_diagnosis = {"ipsi": {}, "contra": {}}
+    given_diagnosis = clean_pattern(given_diagnosis)
 
     if given_diagnosis_spsn is not None:
         model.modalities = {"risk": given_diagnosis_spsn}
