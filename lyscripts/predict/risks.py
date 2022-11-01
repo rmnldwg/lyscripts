@@ -14,8 +14,8 @@ import lymph
 import numpy as np
 import yaml
 
-from ..helpers import clean_docstring, get_lnls, model_from_config, report
-from ._utils import clean_pattern, rich_enumerate
+from lyscripts.helpers import get_lnls, model_from_config, report
+from lyscripts.predict._utils import clean_pattern, rich_enumerate
 
 
 def _add_parser(
@@ -27,8 +27,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)

@@ -1,7 +1,6 @@
 import argparse
 
 from .. import exit
-from ..helpers import clean_docstring
 from ..rich_argparse import RichHelpFormatter
 from . import __doc__, corner, histograms, thermo_int
 
@@ -9,7 +8,7 @@ from . import __doc__, corner, histograms, thermo_int
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="lyscripts",
-        description=clean_docstring(__doc__),
+        description=__doc__,
         formatter_class=RichHelpFormatter,
     )
     parser.set_defaults(run_main=exit)

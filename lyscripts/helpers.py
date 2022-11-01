@@ -2,7 +2,6 @@
 This module contains frequently used functions as well as instructions on how
 to parse and process the raw data from different institutions
 """
-import re
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import lymph
@@ -17,18 +16,6 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from scipy.special import factorial
-
-
-def clean_docstring(doc: str) -> str:
-    """
-    The `RichHelpFormatter` displays line breaks as they occur in the
-    docstring, which I don't like. So, I need to remove them.
-    """
-    pat = re.compile(r"(\S[^\S\n]*)\n([^\S\n]*\S)")
-    doc = pat.sub(r"\1 \2", doc)
-    doc = doc.strip()
-    return doc + "\n"
-
 
 CROSS = "[bold red]✗[/bold red]"
 CIRCL = "[bold yellow]∘[/bold yellow]"

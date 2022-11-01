@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from cycler import cycler
 
-from ..helpers import clean_docstring, report
+from lyscripts.helpers import report
 
 # define USZ colors
 COLORS = {
@@ -34,8 +34,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)

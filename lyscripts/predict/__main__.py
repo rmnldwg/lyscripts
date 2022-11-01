@@ -1,15 +1,14 @@
 import argparse
 
-from .. import exit
-from ..helpers import clean_docstring
-from ..rich_argparse import RichHelpFormatter
-from . import __doc__, prevalences, risks
+from lyscripts import exit
+from lyscripts.predict import __doc__, prevalences, risks
+from lyscripts.rich_argparse import RichHelpFormatter
 
 # I need another __main__ guard here, because otherwise pdoc tries to run this
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="lyscripts",
-        description=clean_docstring(__doc__),
+        description=__doc__,
         formatter_class=RichHelpFormatter,
     )
     parser.set_defaults(run_main=exit)

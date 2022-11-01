@@ -16,14 +16,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from ..helpers import (
-    clean_docstring,
-    flatten,
-    get_lnls,
-    model_from_config,
-    report,
-)
-from ._utils import clean_pattern, rich_enumerate
+from lyscripts.helpers import flatten, get_lnls, model_from_config, report
+from lyscripts.predict._utils import clean_pattern, rich_enumerate
 
 
 def _add_parser(
@@ -35,8 +29,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)
@@ -243,14 +237,10 @@ def predicted_prevalence(
         model.modalities = {"prev": modality_spsn}
 
     prevalences = np.zeros(shape=len(samples), dtype=float)
-
-    if isinstance(model, lymph.Unilateral):
-        patient_row = create_patient_row(pattern, t_stage, make_unilateral=True)
-    elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
-        patient_row = create_patient_row(pattern, t_stage, midline_ext)
-    else:
-        raise TypeError(f"{type(model)} is not a supported model")
-
+    is_unilateral = isinstance(model, lymph.Unilateral)
+    patient_row = create_patient_row(
+        pattern, t_stage, midline_ext, make_unilateral=is_unilateral
+    )
     model.patient_data = patient_row
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
