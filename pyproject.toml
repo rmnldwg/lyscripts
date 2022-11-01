@@ -30,6 +30,7 @@ dependencies = [
     "scipy",
     "xlrd",
     "rich",
+    "rich-argparse",
     "pyyaml",
     "lymph-model",
 ]
