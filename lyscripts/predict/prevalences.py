@@ -114,10 +114,12 @@ def does_midline_ext_match(
     if midline_ext is None or data.columns.nlevels == 2:
         return True
 
-    if data.columns.nlevels == 3:
-        return data["info", "tumor", "midline_ext"] == midline_ext
-    else:
-        raise ValueError("Data has neither 2 nor 3 header rows")
+    try:
+        return data["info", "tumor", "midline_extension"] == midline_ext
+    except KeyError as key_err:
+        raise KeyError(
+            "Data does not seem to have midline extension information"
+        ) from key_err
 
 def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     """Get the prevalence of midline extension from `data` for `t_stage`."""
@@ -154,13 +156,13 @@ def create_patient_row(
     patient_row = pd.DataFrame(flat_pattern, index=[0])
     patient_row["info", "tumor", "t_stage"] = t_stage
     if midline_ext is not None:
-        patient_row["info", "tumor", "midline_ext"] = midline_ext
+        patient_row["info", "tumor", "midline_extension"] = midline_ext
         return patient_row
 
     with_midline_ext = patient_row.copy()
-    with_midline_ext["info", "tumor", "midline_ext"] = True
+    with_midline_ext["info", "tumor", "midline_extension"] = True
     without_midline_ext = patient_row.copy()
-    without_midline_ext["info", "tumor", "midline_ext"] = False
+    without_midline_ext["info", "tumor", "midline_extension"] = False
 
     return with_midline_ext.append(without_midline_ext).reset_index()
 
@@ -196,6 +198,14 @@ def observed_prevalence(
     # filter the data by the LNL pattern they report
     do_lnls_match = False if invert else True
     if data.columns.nlevels == 2:
+        do_lnls_match = get_match_idx(
+            do_lnls_match,
+            pattern["ipsi"],
+            eligible_data,
+            lnls=lnls,
+            invert=invert,
+        )
+    else:
         for side in ["ipsi", "contra"]:
             do_lnls_match = get_match_idx(
                 do_lnls_match,
@@ -204,14 +214,6 @@ def observed_prevalence(
                 lnls=lnls,
                 invert=invert
             )
-    else:
-        do_lnls_match = get_match_idx(
-            do_lnls_match,
-            pattern["ipsi"],
-            eligible_data,
-            lnls=lnls,
-            invert=invert,
-        )
 
     matching_data = eligible_data.loc[do_lnls_match]
     return len(matching_data), len(eligible_data)

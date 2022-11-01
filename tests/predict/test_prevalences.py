@@ -3,8 +3,13 @@ Test the functions of the prevalence prediction submodule.
 """
 import lymph
 import pandas as pd
+import pytest
 
-from lyscripts.predict.prevalences import get_lnls, get_match_idx
+from lyscripts.predict.prevalences import (
+    does_midline_ext_match,
+    get_lnls,
+    get_match_idx,
+)
 
 
 def test_get_lnls():
@@ -59,3 +64,32 @@ def test_get_match_idx():
     assert all(
         ignorant_matching_idxs == pd.Series([True, True, True])
     ), "Ignorant matching did not always return `True`."
+
+
+def test_does_midline_ext_match():
+    """
+    Test the function that returns indices of a `DataFrame` where the midline
+    extension matches.
+    """
+    uni_data = pd.DataFrame({("two", "levels"): [True, False, None]})
+    midline_data = pd.DataFrame({
+        ("info", "tumor", "midline_extension"): [True, False, None]
+    })
+    keyerr_data = pd.DataFrame({("way", "too", "many", "levels"): [True, False, None]})
+
+    uni_match_none = does_midline_ext_match(uni_data)
+    uni_match = does_midline_ext_match(uni_data, midline_ext=False)
+    midline_match = does_midline_ext_match(midline_data, midline_ext=False)
+
+    assert uni_match_none is True, (
+        "When matching against `None`, function should always return `True`."
+    )
+    assert uni_match is True, (
+        "Data with two-level header should always match, "
+        "because they don't have midline data."
+    )
+    assert all(midline_match == pd.Series([False, True, False])), (
+        "Matching midline extension with correct data does not work."
+    )
+    with pytest.raises(KeyError):
+        _ = does_midline_ext_match(keyerr_data, midline_ext=False)

@@ -43,13 +43,14 @@ def rich_enumerate(samples: np.ndarray, description: Optional[str] = None):
     """
     Create a progress bar while enumerating over the given samples.
     """
+    enumerated_samples = enumerate(samples)
     if description is None:
-        return enumerate(samples)
-    else:
-        return track(
-            samples,
-            total=len(samples),
-            description=description,
-            console=report,
-            transient=True,
-        )
+        return enumerated_samples
+
+    return track(
+        enumerated_samples,
+        total=len(samples),
+        description=description,
+        console=report,
+        transient=True,
+    )
