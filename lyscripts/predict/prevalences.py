@@ -73,8 +73,7 @@ def get_match_idx(
     invert: bool = False,
 ) -> pd.Series:
     """Get the indices of the rows in the `data` where the diagnose matches the
-    `pattern` of interest for every lymph node level in the `lnls`. Example:
-
+    `pattern` of interest for every lymph node level in the `lnls`. An example:
     >>> pattern = {"II": True, "III": None}
     >>> lnls = ["II", "III"]
     >>> data = pd.DataFrame.from_dict({

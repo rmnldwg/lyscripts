@@ -5,11 +5,7 @@ import argparse
 
 from rich.containers import Lines
 from rich.text import Text
-from rich_argparse import (
-    RawDescriptionRichHelpFormatter,
-    RawTextRichHelpFormatter,
-    RichHelpFormatter,
-)
+from rich_argparse import RichHelpFormatter
 
 from lyscripts.helpers import report
 
@@ -37,7 +33,7 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 
 
 class RichDefaultHelpFormatter(
-    RawDescriptionRichHelpFormatter,
+    RichHelpFormatter,
     argparse.ArgumentDefaultsHelpFormatter,
 ):
     """
