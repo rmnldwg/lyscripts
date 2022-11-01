@@ -48,7 +48,10 @@ dev = [
     "pylint",
 ]
 docs = [
-    "pdoc"
+    "pdoc",
+]
+tests = [
+    "pytest",
 ]
 
 [project.scripts]

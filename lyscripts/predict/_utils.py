@@ -16,6 +16,12 @@ def clean_pattern(
     """
     Make sure the provided involvement `pattern` is correct. For each side of the neck,
     and for each of the `lnls` this should in the end contain `True`, `False` or `None`.
+    For example,
+
+    >>> pattern = {"ipsi": {"II": True}}
+    >>> lnls = ["II", "III"]
+    >>> clean_pattern(pattern, lnls)
+    {'ipsi': {'II': True, 'III': None}, 'contra': {'II': None, 'III': None}}
     """
     if pattern is None:
         pattern = {}

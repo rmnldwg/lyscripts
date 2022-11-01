@@ -13,6 +13,7 @@ options:
         - refac
         - docs
         - chore
+        - test
   issues:
     prefix:
     - #
@@ -32,6 +33,7 @@ options:
       refac: Code Refactoring
       docs: Documentation
       chore: Maintenance
+      test: Testing
   header:
     pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
     pattern_maps:
