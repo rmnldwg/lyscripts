@@ -135,20 +135,20 @@ def main(args: argparse.Namespace):
     typng `lyscripts predict risks --help`.
 
     ```
-    usage: lyscripts predict risks [-h] [--params PARAMS] model output
+    USAGE: lyscripts predict risks [-h] [--thin THIN] [--params PARAMS] model output
 
-    Predict risks of involvements using the samples that were drawn during the inference
-    process and scenarios as defined in a YAML file. The structure of these scenarios
-    can be seen in an actual `params.yaml` file over in the
+    Predict risks of involvements using the samples that were drawn during the
+    inference process and scenarios as defined in a YAML file. The structure of these
+    scenarios can be seen in an actual `params.yaml` file over in the
     (https://github.com/rmnldwg/lynference) repository.
 
-
-    POSITIONAL ARGUMENTS
+    POSITIONAL ARGUMENTS:
     model            Path to drawn samples (HDF5)
     output           Output path for predicted risks (HDF5 file)
 
-    OPTIONAL ARGUMENTS
+    OPTIONAL ARGUMENTS:
     -h, --help       show this help message and exit
+    --thin THIN      Take only every n-th sample (default: 1)
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """

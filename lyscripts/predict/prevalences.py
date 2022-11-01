@@ -281,7 +281,8 @@ def main(args: argparse.Namespace):
     prevalences --help` and shows this:
 
     ```
-    usage: lyscripts predict prevalences [-h] [--params PARAMS] model data output
+    USAGE: lyscripts predict prevalences [-h] [--thin THIN] [--params PARAMS]
+                                         model data output
 
     Predict prevalences of diagnostic patterns using the samples that were inferred
     using the model via MCMC sampling and compare them to the prevalence in the data.
@@ -290,14 +291,14 @@ def main(args: argparse.Namespace):
     comparing it to the empirical likelihood of a given pattern of lymphatic
     progression.
 
-
-    POSITIONAL ARGUMENTS
+    POSITIONAL ARGUMENTS:
     model            Path to drawn samples (HDF5)
     data             Path to the data file to compare prediction and data prevalence
     output           Output path for predicted prevalences (HDF5 file)
 
-    OPTIONAL ARGUMENTS
+    OPTIONAL ARGUMENTS:
     -h, --help       show this help message and exit
+    --thin THIN      Take only every n-th sample (default: 1)
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
