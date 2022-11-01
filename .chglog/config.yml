@@ -10,9 +10,10 @@ options:
         - feat
         - fix
         - perf
-        - refactor
+        - refac
         - docs
         - chore
+        - test
   issues:
     prefix:
     - #
@@ -29,9 +30,10 @@ options:
       feat: Features
       fix: Bug Fixes
       perf: Performance Improvements
-      refactor: Code Refactoring
+      refac: Code Refactoring
       docs: Documentation
       chore: Maintenance
+      test: Testing
   header:
     pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
     pattern_maps:

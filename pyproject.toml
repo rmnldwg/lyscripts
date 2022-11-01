@@ -30,6 +30,7 @@ dependencies = [
     "scipy",
     "xlrd",
     "rich",
+    "rich-argparse",
     "pyyaml",
     "lymph-model",
 ]
@@ -47,7 +48,10 @@ dev = [
     "pylint",
 ]
 docs = [
-    "pdoc"
+    "pdoc",
+]
+tests = [
+    "pytest",
 ]
 
 [project.scripts]

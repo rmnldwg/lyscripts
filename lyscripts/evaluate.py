@@ -15,7 +15,7 @@ import pandas as pd
 import yaml
 from scipy.integrate import trapezoid
 
-from .helpers import clean_docstring, model_from_config, report
+from lyscripts.helpers import model_from_config, report
 
 
 def _add_parser(
@@ -27,8 +27,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)
