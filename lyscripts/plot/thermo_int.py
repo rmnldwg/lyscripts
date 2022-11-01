@@ -14,15 +14,8 @@ import pandas as pd
 from cycler import cycler
 
 from lyscripts.helpers import report
+from lyscripts.plot._utils import COLORS, get_size
 
-# define USZ colors
-COLORS = {
-    "blue": '#005ea8',
-    "orange": '#f17900',
-    "green": '#00afa5',
-    "red": '#ae0060',
-    "gray": '#c5d5db',
-}
 LINE_CYCLER = cycler(linestyle=["-", "--"]) * cycler(color=list(COLORS.values()))
 
 def _add_parser(
@@ -79,19 +72,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
     )
 
     parser.set_defaults(run_main=main)
-
-
-def get_size(width="single", unit="cm", ratio="golden"):
-    """Get optimal figure size for a range of scenarios."""
-    if width == "single":
-        width = 10
-    elif width == "full":
-        width = 16
-
-    ratio = 1.618 if ratio == "golden" else ratio
-    width = width / 2.54 if unit == "cm" else width
-    height = width / ratio
-    return (width, height)
 
 
 def main(args: argparse.Namespace):
