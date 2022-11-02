@@ -141,6 +141,16 @@ def get_size(width="single", unit="cm", ratio="golden"):
     Return a tuple of figure sizes in inches, as the `matplotlib` keyword argument
     `figsize` expects it. This figure size is computed from a `width`, in the `unit` of
     centimeters by default, and a `ratio` which is set to the golden ratio by default.
+
+    Examples:
+    >>> get_size(width="single", ratio="golden")
+    (3.937007874015748, 2.4332557935820445)
+    >>> get_size(width="full", ratio=2.)
+    (6.299212598425196, 3.149606299212598)
+    >>> get_size(width=10., ratio=1.)
+    (3.937007874015748, 3.937007874015748)
+    >>> get_size(width=5, unit="inches", ratio=2./3.)
+    (5, 7.5)
     """
     if width == "single":
         width = 10
