@@ -1,6 +1,15 @@
 """
 Utility functions for the plotting commands.
 """
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import h5py
+import numpy as np
+import scipy as sp
+from matplotlib.axes._axes import Axes as MPLAxes
+
 # define USZ colors
 COLORS = {
     "blue": '#005ea8',
@@ -12,7 +21,11 @@ COLORS = {
 
 
 def get_size(width="single", unit="cm", ratio="golden"):
-    """Get optimal figure size for a range of scenarios."""
+    """
+    Return a tuple of figure sizes in inches, as the `matplotlib` keyword argument
+    `figsize` expects it. This figure size is computed from a `width`, in the `unit` of
+    centimeters by default, and a `ratio` which is set to the golden ratio by default.
+    """
     if width == "single":
         width = 10
     elif width == "full":
@@ -22,3 +35,209 @@ def get_size(width="single", unit="cm", ratio="golden"):
     width = width / 2.54 if unit == "cm" else width
     height = width / ratio
     return (width, height)
+
+
+def floor_at_decimal(value: float, decimal: int) -> float:
+    """
+    Compute the floor of `value` for the specified `decimal`, which is the distance
+    to the right of the decimal point. May be negative.
+    """
+    power = 10**decimal
+    return np.floor(power * value) / power
+
+def ceil_at_decimal(value: float, decimal: int) -> float:
+    """
+    Compute the ceiling of `value` for the specified `decimal`, which is the distance
+    to the right of the decimal point. May be negative.
+    """
+    return - floor_at_decimal(-value, decimal)
+
+def floor_to_step(value: float, step: float) -> float:
+    """
+    Compute the next closest value on a ladder of stepsize `step` that is below `value`.
+    """
+    return (value // step) * step
+
+def ceil_to_step(value: float, step: float) -> float:
+    """
+    Compute the next closest value on a ladder of stepsize `step` that is above `value`.
+    """
+    return floor_to_step(value, step) + step
+
+
+def _clean_and_check(filename: Union[str, Path]) -> Path:
+    """
+    Check if file with `filename` exists. If not, raise error, otherwise return
+    cleaned `PosixPath`.
+    """
+    filepath = Path(filename)
+    if not filepath.exists():
+        raise FileNotFoundError(
+            f"File with the name {filename} does not exist at {filepath.resolve()}"
+        )
+    return filepath
+
+
+def get_label(attrs) -> str:
+    """Extract label of a histogram from the HDF5 `attrs` object of the dataset."""
+    label = []
+    transforms = {
+        "label": lambda x: x,
+        "modality": lambda x: x,
+        "t_stage": lambda x: x,
+        "midline_ext": lambda x: "ext" if x else "noext"
+    }
+    for key,func in transforms.items():
+        if key in attrs and attrs[key] is not None:
+            label.append(func(attrs[key]))
+    return " | ".join(label)
+
+
+@dataclass
+class Histogram:
+    """Class containing data for plotting a histogram."""
+    filename: Union[str, Path]
+    dataname: str
+    scale: float = field(default=100.)
+    kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+
+    def __post_init__(self) -> None:
+        self.filename = _clean_and_check(self.filename)
+        with h5py.File(self.filename, mode="r") as h5file:
+            dataset = h5file[self.dataname]
+            self.values = self.scale * dataset[:]
+            if "label" not in self.kwargs:
+                self.kwargs["label"] = get_label(dataset.attrs)
+
+    def left_percentile(self, percent: float) -> float:
+        """Compute the point where `percent` of the values are to the left."""
+        return np.percentile(self.values, percent)
+
+    def right_precentile(self, percent: float) -> float:
+        """Compute the point where `percent` of the values are to the right."""
+        return np.percentile(self.values, 100. - percent)
+
+@dataclass
+class Posterior:
+    """Class for storing plot configs for a Beta posterior."""
+    filename: Union[str, Path]
+    dataname: str
+    scale: float = field(default=100.)
+    kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+
+    def __post_init__(self) -> None:
+        self.filename = _clean_and_check(self.filename)
+        with h5py.File(self.filename, mode="r") as h5file:
+            dataset = h5file[self.dataname]
+            try:
+                self.num_success = int(dataset.attrs["num_match"])
+                self.num_total = int(dataset.attrs["num_total"])
+            except KeyError as key_err:
+                raise KeyError(
+                    "Dataset does not contain observed prevalence data"
+                ) from key_err
+            self.num_fail = self.num_total - self.num_success
+
+    def pdf(self, x: np.ndarray) -> np.ndarray:
+        """Compute the probability density function."""
+        return sp.stats.beta.pdf(
+            x,
+            a=self.num_success+1,
+            b=self.num_fail+1,
+            scale=self.scale
+        )
+
+    def left_percentile(self, percent: float) -> float:
+        """Return the point where the CDF reaches `percent`."""
+        return sp.stats.beta.ppf(
+            percent / 100.,
+            a=self.num_success+1,
+            b=self.num_fail+1,
+            scale=self.scale,
+        )
+
+    def right_percentile(self, percent: float) -> float:
+        """Return the point where 100% minus the CDF equals `percent`."""
+        return sp.stats.beta.ppf(
+            100. - (percent / 100.),
+            a=self.num_success+1,
+            b=self.num_fail+1,
+            scale=self.scale,
+        )
+
+
+def get_xlims(
+    contents: List[Union[Histogram, Posterior]],
+    percent_lims: Tuple[float] = (10., 10.),
+) -> Tuple[float]:
+    """
+    Compute the `xlims` of a plot containing histograms and probability density
+    functions by considering their smallest and largest percentiles.
+    """
+    left_percentiles = np.array(
+            c.left_percentile(percent_lims[0]) for c in contents
+        )
+    left_lim = np.min(left_percentiles)
+    right_percentiles = np.array(
+            c.right_percentile(percent_lims[0]) for c in contents
+        )
+    right_lim = np.max(right_percentiles)
+    return left_lim, right_lim
+
+
+def draw(
+    axes: MPLAxes,
+    contents: List[Union[Histogram, Posterior]],
+    percent_lims: Tuple[float] = (10., 10.),
+    xlims: Optional[Tuple[float]] = None,
+    hist_kwargs: Optional[Dict[str, Any]] = None,
+    plot_kwargs: Optional[Dict[str, Any]] = None,
+) -> MPLAxes:
+    """
+    Draw histograms and Beta posterior from `contents` into `axes`.
+
+    The limits of the x-axis is computed to be the smallest and largest left and right
+    percentile of all provided `contents` respectively via the `percent_lims` tuple.
+
+    The `hist_kwargs` define general settings that will be applied to all histograms.
+    One additional key `'nbins'` may be used to adjust only the numbers, not the spacing
+    of the histogram bins.
+    Similarly, `plot_kwargs` adjusts the default settings for the Beta posteriors.
+
+    Both these keyword arguments can be overwritten by what the individual `contents`
+    have defined.
+    """
+    if not all(isinstance(c, Histogram) or isinstance(c, Posterior) for c in contents):
+        raise TypeError("Contents must be `Histogram` or `Posterior` instances")
+
+    if xlims is None:
+        xlims = get_xlims(contents, percent_lims)
+    elif len(xlims) != 2 or xlims[0] > xlims[-1]:
+        raise ValueError("`xlims` must be tuple of two increasing values")
+
+    x = np.linspace(*xlims, 300)
+
+    hist_kwargs = {} if hist_kwargs is None else hist_kwargs
+    nbins = hist_kwargs.pop("nbins", 60)
+    hist_kwargs.update({
+        "density": True,
+        "bins": np.linspace(*xlims, nbins),
+        "histtype": "stepfilled",
+        "alpha": 0.5,
+    })
+
+    plot_kwargs = {} if plot_kwargs is None else plot_kwargs
+
+    for content in contents:
+        if isinstance(content, Histogram):
+            tmp_hist_kwargs = hist_kwargs.copy()
+            tmp_hist_kwargs.update(content.kwargs)
+            axes.hist(content.values, **tmp_hist_kwargs)
+        elif isinstance(content, Posterior):
+            tmp_plot_kwargs = plot_kwargs.copy()
+            tmp_plot_kwargs["label"] = f"{content.num_success} / {content.num_total}"
+            tmp_plot_kwargs.update(content.kwargs)
+            axes.plot(x, content.pdf(x), **tmp_plot_kwargs)
+
+    axes.set_xlim(*xlims)
+    return axes
