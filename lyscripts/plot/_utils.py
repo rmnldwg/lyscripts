@@ -82,9 +82,9 @@ def get_label(attrs) -> str:
     """Extract label of a histogram from the HDF5 `attrs` object of the dataset."""
     label = []
     transforms = {
-        "label": lambda x: x,
-        "modality": lambda x: x,
-        "t_stage": lambda x: x,
+        "label": lambda x: str(x),
+        "modality": lambda x: str(x),
+        "t_stage": lambda x: str(x),
         "midline_ext": lambda x: "ext" if x else "noext"
     }
     for key,func in transforms.items():
@@ -113,7 +113,7 @@ class Histogram:
         """Compute the point where `percent` of the values are to the left."""
         return np.percentile(self.values, percent)
 
-    def right_precentile(self, percent: float) -> float:
+    def right_percentile(self, percent: float) -> float:
         """Compute the point where `percent` of the values are to the right."""
         return np.percentile(self.values, 100. - percent)
 
@@ -159,7 +159,7 @@ class Posterior:
     def right_percentile(self, percent: float) -> float:
         """Return the point where 100% minus the CDF equals `percent`."""
         return sp.stats.beta.ppf(
-            100. - (percent / 100.),
+            1. - (percent / 100.),
             a=self.num_success+1,
             b=self.num_fail+1,
             scale=self.scale,
@@ -175,12 +175,12 @@ def get_xlims(
     functions by considering their smallest and largest percentiles.
     """
     left_percentiles = np.array(
-            c.left_percentile(percent_lims[0]) for c in contents
-        )
+        [c.left_percentile(percent_lims[0]) for c in contents]
+    )
     left_lim = np.min(left_percentiles)
     right_percentiles = np.array(
-            c.right_percentile(percent_lims[0]) for c in contents
-        )
+        [c.right_percentile(percent_lims[0]) for c in contents]
+    )
     right_lim = np.max(right_percentiles)
     return left_lim, right_lim
 
@@ -223,7 +223,7 @@ def draw(
         "density": True,
         "bins": np.linspace(*xlims, nbins),
         "histtype": "stepfilled",
-        "alpha": 0.5,
+        "alpha": 0.7,
     })
 
     plot_kwargs = {} if plot_kwargs is None else plot_kwargs
