@@ -2,6 +2,7 @@
 Utility functions for the plotting commands.
 """
 from dataclasses import dataclass, field
+from itertools import cycle
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -18,6 +19,7 @@ COLORS = {
     "red": '#ae0060',
     "gray": '#c5d5db',
 }
+COLOR_CYCLE = cycle(COLORS.values())
 
 
 def get_size(width="single", unit="cm", ratio="golden"):
