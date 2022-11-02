@@ -14,7 +14,7 @@ import pandas as pd
 from cycler import cycler
 
 from lyscripts.helpers import report
-from lyscripts.plot._utils import COLORS, get_size
+from lyscripts.plot.utils import COLORS, get_size
 
 LINE_CYCLER = cycler(linestyle=["-", "--"]) * cycler(color=list(COLORS.values()))
 

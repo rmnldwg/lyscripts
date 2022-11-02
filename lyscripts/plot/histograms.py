@@ -8,7 +8,7 @@ from warnings import warn
 import matplotlib.pyplot as plt
 
 from lyscripts.helpers import report
-from lyscripts.plot._utils import (
+from lyscripts.plot.utils import (
     COLOR_CYCLE,
     Histogram,
     Posterior,

@@ -22,24 +22,7 @@ COLORS = {
 COLOR_CYCLE = cycle(COLORS.values())
 
 
-def get_size(width="single", unit="cm", ratio="golden"):
-    """
-    Return a tuple of figure sizes in inches, as the `matplotlib` keyword argument
-    `figsize` expects it. This figure size is computed from a `width`, in the `unit` of
-    centimeters by default, and a `ratio` which is set to the golden ratio by default.
-    """
-    if width == "single":
-        width = 10
-    elif width == "full":
-        width = 16
-
-    ratio = 1.618 if ratio == "golden" else ratio
-    width = width / 2.54 if unit == "cm" else width
-    height = width / ratio
-    return (width, height)
-
-
-def floor_at_decimal(value: float, decimal: int) -> float:
+def _floor_at_decimal(value: float, decimal: int) -> float:
     """
     Compute the floor of `value` for the specified `decimal`, which is the distance
     to the right of the decimal point. May be negative.
@@ -47,24 +30,24 @@ def floor_at_decimal(value: float, decimal: int) -> float:
     power = 10**decimal
     return np.floor(power * value) / power
 
-def ceil_at_decimal(value: float, decimal: int) -> float:
+def _ceil_at_decimal(value: float, decimal: int) -> float:
     """
     Compute the ceiling of `value` for the specified `decimal`, which is the distance
     to the right of the decimal point. May be negative.
     """
-    return - floor_at_decimal(-value, decimal)
+    return - _floor_at_decimal(-value, decimal)
 
-def floor_to_step(value: float, step: float) -> float:
+def _floor_to_step(value: float, step: float) -> float:
     """
     Compute the next closest value on a ladder of stepsize `step` that is below `value`.
     """
     return (value // step) * step
 
-def ceil_to_step(value: float, step: float) -> float:
+def _ceil_to_step(value: float, step: float) -> float:
     """
     Compute the next closest value on a ladder of stepsize `step` that is above `value`.
     """
-    return floor_to_step(value, step) + step
+    return _floor_to_step(value, step) + step
 
 
 def _clean_and_check(filename: Union[str, Path]) -> Path:
@@ -78,21 +61,6 @@ def _clean_and_check(filename: Union[str, Path]) -> Path:
             f"File with the name {filename} does not exist at {filepath.resolve()}"
         )
     return filepath
-
-
-def get_label(attrs) -> str:
-    """Extract label of a histogram from the HDF5 `attrs` object of the dataset."""
-    label = []
-    transforms = {
-        "label": lambda x: str(x),
-        "modality": lambda x: str(x),
-        "t_stage": lambda x: str(x),
-        "midline_ext": lambda x: "ext" if x else "noext"
-    }
-    for key,func in transforms.items():
-        if key in attrs and attrs[key] is not None:
-            label.append(func(attrs[key]))
-    return " | ".join(label)
 
 
 @dataclass
@@ -167,6 +135,36 @@ class Posterior:
             scale=self.scale,
         )
 
+
+def get_size(width="single", unit="cm", ratio="golden"):
+    """
+    Return a tuple of figure sizes in inches, as the `matplotlib` keyword argument
+    `figsize` expects it. This figure size is computed from a `width`, in the `unit` of
+    centimeters by default, and a `ratio` which is set to the golden ratio by default.
+    """
+    if width == "single":
+        width = 10
+    elif width == "full":
+        width = 16
+
+    ratio = 1.618 if ratio == "golden" else ratio
+    width = width / 2.54 if unit == "cm" else width
+    height = width / ratio
+    return (width, height)
+
+def get_label(attrs) -> str:
+    """Extract label of a histogram from the HDF5 `attrs` object of the dataset."""
+    label = []
+    transforms = {
+        "label": str,
+        "modality": str,
+        "t_stage": str,
+        "midline_ext": lambda x: "ext" if x else "noext"
+    }
+    for key,func in transforms.items():
+        if key in attrs and attrs[key] is not None:
+            label.append(func(attrs[key]))
+    return " | ".join(label)
 
 def get_xlims(
     contents: List[Union[Histogram, Posterior]],
