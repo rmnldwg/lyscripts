@@ -4,6 +4,7 @@ Testing of the utilities implemented for the plotting routines.
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import matplotlib.testing.compare as mpl_comp
 import numpy as np
 import pytest
 
@@ -13,6 +14,8 @@ from lyscripts.plot.utils import (
     _ceil_to_step,
     _floor_to_step,
     draw,
+    get_size,
+    save_figure,
 )
 
 
@@ -22,6 +25,7 @@ def beta_samples():
     Filename of an HDF5 file where some samples from a Beta distribution are stored
     """
     return "./tests/plot/data/beta_samples.hdf5"
+
 
 def test_floor_to_step():
     """Check correct rounding down to a given step size."""
@@ -35,6 +39,7 @@ def test_floor_to_step():
 
     assert all(np.isclose(comp_res, exp_res)), "Floor to step did not work properly."
 
+
 def test_ceil_to_step():
     """Check correct rounding up to a given step size."""
     numbers = np.array([0., 3., 7.4, 2.01, np.pi, 12.7, 12.7, 17.3 ])
@@ -46,6 +51,7 @@ def test_ceil_to_step():
         comp_res[i] = _ceil_to_step(num, step)
 
     assert all(np.isclose(comp_res, exp_res)), "Ceil to step did not work properly."
+
 
 def test_histogram_cls(beta_samples):
     """Make sure the histogram data container works as intended."""
@@ -82,6 +88,7 @@ def test_histogram_cls(beta_samples):
     assert hist_from_path.kwargs["label"] == custom_label, (
         "Keyword override did not work"
     )
+
 
 def test_posterior_cls(beta_samples):
     """Test the container class for Beta posteriors."""
@@ -137,3 +144,34 @@ def test_draw(beta_samples):
     ax = draw(axes=ax, contents=[hist, post], percent_lims=(2.,2.))
     ax.legend()
     return fig
+
+
+def test_save_figure(capsys):
+    """Check that figures get stored correctly."""
+    x = np.linspace(0., 2*np.pi, 200)
+    y = np.sin(x)
+    fig, ax = plt.subplots(figsize=get_size())
+    ax.plot(x,y)
+    output_path = "./tests/plot/results/sine"
+    formats = ["png", "svg"]
+    expected_output = (
+        "✓ Saved figure to tests/plot/results/sine in the formats ['png', 'svg'].\n"
+    )
+
+    save_figure(fig, output_path, formats)
+    save_figure_capture = capsys.readouterr()
+
+    assert mpl_comp.compare_images(
+        expected="./tests/plot/baseline/sine.png",
+        actual="./tests/plot/results/sine.png",
+        tol=0.,
+    ) is None, "PNG of figure was not stored correctly."
+    assert mpl_comp.compare_images(
+        expected="./tests/plot/baseline/sine.svg",
+        actual="./tests/plot/results/sine.svg",
+        tol=0.,
+    ) is None, "SVG of figure was not stored correctly."
+    assert save_figure_capture.out == expected_output, (
+        "The output during the save figure procedure was wrong."
+    )
+
