@@ -13,6 +13,7 @@ import corner
 import emcee
 import lymph
 
+from lyscripts.plot.utils import save_figure
 from lyscripts.utils import load_yaml_params, model_from_config, report
 
 
@@ -153,11 +154,8 @@ def main(args: argparse.Namespace):
             labels=labels,
             show_titles=True,
         )
-        # make sure directory exists
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(args.output.with_suffix(".svg"))
-        fig.savefig(args.output.with_suffix(".png"), dpi=300)
-        report.success(f"Saved corner plot to {args.output}")
+
+        save_figure(fig, args.output, formats=["png", "svg"])
 
 
 if __name__ == "__main__":

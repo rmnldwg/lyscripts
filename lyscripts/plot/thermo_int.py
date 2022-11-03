@@ -13,7 +13,12 @@ import numpy as np
 import pandas as pd
 from cycler import cycler
 
-from lyscripts.plot.utils import COLORS, get_size, use_mpl_stylesheet
+from lyscripts.plot.utils import (
+    COLORS,
+    get_size,
+    save_figure,
+    use_mpl_stylesheet,
+)
 from lyscripts.utils import report
 
 LINE_CYCLER = cycler(linestyle=["-", "--"]) * cycler(color=list(COLORS.values()))
@@ -171,11 +176,7 @@ def main(args: argparse.Namespace):
             plt.show()
             report.success("Showed the plot")
     else:
-        with report.status("Store plot..."):
-            args.output.parent.mkdir(exist_ok=True)
-            plt.savefig(args.output.with_suffix(".png"))
-            plt.savefig(args.output.with_suffix(".svg"))
-            report.success(f"Stored plots at {args.output}")
+        save_figure(fig, args.output, formats=["png", "svg"])
 
 
 if __name__ == "__main__":

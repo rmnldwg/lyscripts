@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 from matplotlib.axes._axes import Axes as MPLAxes
+from matplotlib.figure import Figure
 
 from lyscripts.utils import report
 
@@ -272,3 +273,20 @@ def use_mpl_stylesheet(file_path: Union[str, Path]):
             report.failure("Could not find MPL stylesheet.")
         else:
             report.success(f"Applied MPL stylesheet from {file_path}")
+
+
+def save_figure(
+    figure: Figure,
+    output_path: Union[str, Path],
+    formats: Optional[List[str]],
+):
+    """
+    Save a `figure` at `output_path` in every one of the provided `formats`. If not
+    `formats` are provided, the default is `PNG` and `SVG`.
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(exist_ok=True)
+    with report.status("Save figure..."):
+        for frmt in formats:
+            figure.savefig(output_path.with_suffix(f".{frmt}"))
+        report.success(f"Saved figure to {output_path} in the formats {formats}.")

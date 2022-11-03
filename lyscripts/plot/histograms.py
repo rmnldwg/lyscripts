@@ -12,6 +12,7 @@ from lyscripts.plot.utils import (
     Posterior,
     draw,
     get_size,
+    save_figure,
     use_mpl_stylesheet,
 )
 from lyscripts.utils import report
@@ -118,16 +119,17 @@ def main(args: argparse.Namespace):
                 report.success(f"Added posterior PDF for data {name} to figure")
 
     with report.status("Draw figure..."):
-        _, ax = plt.subplots(figsize=get_size())
-        draw(axes=ax, contents=contents, hist_kwargs={"nbins": args.bins}, percent_lims=(5., 5.))
+        fig, ax = plt.subplots(figsize=get_size())
+        draw(
+            axes=ax,
+            contents=contents,
+            hist_kwargs={"nbins": args.bins},
+            percent_lims=(5., 5.)
+        )
         ax.legend()
         report.success("Drawn figure")
 
-    with report.status("Save plots..."):
-        args.output.parent.mkdir(exist_ok=True)
-        plt.savefig(args.output.with_suffix(".png"), dpi=300)
-        plt.savefig(args.output.with_suffix(".svg"))
-        report.success(f"Stored plots at {args.output}")
+    save_figure(fig, args.output, formats=["png", "svg"])
 
 
 if __name__ == "__main__":
