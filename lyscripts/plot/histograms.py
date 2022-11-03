@@ -3,18 +3,18 @@ Plot computed risks and prevalences into a beautiful histogram.
 """
 import argparse
 from pathlib import Path
-from warnings import warn
 
 import matplotlib.pyplot as plt
 
-from lyscripts.helpers import report
 from lyscripts.plot.utils import (
     COLOR_CYCLE,
     Histogram,
     Posterior,
     draw,
     get_size,
+    use_mpl_stylesheet,
 )
+from lyscripts.utils import report
 
 
 def _add_parser(
@@ -94,12 +94,7 @@ def main(args: argparse.Namespace):
         --mplstyle MPLSTYLE   Path to the MPL stylesheet (default: ./.mplstyle)
     ```
     """
-    try:
-        plt.style.use(args.mplstyle)
-    except OSError:
-        warn(f"Did not find MPL stylesheet at {args.mplstyle}, proceeding without.")
-    else:
-        report.success(f"Applied MPL stylesheet from {args.mplstyle}")
+    use_mpl_stylesheet(args.mplstyle)
 
     with report.status("Add content to figure..."):
         contents = []

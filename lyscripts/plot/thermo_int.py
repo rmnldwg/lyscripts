@@ -13,8 +13,8 @@ import numpy as np
 import pandas as pd
 from cycler import cycler
 
-from lyscripts.helpers import report
-from lyscripts.plot.utils import COLORS, get_size
+from lyscripts.plot.utils import COLORS, get_size, use_mpl_stylesheet
+from lyscripts.utils import report
 
 LINE_CYCLER = cycler(linestyle=["-", "--"]) * cycler(color=list(COLORS.values()))
 
@@ -110,9 +110,7 @@ def main(args: argparse.Namespace):
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
-    with report.status("Apply MPL stylesheet..."):
-        plt.style.use(args.mplstyle)
-        report.success(f"Applied MPL stylesheet from {args.mplstyle}")
+    use_mpl_stylesheet(args.mplstyle)
 
     with report.status("Load CSV file(s)..."):
         accuracy_series = []

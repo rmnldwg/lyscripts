@@ -12,9 +12,8 @@ from typing import List, Union
 import corner
 import emcee
 import lymph
-import yaml
 
-from lyscripts.helpers import model_from_config, report
+from lyscripts.utils import load_yaml_params, model_from_config, report
 
 
 def _add_parser(
@@ -132,10 +131,7 @@ def main(args: argparse.Namespace):
         -p, --params PARAMS   Path to parameter file (default: ./params.yaml)
     ```
     """
-    with report.status("Read in parameters..."):
-        with open(args.params, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {args.params}")
+    params = load_yaml_params(args.params)
 
     with report.status("Open model as emcee backend..."):
         backend = emcee.backends.HDFBackend(args.model, read_only=True)

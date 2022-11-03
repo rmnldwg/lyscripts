@@ -22,7 +22,7 @@ import pandas as pd
 import yaml
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
-from lyscripts.helpers import get_modalities_subset, report
+from lyscripts.utils import get_modalities_subset, report
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 # pylint: disable=singleton-comparison

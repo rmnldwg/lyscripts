@@ -7,9 +7,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 from matplotlib.axes._axes import Axes as MPLAxes
+
+from lyscripts.utils import report
 
 # define USZ colors
 COLORS = {
@@ -20,6 +23,7 @@ COLORS = {
     "gray": '#c5d5db',
 }
 COLOR_CYCLE = cycle(COLORS.values())
+CM_PER_INCH = 2.54
 
 
 def _floor_at_decimal(value: float, decimal: int) -> float:
@@ -158,9 +162,10 @@ def get_size(width="single", unit="cm", ratio="golden"):
         width = 16
 
     ratio = 1.618 if ratio == "golden" else ratio
-    width = width / 2.54 if unit == "cm" else width
+    width = width / CM_PER_INCH if unit == "cm" else width
     height = width / ratio
     return (width, height)
+
 
 def get_label(attrs) -> str:
     """Extract label of a histogram from the HDF5 `attrs` object of the dataset."""
@@ -175,6 +180,7 @@ def get_label(attrs) -> str:
         if key in attrs and attrs[key] is not None:
             label.append(func(attrs[key]))
     return " | ".join(label)
+
 
 def get_xlims(
     contents: List[Union[Histogram, Posterior]],
@@ -251,3 +257,18 @@ def draw(
 
     axes.set_xlim(*xlims)
     return axes
+
+
+def use_mpl_stylesheet(file_path: Union[str, Path]):
+    """
+    Attempt to load a `.mplstyle` stylesheet from `file_path` and fail gracefully if it
+    is not found.
+    """
+    file_path = Path(file_path)
+    with report.status("Apply MPL stylesheet..."):
+        try:
+            plt.style.use(file_path)
+        except OSError:
+            report.failure("Could not find MPL stylesheet.")
+        else:
+            report.success(f"Applied MPL stylesheet from {file_path}")

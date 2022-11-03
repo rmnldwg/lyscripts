@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from lyscripts.helpers import (
+from lyscripts.utils import (
     CustomProgress,
     get_modalities_subset,
     model_from_config,
