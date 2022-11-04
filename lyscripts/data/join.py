@@ -57,17 +57,17 @@ def main(args: argparse.Namespace):
     It's command help when running `lyscripts join --help` shows
 
     ```
-    usage: lyscripts join [-h] -i INPUTS [INPUTS ...] -o OUTPUT
+    USAGE: lyscripts data join [-h] -i INPUTS [INPUTS ...] -o OUTPUT
 
     Join datasets from different sources (but of the same format) into one.
 
-
-    OPTIONAL ARGUMENTS
-    -h, --help                        show this help message and exit
-    -i, --inputs INPUTS [INPUTS ...]  List of paths to inference-ready CSV datasets to
-                                        concatenate. (default: None)
-    -o, --output OUTPUT               Location to store the concatenated CSV file.
-                                        (default: None)
+    OPTIONAL ARGUMENTS:
+      -h, --help            show this help message and exit
+      -i, --inputs INPUTS [INPUTS ...]
+                            List of paths to inference-ready CSV datasets to
+                            concatenate. (default: None)
+      -o, --output OUTPUT   Location to store the concatenated CSV file. (default:
+                            None)
     ```
     """
     with report.status("Reading & concatenating CSV files..."):

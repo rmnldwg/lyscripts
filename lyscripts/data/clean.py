@@ -113,20 +113,19 @@ def main(args: argparse.Namespace):
     When running `lyscripts clean --help` the output is the following:
 
     ```
-    usage: lyscripts clean [-h] [-p PARAMS] input output
+    USAGE: lyscripts data clean [-h] [-p PARAMS] input output
 
-    Transform the enhanced lyDATA CSV files into a format that can be used by the lymph
-    model using this package's utilities.
+    Transform the enhanced lyDATA CSV files into a format that can be used by the
+    lymph model using this package's utilities.
 
+    POSITIONAL ARGUMENTS:
+      input                 Path to the enhanced lyDATA CSV file to transform.
+      output                Path to the cleand CSV file ready for inference.
 
-    POSITIONAL ARGUMENTS
-    input                Path to the enhanced lyDATA CSV file to transform.
-    output               Path to the cleand CSV file ready for inference.
-
-    OPTIONAL ARGUMENTS
-    -h, --help           show this help message and exit
-    -p, --params PARAMS  Path to the params file to use for the transformation.
-                        (default: ./params.yaml)
+    OPTIONAL ARGUMENTS:
+      -h, --help            show this help message and exit
+      -p, --params PARAMS   Path to the params file to use for the transformation.
+                            (default: ./params.yaml)
     ```
     """
     params = cli_load_yaml_params(args.params)
