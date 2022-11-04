@@ -3,11 +3,12 @@ This module contains frequently used functions as well as instructions on how
 to parse and process the raw data from different institutions
 """
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lymph
 import numpy as np
 import yaml
+from emcee.backends import HDFBackend
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -184,17 +185,103 @@ def get_modalities_subset(
     return selected_modalities
 
 
-def load_yaml_params(file_path: Union[str, Path]) -> dict:
-    """Gracefully load parameters from a YAML file at `file_path`."""
-    file_path = Path(file_path)
-    params = {}
-    with report.status("Read in YAML params..."):
-        try:
-            with open(file_path, mode="r", encoding="utf-8") as file_content:
-                params = yaml.safe_load(file_content)
-        except FileNotFoundError:
-            report.failure(f"Parameter YAML file not found at {file_path}.")
-        else:
-            report.success(f"Read in YAML params from {file_path}.")
+def report_func_state(
+    status_msg: str,
+    success_msg: str,
+    actions: Optional[Dict[type, Tuple[bool, Callable, str]]] = None,
+) -> Callable:
+    """
+    Rport the state of a function. E.g., inform the user whether it succeeded or failed
+    to execute the desired action.
 
+    The `status_msg` will be shown during the function's execution and the `success_msg`
+    when the function was executed without any exceptions. The `actions` dictionary
+    defines what to report and what to do for each error type that might occur. Its
+    keys are exception types (e.g. `FileNotFoundError`). Its values are tuples of
+    `(do_stop, report.func, message)` where the boolean `do_stop` indicates whether the
+    execution should continue, the `report.func` defines which function should be
+    called with the `message` as an argument to report what happens.
+
+    This should be the outermost decorator.
+    """
+    actions = {} if actions is None else actions
+
+    dflt_action = (
+        True,
+        report.failure,
+        "Unexpected exception, stopping."
+    )
+
+    def assembled_decorator(func: Callable) -> Callable:
+        """
+        This is the decorator that gets assembled, when providing the outer function
+        is called with its arguments.
+        """
+        with report.status(status_msg):
+            def inner(*args, **kwargs) -> Any:
+                """The returned, wrapped function."""
+                try:
+                    result = func(*args, **kwargs)
+                except Exception as exc:
+                    do_stop, report_func, message = actions.get(type(exc), dflt_action)
+                    report_func(message)
+                    if do_stop:
+                        raise exc
+                else:
+                    report.success(success_msg)
+                    return result
+
+                return None
+
+        return inner
+    return assembled_decorator
+
+
+def check_file_exists(loading_func: Callable) -> Callable:
+    """
+    Checks if the file path provided to the `loading_func` exists and handle
+    appropriately if it does not.
+    """
+    def inner(file_path, *args, **kwargs) -> Any:
+        """Wrapped function."""
+        file_path = Path(file_path)
+        if not file_path.is_file():
+            raise FileNotFoundError(f"No file found at {file_path}")
+
+        return loading_func(file_path, *args, **kwargs)
+
+    return inner
+
+
+@report_func_state(
+    status_msg="Load YAML params...",
+    success_msg="Loaded YAML params.",
+    actions={
+        FileNotFoundError: (True, report.failure, "YAML file not found, stopping."),
+        yaml.parser.ParserError: (True, report.failure, "Invalid YAML file, stopptin"),
+    }
+)
+@check_file_exists
+def load_yaml_params(file_path: Path) -> dict:
+    """Load parameters from a YAML file at `file_path`."""
+    with open(file_path, mode="r", encoding="utf-8") as file_content:
+        params = yaml.safe_load(file_content)
         return params
+
+
+@report_func_state(
+    status_msg="Load HDF5 samples from MCMC run...",
+    success_msg="Loaded HDF5 samples from MCMC run.",
+    actions={
+        FileNotFoundError: (True, report.failure, "HDF5 file not found, stopping."),
+        AttributeError: (True, report.failure, "No HDF5 file or no MCMC data present.")
+    }
+)
+@check_file_exists
+def load_model_samples(file_path: Path) -> np.ndarray:
+    """
+    Load samples produced by an MCMC sampling process that are stored at
+    `file_path` in an HDF5 format.
+    """
+    backend = HDFBackend(file_path, read_only=True)
+    return backend.get_chain(flat=True)
