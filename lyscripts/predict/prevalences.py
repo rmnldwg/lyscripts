@@ -16,8 +16,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from lyscripts.helpers import flatten, get_lnls, model_from_config, report
 from lyscripts.predict._utils import clean_pattern, rich_enumerate
+from lyscripts.utils import flatten, get_lnls, model_from_config, report
 
 
 def _add_parser(

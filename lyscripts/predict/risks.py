@@ -14,8 +14,8 @@ import lymph
 import numpy as np
 import yaml
 
-from lyscripts.helpers import get_lnls, model_from_config, report
 from lyscripts.predict._utils import clean_pattern, rich_enumerate
+from lyscripts.utils import get_lnls, model_from_config, report
 
 
 def _add_parser(

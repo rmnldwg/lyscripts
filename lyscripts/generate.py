@@ -8,7 +8,7 @@ import emcee
 import numpy as np
 import yaml
 
-from lyscripts.helpers import model_from_config, report
+from lyscripts.utils import model_from_config, report
 
 
 def _add_parser(

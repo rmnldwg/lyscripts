@@ -52,6 +52,7 @@ docs = [
 ]
 tests = [
     "pytest",
+    "pytest-mpl"
 ]
 
 [project.scripts]

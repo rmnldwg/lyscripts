@@ -19,7 +19,7 @@ import numpy as np
 import yaml
 from rich.panel import Panel
 
-from lyscripts.helpers import report
+from lyscripts.utils import report
 
 
 def _add_parser(

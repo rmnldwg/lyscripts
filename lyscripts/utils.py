@@ -2,10 +2,12 @@
 This module contains frequently used functions as well as instructions on how
 to parse and process the raw data from different institutions
 """
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import lymph
 import numpy as np
+import yaml
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -20,6 +22,7 @@ from scipy.special import factorial
 CROSS = "[bold red]✗[/bold red]"
 CIRCL = "[bold yellow]∘[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
+
 
 class ConsoleReport(Console):
     """
@@ -41,6 +44,7 @@ class ConsoleReport(Console):
         return super().print(*objects, **kwargs)
 
 report = ConsoleReport()
+
 
 class CustomProgress(Progress):
     """Small wrapper around rich's `Progress` initializing my custom columns."""
@@ -65,12 +69,14 @@ def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):
     binom_coeff = factorial(n) / (factorial(k) * factorial(n - k))
     return binom_coeff * p**k * q**(n - k)
 
+
 def parametric_binom_pmf(n: int) -> Callable:
     """Return a parametric binomial PMF"""
     def inner(t, p):
         """Parametric binomial PMF"""
         return binom_pmf(t, n, p)
     return inner
+
 
 def graph_from_config(graph_params: dict):
     """
@@ -89,6 +95,7 @@ def graph_from_config(graph_params: dict):
 
     return lymph_graph
 
+
 def add_tstage_marg(
     model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
     t_stages: List[str],
@@ -105,6 +112,7 @@ def add_tstage_marg(
             )
         else:
             model.diag_time_dists[stage] = parametric_binom_pmf(n=max_t)
+
 
 def model_from_config(
     graph_params: Dict[str, Any],
@@ -129,6 +137,7 @@ def model_from_config(
 
     return model
 
+
 def get_lnls(model) -> List[str]:
     """Extract the list of LNLs from a model instance."""
     if isinstance(model, lymph.Unilateral):
@@ -139,6 +148,7 @@ def get_lnls(model) -> List[str]:
         return [lnl.name for lnl in model.ext.ipsi.lnls]
     else:
         raise TypeError(f"Model cannot be of type {type(model)}")
+
 
 def flatten(
     nested: dict,
@@ -157,6 +167,7 @@ def flatten(
 
     return flattened
 
+
 def get_modalities_subset(
     defined_modalities: Dict[str, List[float]],
     selection: List[str],
@@ -171,3 +182,19 @@ def get_modalities_subset(
         except KeyError as key_err:
             raise KeyError(f"Modality {mod} has not been defined yet") from key_err
     return selected_modalities
+
+
+def load_yaml_params(file_path: Union[str, Path]) -> dict:
+    """Gracefully load parameters from a YAML file at `file_path`."""
+    file_path = Path(file_path)
+    params = {}
+    with report.status("Read in YAML params..."):
+        try:
+            with open(file_path, mode="r", encoding="utf-8") as file_content:
+                params = yaml.safe_load(file_content)
+        except FileNotFoundError:
+            report.failure(f"Parameter YAML file not found at {file_path}.")
+        else:
+            report.success(f"Read in YAML params from {file_path}.")
+
+        return params

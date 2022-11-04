@@ -13,16 +13,14 @@ import numpy as np
 import pandas as pd
 from cycler import cycler
 
-from lyscripts.helpers import report
+from lyscripts.plot.utils import (
+    COLORS,
+    get_size,
+    save_figure,
+    use_mpl_stylesheet,
+)
+from lyscripts.utils import report
 
-# define USZ colors
-COLORS = {
-    "blue": '#005ea8',
-    "orange": '#f17900',
-    "green": '#00afa5',
-    "red": '#ae0060',
-    "gray": '#c5d5db',
-}
 LINE_CYCLER = cycler(linestyle=["-", "--"]) * cycler(color=list(COLORS.values()))
 
 def _add_parser(
@@ -81,19 +79,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
-def get_size(width="single", unit="cm", ratio="golden"):
-    """Get optimal figure size for a range of scenarios."""
-    if width == "single":
-        width = 10
-    elif width == "full":
-        width = 16
-
-    ratio = 1.618 if ratio == "golden" else ratio
-    width = width / 2.54 if unit == "cm" else width
-    height = width / ratio
-    return (width, height)
-
-
 def main(args: argparse.Namespace):
     """
     Load the CSV files where the sampling processes stored the accuracies during
@@ -103,36 +88,34 @@ def main(args: argparse.Namespace):
     The function's help page shows this:
 
     ```
-    usage: lyscripts plot thermo_int [-h] [-o OUTPUT | --show] [--title TITLE]
-                                    [--labels LABELS [LABELS ...]] [--power POWER]
-                                    [--mplstyle MPLSTYLE]
-                                    inputs [inputs ...]
+    USAGE: lyscripts plot thermo_int [-h] [-o OUTPUT | --show] [--title TITLE]
+                                     [--labels LABELS [LABELS ...]] [--power POWER]
+                                     [--mplstyle MPLSTYLE]
+                                     inputs [inputs ...]
 
     Plot how the accuracy develops over the course of a thermodynamic integration run.
 
     This can also be used to compare how the accuracy of different models develops
     during thermdynamic integration.
 
+    POSITIONAL ARGUMENTS:
+        inputs                Paths to the CSV files containing the stored TI runs
 
-    POSITIONAL ARGUMENTS
-    inputs                        Paths to the CSV files containing the stored TI runs
-
-    OPTIONAL ARGUMENTS
-    -h, --help                    show this help message and exit
-    -o, --output OUTPUT           Path to where the plot should be stored (PNG and
-                                    SVG) (default: None)
-    --show                        Show the plot instead of saving it (default: False)
-    --title TITLE                 Title of the plot (default: None)
-    --labels LABELS [LABELS ...]  Labels for the individual data series (default: [])
-    --power POWER                 Scale the x-axis with this power (default: 5.0)
-    --mplstyle MPLSTYLE           Path to the MPL stylesheet (default: ./.mplstyle)
+    OPTIONAL ARGUMENTS:
+        -h, --help            show this help message and exit
+        -o, --output OUTPUT   Path to where the plot should be stored (PNG and SVG)
+                              (default: None)
+        --show                Show the plot instead of saving it (default: False)
+        --title TITLE         Title of the plot (default: None)
+        --labels LABELS [LABELS ...]
+                              Labels for the individual data series (default: [])
+        --power POWER         Scale the x-axis with this power (default: 5.0)
+        --mplstyle MPLSTYLE   Path to the MPL stylesheet (default: ./.mplstyle)
     ```
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
-    with report.status("Apply MPL stylesheet..."):
-        plt.style.use(args.mplstyle)
-        report.success(f"Applied MPL stylesheet from {args.mplstyle}")
+    use_mpl_stylesheet(args.mplstyle)
 
     with report.status("Load CSV file(s)..."):
         accuracy_series = []
@@ -193,11 +176,7 @@ def main(args: argparse.Namespace):
             plt.show()
             report.success("Showed the plot")
     else:
-        with report.status("Store plot..."):
-            args.output.parent.mkdir(exist_ok=True)
-            plt.savefig(args.output.with_suffix(".png"))
-            plt.savefig(args.output.with_suffix(".svg"))
-            report.success(f"Stored plots at {args.output}")
+        save_figure(fig, args.output, formats=["png", "svg"])
 
 
 if __name__ == "__main__":
