@@ -9,15 +9,20 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-import emcee
 import h5py
 import lymph
 import numpy as np
 import pandas as pd
-import yaml
 
-from lyscripts.predict._utils import clean_pattern, rich_enumerate
-from lyscripts.utils import flatten, get_lnls, model_from_config, report
+from lyscripts.predict.utils import clean_pattern, rich_enumerate
+from lyscripts.utils import (
+    cli_load_model_samples,
+    cli_load_yaml_params,
+    flatten,
+    get_lnls,
+    model_from_config,
+    report,
+)
 
 
 def _add_parser(
@@ -304,10 +309,8 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    with report.status("Read in parameters..."):
-        with open(args.params, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {args.params}")
+    params = cli_load_yaml_params(args.params)
+    samples = cli_load_model_samples(args.model)
 
     with report.status("Read in training data..."):
         # Only read in two header rows when using the Unilateral model
@@ -315,11 +318,6 @@ def main(args: argparse.Namespace):
         header = [0, 1] if is_unilateral else [0, 1, 2]
         DATA = pd.read_csv(args.data, header=header)
         report.success(f"Read in training data from {args.data}")
-
-    with report.status("Loading samples..."):
-        reader = emcee.backends.HDFBackend(args.model, read_only=True)
-        SAMPLES = reader.get_chain(flat=True)
-        report.success(f"Loaded samples with shape {SAMPLES.shape} from {args.model}")
 
     with report.status("Set up model..."):
         MODEL = model_from_config(
@@ -337,7 +335,7 @@ def main(args: argparse.Namespace):
         for i,scenario in enumerate(params["prevalences"]):
             prevalences = predicted_prevalence(
                 model=MODEL,
-                samples=SAMPLES[::args.thin],
+                samples=samples[::args.thin],
                 description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
                 midline_ext_prob=get_midline_ext_prob(DATA, scenario["t_stage"]),
                 **scenario

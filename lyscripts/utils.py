@@ -2,6 +2,7 @@
 This module contains frequently used functions as well as instructions on how
 to parse and process the raw data from different institutions
 """
+import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -140,7 +141,16 @@ def model_from_config(
 
 
 def get_lnls(model) -> List[str]:
-    """Extract the list of LNLs from a model instance."""
+    """Extract the list of LNLs from a model instance. E.g.:
+    >>> graph = {
+    ...     ("tumor", "T"): ["II", "III"],
+    ...     ("lnl", "II"): ["III"],
+    ...     ("lnl", "III"): [],
+    ... }
+    >>> model = lymph.Unilateral(graph)
+    >>> get_lnls(model)
+    ['II', 'III']
+    """
     if isinstance(model, lymph.Unilateral):
         return [lnl.name for lnl in model.lnls]
     elif isinstance(model, lymph.Bilateral):
@@ -156,7 +166,13 @@ def flatten(
     prev_key: tuple = (),
     flattened: Optional[dict] = None,
 ) -> dict:
-    """Flatten a `nested` dictionary recursivel by extending the `prev_key` tuple."""
+    """
+    Flatten a `nested` dictionary recursivel by extending the `prev_key` tuple. For
+    example:
+    >>> nested = {"hi": {"there": "buddy"}, "how": {"are": "you?"}}
+    >>> flatten(nested)
+    {('hi', 'there'): 'buddy', ('how', 'are'): 'you?'}
+    """
     if flattened is None:
         flattened = {}
 
@@ -174,7 +190,11 @@ def get_modalities_subset(
     selection: List[str],
 ) -> Dict[str, List[float]]:
     """
-    Of the `defined_modalities` return only those mentioned in the `selection`.
+    Of the `defined_modalities` return only those mentioned in the `selection`. For
+    instance:
+    >>> modalities = {"CT": [0.76, 0.81], "MRI": [0.63, 0.86]}
+    >>> get_modalities_subset(modalities, ["CT"])
+    {'CT': [0.76, 0.81]}
     """
     selected_modalities = {}
     for mod in selection:
@@ -191,16 +211,16 @@ def report_func_state(
     actions: Optional[Dict[type, Tuple[bool, Callable, str]]] = None,
 ) -> Callable:
     """
-    Rport the state of a function. E.g., inform the user whether it succeeded or failed
-    to execute the desired action.
+    Decorator to report the state of a function. E.g., inform the user whether it
+    succeeded or failed to execute the desired action.
 
     The `status_msg` will be shown during the function's execution and the `success_msg`
     when the function was executed without any exceptions. The `actions` dictionary
     defines what to report and what to do for each error type that might occur. Its
     keys are exception types (e.g. `FileNotFoundError`). Its values are tuples of
     `(do_stop, report.func, message)` where the boolean `do_stop` indicates whether the
-    execution should continue, the `report.func` defines which function should be
-    called with the `message` as an argument to report what happens.
+    execution of the entire program should stop, the `report.func` defines which
+    function should be called with the `message` as an argument to report what happens.
 
     This should be the outermost decorator.
     """
@@ -226,7 +246,7 @@ def report_func_state(
                     do_stop, report_func, message = actions.get(type(exc), dflt_action)
                     report_func(message)
                     if do_stop:
-                        raise exc
+                        sys.exit()
                 else:
                     report.success(success_msg)
                     return result
@@ -239,8 +259,12 @@ def report_func_state(
 
 def check_file_exists(loading_func: Callable) -> Callable:
     """
-    Checks if the file path provided to the `loading_func` exists and handle
-    appropriately if it does not.
+    Decorator that checks if the file path provided to the `loading_func` exists and
+    throws a `FileNotFoundError` if it does not.
+
+    The purpose of this deorator is to provide a consistent error message to the
+    `report_func_state`, since some libraries throw other errors when a file is not
+    found.
     """
     def inner(file_path, *args, **kwargs) -> Any:
         """Wrapped function."""
@@ -253,14 +277,6 @@ def check_file_exists(loading_func: Callable) -> Callable:
     return inner
 
 
-@report_func_state(
-    status_msg="Load YAML params...",
-    success_msg="Loaded YAML params.",
-    actions={
-        FileNotFoundError: (True, report.failure, "YAML file not found, stopping."),
-        yaml.parser.ParserError: (True, report.failure, "Invalid YAML file, stopptin"),
-    }
-)
 @check_file_exists
 def load_yaml_params(file_path: Path) -> dict:
     """Load parameters from a YAML file at `file_path`."""
@@ -269,14 +285,20 @@ def load_yaml_params(file_path: Path) -> dict:
         return params
 
 
-@report_func_state(
-    status_msg="Load HDF5 samples from MCMC run...",
-    success_msg="Loaded HDF5 samples from MCMC run.",
+cli_load_yaml_params = report_func_state(
+    status_msg="Load YAML params...",
+    success_msg="Loaded YAML params.",
     actions={
-        FileNotFoundError: (True, report.failure, "HDF5 file not found, stopping."),
-        AttributeError: (True, report.failure, "No HDF5 file or no MCMC data present.")
+        FileNotFoundError: (True, report.failure, "YAML file not found, stopping."),
+        yaml.parser.ParserError: (True, report.failure, "Invalid YAML file, stopping"),
     }
-)
+)(load_yaml_params)
+"""
+The `load_yaml_params` function wrapped by the `report_func_state` such that error
+messages are directed to a `rich` console.
+"""
+
+
 @check_file_exists
 def load_model_samples(file_path: Path) -> np.ndarray:
     """
@@ -285,3 +307,17 @@ def load_model_samples(file_path: Path) -> np.ndarray:
     """
     backend = HDFBackend(file_path, read_only=True)
     return backend.get_chain(flat=True)
+
+
+cli_load_model_samples = report_func_state(
+    status_msg="Load HDF5 samples from MCMC run...",
+    success_msg="Loaded HDF5 samples from MCMC run.",
+    actions={
+        FileNotFoundError: (True, report.failure, "HDF5 file not found, stopping."),
+        AttributeError: (True, report.failure, "No HDF5 file or no MCMC data present.")
+    }
+)(load_model_samples)
+"""
+The `load_model_samples` function wrapped by the `report_func_state` such that error
+messages are directed to a `rich` console.
+"""

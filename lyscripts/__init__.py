@@ -20,6 +20,7 @@ from . import (
     sample,
     split,
     temp_schedule,
+    utils,
 )
 from ._version import version
 
@@ -72,7 +73,7 @@ RichDefaultHelpFormatter.highlights.append(
     r"_(?P<italic>[^_]*)_"
 )
 
-def exit(args: argparse.Namespace):
+def exit_cli(args: argparse.Namespace):
     """Exit the cmd line tool"""
     if args.version:
         report.print("lyscripts ", __version__)
@@ -86,7 +87,7 @@ def main():
         description=__doc__,
         formatter_class=RichDefaultHelpFormatter,
     )
-    parser.set_defaults(run_main=exit)
+    parser.set_defaults(run_main=exit_cli)
     parser.add_argument(
         "-v", "--version", action="store_true",
         help="Display the version of lyscripts"
