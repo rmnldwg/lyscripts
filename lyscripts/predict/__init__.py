@@ -5,7 +5,7 @@ given observed diagnoses, and prevalences of patterns for diagnostic modalities.
 import argparse
 from pathlib import Path
 
-from . import __doc__, prevalences, risks
+from . import prevalences, risks
 
 
 def _add_parser(

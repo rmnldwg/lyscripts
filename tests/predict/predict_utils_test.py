@@ -1,7 +1,7 @@
 """
 Test utilities of the predict submodule.
 """
-from lyscripts.predict._utils import clean_pattern, rich_enumerate
+from lyscripts.predict.utils import clean_pattern, rich_enumerate
 
 
 def test_clean_pattern():
