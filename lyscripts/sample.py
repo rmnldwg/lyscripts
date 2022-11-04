@@ -20,10 +20,10 @@ import emcee
 import h5py
 import numpy as np
 import pandas as pd
-import yaml
 
 from lyscripts.utils import (
     CustomProgress,
+    cli_load_yaml_params,
     get_modalities_subset,
     model_from_config,
     report,
@@ -386,10 +386,7 @@ def main(args: argparse.Namespace):
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
-    with report.status("Read in parameters..."):
-        with open(args.params, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {args.params}")
+    params = cli_load_yaml_params(args.params)
 
     with report.status("Read in training data..."):
         # Only read in two header rows when using the Unilateral model

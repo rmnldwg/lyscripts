@@ -8,9 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
-import yaml
 
-from lyscripts.utils import report
+from lyscripts.utils import cli_load_yaml_params, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -130,10 +129,7 @@ def main(args: argparse.Namespace):
                         (default: ./params.yaml)
     ```
     """
-    with report.status("Read in parameters..."):
-        with open(args.params, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {args.params}")
+    params = cli_load_yaml_params(args.params)
 
     with report.status("Reading in CSV file..."):
         enhanced_df = pd.read_csv(args.input, header=[0,1,2])

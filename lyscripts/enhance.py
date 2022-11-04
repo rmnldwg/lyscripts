@@ -19,10 +19,9 @@ from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
-import yaml
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
-from lyscripts.utils import get_modalities_subset, report
+from lyscripts.utils import cli_load_yaml_params, get_modalities_subset, report
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 # pylint: disable=singleton-comparison
@@ -262,14 +261,11 @@ def main(args: argparse.Namespace):
         data = pd.read_csv(args.input, header=[0,1,2])
         report.success(f"Read CSV file from {args.input}")
 
-    with report.status("Read in parameters..."):
-        with open(args.params, 'r') as params_file:
-            params = yaml.safe_load(params_file)
-        modalities = get_modalities_subset(
-            defined_modalities=params["modalities"],
-            selection=args.modalities,
-        )
-        report.success(f"Read in parameters from {args.params}")
+    params = cli_load_yaml_params(args.params)
+    modalities = get_modalities_subset(
+        defined_modalities=params["modalities"],
+        selection=args.modalities,
+    )
 
     # with report.status("Compute consensus of modalities..."):
     available_mod_keys = set(
