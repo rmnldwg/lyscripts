@@ -54,16 +54,16 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def lyprox_to_lymph(
     data: pd.DataFrame,
-    method: str = "unilateral",
+    class_name: str = "Unilateral",
     convert_t_stage: Optional[Dict[int, Any]] = None
 ) -> pd.DataFrame:
     """
     Convert [LyProX](https://lyprox.org) `data` into `pd.DataFrame` that the
     [lymph](https://github.com/rmnldwg/lymph) package can use for sampling.
 
-    This conversion can be done according to a given `method` out of three that
-    specifies `"unilateral"`, `"bilateral"` or `"midline"`, depending on the class
-    that is later supposed to load the data.
+    This conversion can be done according to a given `class_name` out of three that
+    specifies `"Unilateral"`, `"Bilateral"` or `"MidlineBilateral"`, depending on the
+    class that is later supposed to load the data.
 
     `convert_t_stage` is a dictionary that maps from the range of T-stages in the
     LyProX `data` (keys) to T-stages that the lymph library is supposed to work with
@@ -99,9 +99,9 @@ def lyprox_to_lymph(
         convert_t_stage[t] for t in t_stage_data.values
     ]
 
-    if method == "midline":
+    if class_name == "MidlineBilateral":
         diagnostic_data[("info", "tumor", "midline_extension")] = midline_extension_data
-    elif method == "unilateral":
+    elif class_name == "Unilateral":
         diagnostic_data = diagnostic_data.drop(columns=["contra"], level=1)
         diagnostic_data.columns = diagnostic_data.columns.droplevel(1)
 
@@ -132,12 +132,7 @@ def main(args: argparse.Namespace):
 
     with report.status("Reading in CSV file..."):
         enhanced_df = pd.read_csv(args.input, header=[0,1,2])
-        method = {
-            "Unilateral": "unilateral",
-            "Bilateral": "midline",
-            "MidlineBilateral": "midline",
-        }[params["model"]["class"]]
-        cleaned_df = lyprox_to_lymph(enhanced_df, method=method)
+        cleaned_df = lyprox_to_lymph(enhanced_df, class_name=params["model"]["class"])
         report.success(f"Read in CSV file from {args.input}")
 
     with report.status("Saving cleaned dataset..."):
