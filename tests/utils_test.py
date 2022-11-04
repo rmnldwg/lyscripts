@@ -1,30 +1,44 @@
 """
 Test the core utility functions of the package.
 """
-from lyscripts.utils import load_yaml_params
+from lyscripts.utils import flatten, get_modalities_subset
 
 
-def test_load_yaml_params(capsys):
-    """Check the basic loading of YAML parameters from a file."""
-    non_existing_filepath = "./whatever"
-    test_yaml_filepath = "./tests/test.yaml"
-    failure_output = "✗ Parameter YAML file not found at whatever.\n"
-    test_output = "✓ Read in YAML params from tests/test.yaml.\n"
+def test_flatten():
+    """Check if the dictionary flattening works."""
+    nested = {
+        "A": {"a": 1, "b": 2, "c": 3},
+        "B": {"a": 4, "b": 5, "c": 6},
+        "C": {"a": {"i": 7, "ii": 8}},
+    }
+    exp_flattened = {
+        ("A", "a"): 1,
+        ("A", "b"): 2,
+        ("A", "c"): 3,
+        ("B", "a"): 4,
+        ("B", "b"): 5,
+        ("B", "c"): 6,
+        ("C", "a", "i"): 7,
+        ("C", "a", "ii"): 8,
+    }
 
-    non_existing_params = load_yaml_params(non_existing_filepath)
-    non_existing_capture = capsys.readouterr()
-    test_params = load_yaml_params(test_yaml_filepath)
-    test_capture = capsys.readouterr()
+    actual_flattened = flatten(nested)
+    assert actual_flattened == exp_flattened, "Dictionary was not flattened properly."
 
-    assert non_existing_params == {}, (
-        "When the file is not found, an empty dict should be returned."
-    )
-    assert non_existing_capture.out == failure_output, (
-        "On `FileNotFound`, no failure is reported."
-    )
-    assert test_params == {"test": "This is just for testing"}, (
-        "The function did not load a test YAML file correctly."
-    )
-    assert test_capture.out == test_output, (
-        "On success, not the right message is printed."
-    )
+
+def test_get_modalities_subset():
+    """Test the extraction of a modality subset."""
+    modalities = {
+        "CT": [0.76, 0.81],
+        "MRI": [0.63, 0.86],
+        "PET": [0.79, 0.83],
+        "path": [1.0, 1.0],
+    }
+    selected = ["CT", "path"]
+    exp_subset = {
+        "CT": [0.76, 0.81],
+        "path": [1.0, 1.0],
+    }
+
+    actual_subset = get_modalities_subset(modalities, selected)
+    assert actual_subset == exp_subset, "Extraction of modalities did not work."
