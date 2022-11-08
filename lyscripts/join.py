@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .helpers import clean_docstring, report
+from lyscripts.utils import report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -22,8 +22,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)

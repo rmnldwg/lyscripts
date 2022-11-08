@@ -9,19 +9,18 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-import emcee
 import h5py
 import lymph
 import numpy as np
 import pandas as pd
-import yaml
-from rich.progress import track
 
-from ..helpers import (
-    clean_docstring,
+from lyscripts.predict.utils import clean_pattern, rich_enumerate
+from lyscripts.utils import (
+    cli_load_model_samples,
+    cli_load_yaml_params,
+    flatten,
     get_lnls,
     model_from_config,
-    nested_to_pandas,
     report,
 )
 
@@ -35,8 +34,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)
@@ -60,6 +59,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Output path for predicted prevalences (HDF5 file)"
     )
     parser.add_argument(
+        "--thin", default=1, type=int,
+        help="Take only every n-th sample"
+    )
+    parser.add_argument(
         "--params", default="./params.yaml", type=Path,
         help="Path to parameter file"
     )
@@ -75,7 +78,17 @@ def get_match_idx(
     invert: bool = False,
 ) -> pd.Series:
     """Get the indices of the rows in the `data` where the diagnose matches the
-    `pattern` of interest for every lymph node level in the `lnls`.
+    `pattern` of interest for every lymph node level in the `lnls`. An example:
+    >>> pattern = {"II": True, "III": None}
+    >>> lnls = ["II", "III"]
+    >>> data = pd.DataFrame.from_dict({
+    ...     "II":  [True, False],
+    ...     "III": [False, False],
+    ... })
+    >>> get_match_idx(True, pattern, data, lnls)
+    0     True
+    1    False
+    Name: II, dtype: bool
     """
     for lnl in lnls:
         if lnl not in pattern or pattern[lnl] is None:
@@ -87,15 +100,76 @@ def get_match_idx(
 
     return match_idx
 
+def does_t_stage_match(data: pd.DataFrame, t_stage: str) -> pd.Index:
+    """Return the indices of the `data` where the `t_stage` of the patients matches."""
+    if data.columns.nlevels == 2:
+        return data["info", "t_stage"] == t_stage
+    elif data.columns.nlevels == 3:
+        return data["info", "tumor", "t_stage"] == t_stage
+    else:
+        raise ValueError("Data has neither 2 nor 3 header rows")
+
+def does_midline_ext_match(
+    data: pd.DataFrame,
+    midline_ext: Optional[bool] = None
+) -> pd.Index:
+    """
+    Return the indices of the `data` where the `midline_ext` of the patients matches.
+    """
+    if midline_ext is None or data.columns.nlevels == 2:
+        return True
+
+    try:
+        return data["info", "tumor", "midline_extension"] == midline_ext
+    except KeyError as key_err:
+        raise KeyError(
+            "Data does not seem to have midline extension information"
+        ) from key_err
+
 def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     """Get the prevalence of midline extension from `data` for `t_stage`."""
     if data.columns.nlevels == 2:
         return None
-    is_t_stage = data["info", "tumor", "t_stage"] == t_stage
-    eligible_data = data[is_t_stage]
-    has_midline_ext = eligible_data["info", "tumor", "midline_extension"] == True
-    matching_data = eligible_data[has_midline_ext]
+
+    has_matching_t_stage = does_t_stage_match(data, t_stage)
+    eligible_data = data[has_matching_t_stage]
+    has_matching_midline_ext = does_midline_ext_match(eligible_data, midline_ext=True)
+    matching_data = eligible_data[has_matching_midline_ext]
     return len(matching_data) / len(eligible_data)
+
+def create_patient_row(
+    pattern: Dict[str, Dict[str, bool]],
+    t_stage: str,
+    midline_ext: Optional[bool] = None,
+    make_unilateral: bool = False,
+) -> pd.DataFrame:
+    """
+    Create a pandas `DataFrame` representing a single patient from the specified
+    involvement `pattern`, along with their `t_stage` and `midline_ext` (if provided).
+    If `midline_ext` is not provided, the function creates two patient rows. One of a
+    patient _with_ and one of a patient _without_ a midline extention. And the returned
+    `patient_row` will only contain the `ipsi` part of the pattern when one tells the
+    function to `make_unilateral`.
+    """
+    if make_unilateral:
+        flat_pattern = flatten({"prev": pattern["ipsi"]})
+        patient_row = pd.DataFrame(flat_pattern, index=[0])
+        patient_row["info", "t_stage"] = t_stage
+        return patient_row
+
+    flat_pattern = flatten({"prev": pattern})
+    patient_row = pd.DataFrame(flat_pattern, index=[0])
+    patient_row["info", "tumor", "t_stage"] = t_stage
+    if midline_ext is not None:
+        patient_row["info", "tumor", "midline_extension"] = midline_ext
+        return patient_row
+
+    with_midline_ext = patient_row.copy()
+    with_midline_ext["info", "tumor", "midline_extension"] = True
+    without_midline_ext = patient_row.copy()
+    without_midline_ext["info", "tumor", "midline_extension"] = False
+
+    return with_midline_ext.append(without_midline_ext).reset_index()
 
 def observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
@@ -118,48 +192,17 @@ def observed_prevalence(
 
     When `invert` is set to `True`, the function returns 1 minus the prevalence.
     """
-    # make sure the pattern has the right form
-    if pattern is None:
-        pattern = {}
-    for side in ["ipsi", "contra"]:
-        if side not in pattern:
-            pattern[side] = {}
-        pattern[side] = {lnl: pattern[side].get(lnl, None) for lnl in lnls}
+    pattern = clean_pattern(pattern, lnls)
 
-    # get the data we care about
-    has_midline_ext = True
-    if data.columns.nlevels == 3:
-        is_bilateral = True
-        is_t_stage = data["info", "tumor", "t_stage"] == t_stage
-        if midline_ext is not None:
-            has_midline_ext = data["info", "tumor", "midline_extension"] == midline_ext
-    elif data.columns.nlevels == 2:
-        is_bilateral = False
-        is_t_stage = data["info", "t_stage"] == t_stage
-    else:
-        raise ValueError("Data must contain either 2 or 3 levels.")
+    has_matching_t_stage = does_t_stage_match(data, t_stage)
+    has_matching_midline_ext = does_midline_ext_match(data, midline_ext)
 
-    eligible_data = data.loc[is_t_stage & has_midline_ext, modality]
+    eligible_data = data.loc[has_matching_t_stage & has_matching_midline_ext, modality]
     eligible_data = eligible_data.dropna(axis="index", how="all")
 
     # filter the data by the LNL pattern they report
     do_lnls_match = False if invert else True
-    if is_bilateral:
-        do_lnls_match = get_match_idx(
-            do_lnls_match,
-            pattern["ipsi"],
-            eligible_data["ipsi"],
-            lnls=lnls,
-            invert=invert
-        )
-        do_lnls_match = get_match_idx(
-            do_lnls_match,
-            pattern["contra"],
-            eligible_data["contra"],
-            lnls=lnls,
-            invert=invert
-        )
-    else:
+    if data.columns.nlevels == 2:
         do_lnls_match = get_match_idx(
             do_lnls_match,
             pattern["ipsi"],
@@ -167,6 +210,16 @@ def observed_prevalence(
             lnls=lnls,
             invert=invert,
         )
+    else:
+        for side in ["ipsi", "contra"]:
+            do_lnls_match = get_match_idx(
+                do_lnls_match,
+                pattern[side],
+                eligible_data[side],
+                lnls=lnls,
+                invert=invert
+            )
+
     matching_data = eligible_data.loc[do_lnls_match]
     return len(matching_data), len(eligible_data)
 
@@ -192,63 +245,23 @@ def predicted_prevalence(
 
     Use `invert` to compute 1 - p.
     """
+    lnls = get_lnls(model)
+    pattern = clean_pattern(pattern, lnls)
+
     if modality_spsn is None:
-        modality_spsn = [1., 1.]
-
-    model.modalities = {"prev": modality_spsn}
-
-    # wrap the iteration over samples in a rich progressbar if `verbose`
-    enumerate_samples = enumerate(samples)
-    if description is not None:
-        enumerate_samples = track(
-            enumerate_samples,
-            description=description,
-            total=len(samples),
-            console=report,
-            transient=True
-        )
+        model.modalities = {"prev": [1., 1.]}
+    else:
+        model.modalities = {"prev": modality_spsn}
 
     prevalences = np.zeros(shape=len(samples), dtype=float)
-
-    # ensure the `pattern` is complete
-    lnls = get_lnls(model)
-    for side in ["ipsi", "contra"]:
-        if side not in pattern:
-            pattern[side] = {}
-        pattern[side] = {lnl: pattern[side].get(lnl, None) for lnl in lnls}
-
-    if isinstance(model, lymph.Unilateral):
-        # make DataFrame with one row from `pattern`
-        pattern_df = nested_to_pandas({"prev": pattern["ipsi"]})
-        pattern_df["info", "t_stage"] = t_stage
-
-    elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
-        # make DataFrame with one row from `pattern`
-        mi = pd.MultiIndex.from_product([["prev"], ["ipsi", "contra"], lnls])
-        pattern_df = pd.DataFrame(columns=mi)
-        pattern_df["prev"] = nested_to_pandas(pattern)
-        pattern_df["info", "tumor", "t_stage"] = t_stage
-
-        if isinstance(model, lymph.MidlineBilateral) and midline_ext is None:
-            # if midline_ext is None, provide the MidlineBilateral model with two
-            # patients: One with and one without midline extension. Then, marginalize
-            # over the two cases using the empirical probability of a midline extension
-            # (see below)
-            pattern_ext = pattern_df.copy()
-            pattern_ext["info", "tumor", "midline_extension"] = True
-            pattern_noext = pattern_df.copy()
-            pattern_noext["info", "tumor", "midline_extension"] = False
-            pattern_df = pd.concat([pattern_ext, pattern_noext], ignore_index=True)
-        else:
-            pattern_df["info", "tumor", "midline_extension"] = midline_ext
-
-    else:
-        raise TypeError(f"{type(model)} is not a supported model")
-
-    model.patient_data = pattern_df
+    is_unilateral = isinstance(model, lymph.Unilateral)
+    patient_row = create_patient_row(
+        pattern, t_stage, midline_ext, make_unilateral=is_unilateral
+    )
+    model.patient_data = patient_row
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
-    for i,sample in enumerate_samples:
+    for i,sample in rich_enumerate(samples, description):
         if isinstance(model, lymph.MidlineBilateral):
             model.check_and_assign(sample)
             if midline_ext is None:
@@ -275,7 +288,8 @@ def main(args: argparse.Namespace):
     prevalences --help` and shows this:
 
     ```
-    usage: lyscripts predict prevalences [-h] [--params PARAMS] model data output
+    USAGE: lyscripts predict prevalences [-h] [--thin THIN] [--params PARAMS]
+                                         model data output
 
     Predict prevalences of diagnostic patterns using the samples that were inferred
     using the model via MCMC sampling and compare them to the prevalence in the data.
@@ -284,21 +298,19 @@ def main(args: argparse.Namespace):
     comparing it to the empirical likelihood of a given pattern of lymphatic
     progression.
 
-
-    POSITIONAL ARGUMENTS
+    POSITIONAL ARGUMENTS:
     model            Path to drawn samples (HDF5)
     data             Path to the data file to compare prediction and data prevalence
     output           Output path for predicted prevalences (HDF5 file)
 
-    OPTIONAL ARGUMENTS
+    OPTIONAL ARGUMENTS:
     -h, --help       show this help message and exit
+    --thin THIN      Take only every n-th sample (default: 1)
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    with report.status("Read in parameters..."):
-        with open(args.params, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {args.params}")
+    params = cli_load_yaml_params(args.params)
+    samples = cli_load_model_samples(args.model)
 
     with report.status("Read in training data..."):
         # Only read in two header rows when using the Unilateral model
@@ -306,11 +318,6 @@ def main(args: argparse.Namespace):
         header = [0, 1] if is_unilateral else [0, 1, 2]
         DATA = pd.read_csv(args.data, header=header)
         report.success(f"Read in training data from {args.data}")
-
-    with report.status("Loading samples..."):
-        reader = emcee.backends.HDFBackend(args.model, read_only=True)
-        SAMPLES = reader.get_chain(flat=True)
-        report.success(f"Loaded samples with shape {SAMPLES.shape} from {args.model}")
 
     with report.status("Set up model..."):
         MODEL = model_from_config(
@@ -328,7 +335,7 @@ def main(args: argparse.Namespace):
         for i,scenario in enumerate(params["prevalences"]):
             prevalences = predicted_prevalence(
                 model=MODEL,
-                samples=SAMPLES,
+                samples=samples[::args.thin],
                 description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
                 midline_ext_prob=get_midline_ext_prob(DATA, scenario["t_stage"]),
                 **scenario
@@ -347,8 +354,10 @@ def main(args: argparse.Namespace):
                     prevalences_dset.attrs[key] = val
                 except TypeError:
                     pass
-            prevalences_dset.attrs["num_match"] = float(num_match)
-            prevalences_dset.attrs["num_total"] = float(num_total)
+
+            prevalences_dset.attrs["num_match"] = num_match
+            prevalences_dset.attrs["num_total"] = num_total
+
         report.success(
             f"Computed prevalences of {num_prevalences} scenarios stored at "
             f"{args.output}"

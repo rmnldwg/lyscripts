@@ -5,8 +5,7 @@ given observed diagnoses, and prevalences of patterns for diagnostic modalities.
 import argparse
 from pathlib import Path
 
-from ..helpers import clean_docstring
-from . import __doc__, prevalences, risks
+from . import prevalences, risks
 
 
 def _add_parser(
@@ -18,8 +17,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).parent.name,
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     subparsers = parser.add_subparsers()

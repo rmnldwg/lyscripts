@@ -7,13 +7,14 @@ The library I use for this is built on `matplotlib` and is called
 """
 import argparse
 from pathlib import Path
+from typing import List, Union
 
 import corner
 import emcee
 import lymph
-import yaml
 
-from ..helpers import clean_docstring, graph_from_config, report
+from lyscripts.plot.utils import save_figure
+from lyscripts.utils import cli_load_yaml_params, model_from_config, report
 
 
 def _add_parser(
@@ -25,8 +26,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)
@@ -53,80 +54,97 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
+def get_param_labels(
+    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+) -> List[str]:
+    """Create labels from a `model`. An example:
+
+    >>> graph = {
+    ...     ("tumor", "primary"): ["II", "III"],
+    ...     ("lnl", "II"): ["III"],
+    ...     ("lnl", "III"): [],
+    ... }
+    >>> model = lymph.Unilateral(graph)
+    >>> add_tstage_marg(model, ["early", "late"], 0.3, 10)
+    >>> get_param_labels(model)
+    ['primary->II', 'primary->III', 'II->III', 'late']
+    """
+    binom_labels = []
+    for t_stage,dist in model.diag_time_dists.items():
+        if dist.is_updateable:
+            binom_labels.append(t_stage)
+
+    if isinstance(model, lymph.Unilateral):
+        base_labels = [f"{e.start}->{e.end}" for e in model.base_edges]
+        trans_labels = [f"{e.start}->{e.end}" for e in model.trans_edges]
+        return [*base_labels, *trans_labels, *binom_labels]
+
+    if isinstance(model, lymph.Bilateral):
+        base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ipsi.base_edges]
+        base_contra_labels = [f"c {e.start}->{e.end}" for e in model.contra.base_edges]
+        trans_labels = [f"{e.start}->{e.end}" for e in model.ipsi.trans_edges]
+        return [*base_ipsi_labels, *base_contra_labels, *trans_labels, *binom_labels]
+
+    if isinstance(model, lymph.MidlineBilateral):
+        base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ext.ipsi.base_edges]
+        base_contra_ext_labels = [
+            f"ce {e.start}->{e.end}" for e in model.ext.contra.base_edges
+        ]
+        base_contra_noext_labels = [
+            f"cn {e.start}->{e.end}" for e in model.noext.contra.base_edges
+        ]
+        trans_labels = [f"{e.start}->{e.end}" for e in model.ext.ipsi.trans_edges]
+        return [
+            *base_ipsi_labels,
+            *base_contra_noext_labels,
+            "mixing $\\alpha$",
+            *trans_labels,
+            *binom_labels,
+        ] if model.use_mixing else [
+            *base_ipsi_labels,
+            *base_contra_ext_labels,
+            *base_contra_noext_labels,
+            *trans_labels,
+            *binom_labels,
+        ]
+
+
 def main(args: argparse.Namespace):
     """
     This (sub)subrogram shows the following help message when asking for it
     via `lyscripts plot corner --help`
 
     ```
-    usage: lyscripts plot corner [-h] [-p PARAMS] model output
+    USAGE: lyscripts plot corner [-h] [-p PARAMS] model output
 
     Generate a corner plot of the drawn samples.
 
+    A corner plot is a combination of 1D and 2D marginals of probability
+    distributions. The library I use for this is built on `matplotlib` and is called
+    [`corner`](https://github.com/dfm/corner.py).
 
-    POSITIONAL ARGUMENTS
-    model                Path to model output files (HDF5).
-    output               Path to output corner plot (SVG).
+    POSITIONAL ARGUMENTS:
+        model                 Path to model output files (HDF5).
+        output                Path to output corner plot (SVG).
 
-    OPTIONAL ARGUMENTS
-    -h, --help           show this help message and exit
-    -p, --params PARAMS  Path to parameter file (default: ./params.yaml)
+    OPTIONAL ARGUMENTS:
+        -h, --help            show this help message and exit
+        -p, --params PARAMS   Path to parameter file (default: ./params.yaml)
     ```
     """
-    with report.status("Read in parameters..."):
-        with open(args.params, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {args.params}")
+    params = cli_load_yaml_params(args.params)
 
     with report.status("Open model as emcee backend..."):
         backend = emcee.backends.HDFBackend(args.model, read_only=True)
         report.success(f"Opened model as emcee backend from {args.model}")
 
     with report.status("Plot corner plot..."):
-        graph = graph_from_config(params["graph"])
-        model_cls = getattr(lymph, params["model"]["class"])
-        model = model_cls(graph=graph, **params["model"]["kwargs"])
-
-        if isinstance(model, lymph.Unilateral):
-            base_labels = [f"{e.start}➜{e.end}" for e in model.base_edges]
-            trans_labels = [f"{e.start}➜{e.end}" for e in model.trans_edges]
-            binom_labels = [f"p of {t}" for t in params["model"]["t_stages"][1:]]
-            labels = [*base_labels, *trans_labels, *binom_labels]
-
-        elif isinstance(model, lymph.Bilateral):
-            base_ipsi_labels = [f"i {e.start}➜{e.end}" for e in model.ipsi.base_edges]
-            base_contra_labels = [f"c {e.start}➜{e.end}" for e in model.contra.base_edges]
-            trans_labels = [f"{e.start}➜{e.end}" for e in model.ipsi.trans_edges]
-            binom_labels = [f"p of {t}" for t in params["model"]["t_stages"][1:]]
-            labels = [
-                *base_ipsi_labels,
-                *base_contra_labels,
-                *trans_labels,
-                *binom_labels
-            ]
-
-        elif isinstance(model, lymph.MidlineBilateral):
-            base_ipsi = [f"i {e.start}➜{e.end}" for e in model.ext.ipsi.base_edges]
-            base_contra_ext = [f"ce {e.start}➜{e.end}" for e in model.ext.contra.base_edges]
-            base_contra_noext = [f"cn {e.start}➜{e.end}" for e in model.noext.contra.base_edges]
-            trans = [f"{e.start}➜{e.end}" for e in model.ext.ipsi.trans_edges]
-            binom = [f"p of {t}" for t in params["model"]["t_stages"][1:]]
-            if model.use_mixing:
-                labels = [
-                    *base_ipsi,
-                    *base_contra_noext,
-                    "mixing $\\alpha$",
-                    *trans,
-                    *binom
-                ]
-            else:
-                labels = [
-                    *base_ipsi,
-                    *base_contra_ext,
-                    *base_contra_noext,
-                    *trans,
-                    *binom
-                ]
+        model = model_from_config(
+            graph_params=params["graph"],
+            model_params=params["model"],
+        )
+        labels = get_param_labels(model)
+        labels = [label.replace("->", "➜") for label in labels]
 
         chain = backend.get_chain(flat=True)
         if len(labels) != chain.shape[1]:
@@ -136,11 +154,8 @@ def main(args: argparse.Namespace):
             labels=labels,
             show_titles=True,
         )
-        # make sure directory exists
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(args.output.with_suffix(".svg"))
-        fig.savefig(args.output.with_suffix(".png"), dpi=300)
-        report.success(f"Saved corner plot to {args.output}")
+
+        save_figure(fig, args.output, formats=["png", "svg"])
 
 
 if __name__ == "__main__":

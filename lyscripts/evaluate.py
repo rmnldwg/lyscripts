@@ -12,10 +12,9 @@ import emcee
 import h5py
 import numpy as np
 import pandas as pd
-import yaml
 from scipy.integrate import trapezoid
 
-from .helpers import clean_docstring, model_from_config, report
+from lyscripts.utils import cli_load_yaml_params, model_from_config, report
 
 
 def _add_parser(
@@ -27,8 +26,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)
@@ -149,10 +148,7 @@ def main(args: argparse.Namespace):
     """
     metrics = {}
 
-    with report.status("Read in parameters..."):
-        with open(args.params, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {args.params}")
+    params = cli_load_yaml_params(args.params)
 
     with report.status("Read in patient data..."):
         # Only read in two header rows when using the Unilateral model

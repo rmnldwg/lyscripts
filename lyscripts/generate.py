@@ -6,9 +6,8 @@ from pathlib import Path
 
 import emcee
 import numpy as np
-import yaml
 
-from .helpers import clean_docstring, model_from_config, report
+from lyscripts.utils import cli_load_yaml_params, model_from_config, report
 
 
 def _add_parser(
@@ -20,8 +19,8 @@ def _add_parser(
     """
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
-        description=clean_docstring(__doc__),
-        help=clean_docstring(__doc__),
+        description=__doc__,
+        help=__doc__,
         formatter_class=help_formatter,
     )
     _add_arguments(parser)
@@ -95,19 +94,16 @@ def main(args: argparse.Namespace):
                                             was chosen (default: ./models/samples.hdf5)
     ```
     """
-    with report.status("Read in parameters..."):
-        with open(args.params, mode='r') as params_file:
-            params = yaml.safe_load(params_file)
-        report.success(f"Read in params from {args.params}")
+    params = cli_load_yaml_params(args.params)
 
     with report.status("Create model..."):
-        MODEL = model_from_config(
+        model = model_from_config(
             graph_params=params["graph"],
             model_params=params["model"],
             modalities_params=params["modalities"],
         )
-        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        report.success(f"Created {type(MODEL)} model")
+        ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
+        report.success(f"Created {type(model)} model")
 
     if args.set_theta is not None:
         with report.status("Assign given parameters to model..."):
@@ -116,7 +112,7 @@ def main(args: argparse.Namespace):
                     f"Model takes {ndim} parameters, but{len(args.set_theta)} were provided"
                 )
             THETA = np.array(args.set_theta)
-            MODEL.check_and_assign(THETA)
+            model.check_and_assign(THETA)
             report.print(THETA)
             report.success("Assigned given parameters to model")
     else:
@@ -137,12 +133,12 @@ def main(args: argparse.Namespace):
             else:
                 raise ValueError("Only 'mean' and 'max_llh' are supported")
 
-            MODEL.check_and_assign(THETA)
+            model.check_and_assign(THETA)
             report.print(THETA)
             report.success(f"Loaded samples and assigned their {args.load_theta} value")
 
     with report.status(f"Generate synthetic data of {args.num} patients..."):
-        synthetic_data = MODEL.generate_dataset(
+        synthetic_data = model.generate_dataset(
             num_patients=args.num,
             stage_dist=params["synthetic"]["t_stages_dist"],
             ext_prob=params["synthetic"]["midline_ext_prob"],

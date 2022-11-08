@@ -3,6 +3,12 @@
 """
 import argparse
 
+from rich.containers import Lines
+from rich.text import Text
+from rich_argparse import RichHelpFormatter
+
+from lyscripts.utils import report
+
 from . import (
     clean,
     enhance,
@@ -14,10 +20,9 @@ from . import (
     sample,
     split,
     temp_schedule,
+    utils,
 )
 from ._version import version
-from .helpers import clean_docstring, report
-from .rich_argparse import RichHelpFormatter
 
 __version__ = version
 __description__ = "Package containing scripts used in lynference pipelines"
@@ -30,14 +35,45 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 
 class RichDefaultHelpFormatter(
     RichHelpFormatter,
-    argparse.ArgumentDefaultsHelpFormatter
+    argparse.ArgumentDefaultsHelpFormatter,
 ):
     """
     Empty class that combines the functionality of displaying the default value with
     the beauty of the `rich` formatter
     """
+    def _rich_fill_text(self, text: Text, width: int, indent: Text) -> Text:
+        text_cls = type(text)
+        if text[0] == text_cls("\n"):
+            text = text[1:]
 
-def exit(args: argparse.Namespace):
+        paragraphs = text.split(separator="\n\n")
+        text_lines = Lines()
+        for par in paragraphs:
+            no_newline_par = text_cls(" ").join(line for line in par.split())
+            wrapped_par = no_newline_par.wrap(self.console, width)
+
+            for line in wrapped_par:
+                text_lines.append(line)
+
+            text_lines.append(text_cls("\n"))
+
+        return text_cls("\n").join(indent + line for line in text_lines) + "\n\n"
+
+RichDefaultHelpFormatter.styles["argparse.syntax"] = "red"
+RichDefaultHelpFormatter.styles["argparse.formula"] = "green"
+RichDefaultHelpFormatter.highlights.append(
+    r"\$(?P<formula>[^$]*)\$"
+)
+RichDefaultHelpFormatter.styles["argparse.bold"] = "bold"
+RichDefaultHelpFormatter.highlights.append(
+    r"\*(?P<bold>[^*]*)\*"
+)
+RichDefaultHelpFormatter.styles["argparse.italic"] = "italic"
+RichDefaultHelpFormatter.highlights.append(
+    r"_(?P<italic>[^_]*)_"
+)
+
+def exit_cli(args: argparse.Namespace):
     """Exit the cmd line tool"""
     if args.version:
         report.print("lyscripts ", __version__)
@@ -48,10 +84,10 @@ def main():
     """The main entry point of the CLI."""
     parser = argparse.ArgumentParser(
         prog="lyscripts",
-        description=clean_docstring(__doc__),
+        description=__doc__,
         formatter_class=RichDefaultHelpFormatter,
     )
-    parser.set_defaults(run_main=exit)
+    parser.set_defaults(run_main=exit_cli)
     parser.add_argument(
         "-v", "--version", action="store_true",
         help="Display the version of lyscripts"
