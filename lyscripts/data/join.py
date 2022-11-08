@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from lyscripts.data.utils import save_table_to_csv
 from lyscripts.utils import report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -81,12 +82,7 @@ def main(args: argparse.Namespace):
             report.print(f"+ concatenated data from {input}")
         report.success(f"Read & concatenated all {len(args.inputs)} CSV files")
 
-    with report.status("Saving concatenated dataset..."):
-        # Make sure the output directory exists
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        # Write the concatenated dataset to disk
-        concatenated_df.to_csv(args.output, index=None)
-        report.success(f"Saved concatenated dataset to {args.output}")
+    save_table_to_csv(args.output, concatenated_df)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
+from lyscripts.data.utils import save_table_to_csv
 from lyscripts.utils import cli_load_yaml_params, get_modalities_subset, report
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
@@ -341,10 +342,7 @@ def main(args: argparse.Namespace):
                     data.loc[sublvls_healthy, (mod,side,lnl)] = False
         report.success("Fixed sub- & super level fields.")
 
-    with report.status("Saving enhanced file..."):
-        args.output.parent.mkdir(exist_ok=True)
-        data.to_csv(args.output, index=None)
-        report.success(f"Saved enhanced file to disk at {args.output}")
+    save_table_to_csv(args.output, data)
 
 
 if __name__ == "__main__":

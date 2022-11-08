@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from lyscripts.data.utils import save_table_to_csv
 from lyscripts.utils import cli_load_yaml_params, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -135,9 +136,7 @@ def main(args: argparse.Namespace):
         cleaned_df = lyprox_to_lymph(enhanced_df, class_name=params["model"]["class"])
         report.success(f"Read in CSV file from {args.input}")
 
-    with report.status("Saving cleaned dataset..."):
-        cleaned_df.to_csv(args.output, index=None)
-        report.success(f"Saved cleaned dataset to {args.output}")
+    save_table_to_csv(args.output, cleaned_df)
 
 
 if __name__ == "__main__":
