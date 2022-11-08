@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="pdoc 12.2.0"/>
+    <meta name="generator" content="pdoc 12.2.1"/>
     <title>lyscripts.join API documentation</title>
             <link rel="icon" href="https://raw.githubusercontent.com/rmnldwg/lyscripts/main/favicon.png"/>
 
@@ -83,7 +83,7 @@
 </span><span id="L-7"><a href="#L-7"><span class="linenos"> 7</span></a>
 </span><span id="L-8"><a href="#L-8"><span class="linenos"> 8</span></a><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 </span><span id="L-9"><a href="#L-9"><span class="linenos"> 9</span></a>
-</span><span id="L-10"><a href="#L-10"><span class="linenos">10</span></a><span class="kn">from</span> <span class="nn">.helpers</span> <span class="kn">import</span> <span class="n">clean_docstring</span><span class="p">,</span> <span class="n">report</span>
+</span><span id="L-10"><a href="#L-10"><span class="linenos">10</span></a><span class="kn">from</span> <span class="nn">lyscripts.utils</span> <span class="kn">import</span> <span class="n">report</span>
 </span><span id="L-11"><a href="#L-11"><span class="linenos">11</span></a>
 </span><span id="L-12"><a href="#L-12"><span class="linenos">12</span></a><span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">FutureWarning</span><span class="p">)</span>
 </span><span id="L-13"><a href="#L-13"><span class="linenos">13</span></a>
@@ -98,8 +98,8 @@
 </span><span id="L-22"><a href="#L-22"><span class="linenos">22</span></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="L-23"><a href="#L-23"><span class="linenos">23</span></a>    <span class="n">parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
 </span><span id="L-24"><a href="#L-24"><span class="linenos">24</span></a>        <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
-</span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a>        <span class="n">description</span><span class="o">=</span><span class="n">clean_docstring</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">),</span>
-</span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a>        <span class="n">help</span><span class="o">=</span><span class="n">clean_docstring</span><span class="p">(</span><span class="vm">__doc__</span><span class="p">),</span>
+</span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a>        <span class="n">description</span><span class="o">=</span><span class="vm">__doc__</span><span class="p">,</span>
+</span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a>        <span class="n">help</span><span class="o">=</span><span class="vm">__doc__</span><span class="p">,</span>
 </span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a>        <span class="n">formatter_class</span><span class="o">=</span><span class="n">help_formatter</span><span class="p">,</span>
 </span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a>    <span class="p">)</span>
 </span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a>    <span class="n">_add_arguments</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>
@@ -355,7 +355,7 @@ OPTIONAL ARGUMENTS
                 }
 
                 let heading;
-                switch (result.doc.type) {
+                switch (result.doc.kind) {
                     case "function":
                         if (doc.fullname.endsWith(".__init__")) {
                             heading = `<span class="name">${doc.fullname.replace(/\.__init__$/, "")}</span>${doc.signature}`;
@@ -382,7 +382,7 @@ OPTIONAL ARGUMENTS
                 }
                 html += `
                         <section class="search-result">
-                        <a href="${url}" class="attr ${doc.type}">${heading}</a>
+                        <a href="${url}" class="attr ${doc.kind}">${heading}</a>
                         <div class="docstring">${doc.doc}</div>
                         </section>
                     `;
