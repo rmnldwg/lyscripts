@@ -1,5 +1,49 @@
-<a name="unreleased"></a>
-## [Unreleased]
+<a name="0.5.11"></a>
+## [0.5.11] - 2022-11-06
+
+### Bug Fixes
+- remove useless import & rename prediction `utils`
+- histogram & respective posterior have same color
+- fix two bugs detected during integration test:
+  1. The custom enumerate with optional progress bar did not enumerate
+  2. Function checking if midline extension matches did not work for some lymph classes
+- fix wrong import in submodules `plot` & `predict`
+- correct relative imports & remove unused functions
+- fix small inconsistency in script call
+
+### Code Refactoring
+- use function for loading YAML in all scripts
+- further modularize tasks, e.g. params loading
+- rename test modules
+- put function saving figures in separate utility
+- replace common main tasks with `util` functions
+- pull out function to extract model param labels
+- make `utils` public and hence documented
+- greatly simplify histogram plotting script
+- pull shared functions into `_utils`
+- update [`rich_argparse`] & add highlighting (fixes [#20])
+- outsource rich enumeration of predictions
+- make prevalence prediction much cleaner
+- risk & prevalence share method to clean pattern
+
+### Documentation
+- update help in predict's docstrings
+
+### Features
+- write decorators for general tasks
+- add nice helper functions to plot (fixes [#21])
+- risk & prevalence can use thinned samples
+- write neat recursive functions to flatten dictionaries
+
+### Testing
+- implement more `utils` tests
+- add test to the `save_figure` utility
+- add test to new params loader
+- add small doctest to `get_size` plot utility
+- add checks for plotting utils
+- write simple tests for prevalence prediction
+- add doctest & pytest for predict `utils`
+
 
 <a name="0.5.10"></a>
 ## [0.5.10] - 2022-10-13
@@ -85,7 +129,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.10...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.11...HEAD
+[0.5.11]: https://github.com/rmnldwg/lyscripts/compare/0.5.10...0.5.11
 [0.5.10]: https://github.com/rmnldwg/lyscripts/compare/0.5.9...0.5.10
 [0.5.9]: https://github.com/rmnldwg/lyscripts/compare/0.5.8...0.5.9
 [0.5.8]: https://github.com/rmnldwg/lyscripts/compare/0.5.7...0.5.8
@@ -101,3 +146,7 @@ returns `None` instead. Fixes [#11]
 [#15]: https://github.com/rmnldwg/lyscripts/issues/15
 [#16]: https://github.com/rmnldwg/lyscripts/issues/16
 [#17]: https://github.com/rmnldwg/lyscripts/issues/17
+[#20]: https://github.com/rmnldwg/lyscripts/issues/20
+[#21]: https://github.com/rmnldwg/lyscripts/issues/21
+
+[`rich_argparse`]: https://github.com/hamdanal/rich_argparse
