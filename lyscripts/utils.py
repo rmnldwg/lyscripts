@@ -257,7 +257,7 @@ def report_func_state(
     return assembled_decorator
 
 
-def check_file_exists(loading_func: Callable) -> Callable:
+def check_input_file_exists(loading_func: Callable) -> Callable:
     """
     Decorator that checks if the file path provided to the `loading_func` exists and
     throws a `FileNotFoundError` if it does not.
@@ -266,8 +266,8 @@ def check_file_exists(loading_func: Callable) -> Callable:
     `report_func_state`, since some libraries throw other errors when a file is not
     found.
     """
-    def inner(file_path, *args, **kwargs) -> Any:
-        """Wrapped function."""
+    def inner(file_path: str, *args, **kwargs) -> Any:
+        """Wrapped loading function."""
         file_path = Path(file_path)
         if not file_path.is_file():
             raise FileNotFoundError(f"No file found at {file_path}")
@@ -277,7 +277,25 @@ def check_file_exists(loading_func: Callable) -> Callable:
     return inner
 
 
-@check_file_exists
+def check_output_dir_exists(saving_func: Callable) -> Callable:
+    """
+    Decorator to make sure the parent directory of the file that is supposed to be
+    saved does exist.
+
+    Just as the `check_input_file_exists`, this decorator serves the additional
+    purpose of providing consistent errors to the `report_func_state` outer decorator.
+    """
+    def inner(file_path: str, *args, **kwargs) -> Any:
+        """Wrapped saving function."""
+        file_path = Path(file_path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        return saving_func(file_path, *args, **kwargs)
+
+    return inner
+
+
+@check_input_file_exists
 def load_yaml_params(file_path: Path) -> dict:
     """Load parameters from a YAML file at `file_path`."""
     with open(file_path, mode="r", encoding="utf-8") as file_content:
@@ -299,7 +317,7 @@ messages are directed to a `rich` console.
 """
 
 
-@check_file_exists
+@check_input_file_exists
 def load_model_samples(file_path: Path) -> np.ndarray:
     """
     Load samples produced by an MCMC sampling process that are stored at

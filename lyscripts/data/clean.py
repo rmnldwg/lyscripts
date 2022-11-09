@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from lyscripts.data.utils import load_csv_table, save_table_to_csv
 from lyscripts.utils import cli_load_yaml_params, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -54,16 +55,16 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def lyprox_to_lymph(
     data: pd.DataFrame,
-    method: str = "unilateral",
+    class_name: str = "Unilateral",
     convert_t_stage: Optional[Dict[int, Any]] = None
 ) -> pd.DataFrame:
     """
     Convert [LyProX](https://lyprox.org) `data` into `pd.DataFrame` that the
     [lymph](https://github.com/rmnldwg/lymph) package can use for sampling.
 
-    This conversion can be done according to a given `method` out of three that
-    specifies `"unilateral"`, `"bilateral"` or `"midline"`, depending on the class
-    that is later supposed to load the data.
+    This conversion can be done according to a given `class_name` out of three that
+    specifies `"Unilateral"`, `"Bilateral"` or `"MidlineBilateral"`, depending on the
+    class that is later supposed to load the data.
 
     `convert_t_stage` is a dictionary that maps from the range of T-stages in the
     LyProX `data` (keys) to T-stages that the lymph library is supposed to work with
@@ -99,9 +100,9 @@ def lyprox_to_lymph(
         convert_t_stage[t] for t in t_stage_data.values
     ]
 
-    if method == "midline":
+    if class_name == "MidlineBilateral":
         diagnostic_data[("info", "tumor", "midline_extension")] = midline_extension_data
-    elif method == "unilateral":
+    elif class_name == "Unilateral":
         diagnostic_data = diagnostic_data.drop(columns=["contra"], level=1)
         diagnostic_data.columns = diagnostic_data.columns.droplevel(1)
 
@@ -113,37 +114,30 @@ def main(args: argparse.Namespace):
     When running `lyscripts clean --help` the output is the following:
 
     ```
-    usage: lyscripts clean [-h] [-p PARAMS] input output
+    USAGE: lyscripts data clean [-h] [-p PARAMS] input output
 
-    Transform the enhanced lyDATA CSV files into a format that can be used by the lymph
-    model using this package's utilities.
+    Transform the enhanced lyDATA CSV files into a format that can be used by the
+    lymph model using this package's utilities.
 
+    POSITIONAL ARGUMENTS:
+      input                 Path to the enhanced lyDATA CSV file to transform.
+      output                Path to the cleand CSV file ready for inference.
 
-    POSITIONAL ARGUMENTS
-    input                Path to the enhanced lyDATA CSV file to transform.
-    output               Path to the cleand CSV file ready for inference.
-
-    OPTIONAL ARGUMENTS
-    -h, --help           show this help message and exit
-    -p, --params PARAMS  Path to the params file to use for the transformation.
-                        (default: ./params.yaml)
+    OPTIONAL ARGUMENTS:
+      -h, --help            show this help message and exit
+      -p, --params PARAMS   Path to the params file to use for the transformation.
+                            (default: ./params.yaml)
     ```
     """
     params = cli_load_yaml_params(args.params)
 
-    with report.status("Reading in CSV file..."):
-        enhanced_df = pd.read_csv(args.input, header=[0,1,2])
-        method = {
-            "Unilateral": "unilateral",
-            "Bilateral": "midline",
-            "MidlineBilateral": "midline",
-        }[params["model"]["class"]]
-        cleaned_df = lyprox_to_lymph(enhanced_df, method=method)
-        report.success(f"Read in CSV file from {args.input}")
+    input_table = load_csv_table(args.input, header=[0,1,2])
 
-    with report.status("Saving cleaned dataset..."):
-        cleaned_df.to_csv(args.output, index=None)
-        report.success(f"Saved cleaned dataset to {args.output}")
+    with report.status("Prepare table for use with lymph model..."):
+        lymph_table = lyprox_to_lymph(input_table, class_name=params["model"]["class"])
+        report.success("Prepared table for use with lymph model.")
+
+    save_table_to_csv(args.output, lymph_table)
 
 
 if __name__ == "__main__":

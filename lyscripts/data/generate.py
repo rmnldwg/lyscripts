@@ -7,6 +7,7 @@ from pathlib import Path
 import emcee
 import numpy as np
 
+from lyscripts.data.utils import save_table_to_csv
 from lyscripts.utils import cli_load_yaml_params, model_from_config, report
 
 
@@ -68,30 +69,29 @@ def main(args: argparse.Namespace):
     The CLI's help for this subcommand (`lyscripts generate --help`) shows:
 
     ```
-    usage: lyscripts generate [-h] [--params PARAMS]
-                            [--set-theta SET_THETA [SET_THETA ...] | --load-theta
-                            {mean,max_llh}] [--samples SAMPLES]
-                            num output
+    USAGE: lyscripts data generate [-h] [--params PARAMS]
+                                   [--set-theta SET_THETA [SET_THETA ...] |
+                                   --load-theta {mean,max_llh}] [--samples SAMPLES]
+                                   num output
 
-    Generate synthetic patient data for testing purposes.
+    Generate synthetic patient data for testing and validation purposes.
 
+    POSITIONAL ARGUMENTS:
+      num                   Number of synthetic patient records to generate
+      output                Path where to store the generated synthetic data
 
-    POSITIONAL ARGUMENTS
-    num                                   Number of synthetic patient records to
-                                            generate
-    output                                Path where to store the generated synthetic
-                                            data
-
-    OPTIONAL ARGUMENTS
-    -h, --help                            show this help message and exit
-    --params PARAMS                       Parameter file containing model specifications
-                                            (default: ./params.yaml)
-    --set-theta SET_THETA [SET_THETA      Set the spread probs and parameters for time
-    ...]                                  marginalization by hand (default: None)
-    --load-theta {mean,max_llh}           Use either the mean or the maximum likelihood
-                                            estimate from drawn samples (default: mean)
-    --samples SAMPLES                     Path to the samples if a method to load them
-                                            was chosen (default: ./models/samples.hdf5)
+    OPTIONAL ARGUMENTS:
+      -h, --help            show this help message and exit
+      --params PARAMS       Parameter file containing model specifications (default:
+                            ./params.yaml)
+      --set-theta SET_THETA [SET_THETA ...]
+                            Set the spread probs and parameters for time
+                            marginalization by hand (default: None)
+      --load-theta {mean,max_llh}
+                            Use either the mean or the maximum likelihood estimate
+                            from drawn samples (default: mean)
+      --samples SAMPLES     Path to the samples if a method to load them was chosen
+                            (default: ./models/samples.hdf5)
     ```
     """
     params = cli_load_yaml_params(args.params)
@@ -150,10 +150,7 @@ def main(args: argparse.Namespace):
             )
         report.success(f"Created synthetic data of {args.num} patients.")
 
-    with report.status("Save generated dataset..."):
-        args.output.parent.mkdir(exist_ok=True)
-        synthetic_data.to_csv(args.output, index=None)
-        report.success(f"Saved generated dataset to {args.output}")
+    save_table_to_csv(args.output, synthetic_data)
 
 
 if __name__ == "__main__":

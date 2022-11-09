@@ -13,7 +13,12 @@ import scipy as sp
 from matplotlib.axes._axes import Axes as MPLAxes
 from matplotlib.figure import Figure
 
-from lyscripts.utils import report
+from lyscripts.utils import (
+    check_input_file_exists,
+    check_output_dir_exists,
+    report,
+    report_func_state,
+)
 
 # define USZ colors
 COLORS = {
@@ -260,33 +265,29 @@ def draw(
     return axes
 
 
+@report_func_state(
+    status_msg="Load MPL stylesheet...",
+    success_msg="Loaded MPL stylesheet.",
+    actions={
+        OSError: (False, report.info, "Didn't find MPL stylesheet, proceeding without")
+    }
+)
+@check_input_file_exists
 def use_mpl_stylesheet(file_path: Union[str, Path]):
-    """
-    Attempt to load a `.mplstyle` stylesheet from `file_path` and fail gracefully if it
-    is not found.
-    """
-    file_path = Path(file_path)
-    with report.status("Apply MPL stylesheet..."):
-        try:
-            plt.style.use(file_path)
-        except OSError:
-            report.failure("Could not find MPL stylesheet.")
-        else:
-            report.success(f"Applied MPL stylesheet from {file_path}")
+    """Load a `.mplstyle` stylesheet from `file_path`."""
+    plt.style.use(file_path)
 
 
+@report_func_state(
+    status_msg="Save matplotlib figure...",
+    success_msg="Saved matplotlib figure.",
+)
+@check_output_dir_exists
 def save_figure(
-    figure: Figure,
     output_path: Union[str, Path],
+    figure: Figure,
     formats: Optional[List[str]],
 ):
-    """
-    Save a `figure` at `output_path` in every one of the provided `formats`. If not
-    `formats` are provided, the default is `PNG` and `SVG`.
-    """
-    output_path = Path(output_path)
-    output_path.parent.mkdir(exist_ok=True)
-    with report.status("Save figure..."):
-        for frmt in formats:
-            figure.savefig(output_path.with_suffix(f".{frmt}"))
-        report.success(f"Saved figure to {output_path} in the formats {formats}.")
+    """Save a `figure` to `output_path` in every one of the provided `formats`."""
+    for frmt in formats:
+        figure.savefig(output_path.with_suffix(f".{frmt}"))

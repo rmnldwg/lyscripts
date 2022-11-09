@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from lyscripts.data.utils import save_table_to_csv
 from lyscripts.utils import report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -57,36 +58,31 @@ def main(args: argparse.Namespace):
     It's command help when running `lyscripts join --help` shows
 
     ```
-    usage: lyscripts join [-h] -i INPUTS [INPUTS ...] -o OUTPUT
+    USAGE: lyscripts data join [-h] -i INPUTS [INPUTS ...] -o OUTPUT
 
     Join datasets from different sources (but of the same format) into one.
 
-
-    OPTIONAL ARGUMENTS
-    -h, --help                        show this help message and exit
-    -i, --inputs INPUTS [INPUTS ...]  List of paths to inference-ready CSV datasets to
-                                        concatenate. (default: None)
-    -o, --output OUTPUT               Location to store the concatenated CSV file.
-                                        (default: None)
+    OPTIONAL ARGUMENTS:
+      -h, --help            show this help message and exit
+      -i, --inputs INPUTS [INPUTS ...]
+                            List of paths to inference-ready CSV datasets to
+                            concatenate. (default: None)
+      -o, --output OUTPUT   Location to store the concatenated CSV file. (default:
+                            None)
     ```
     """
     with report.status("Reading & concatenating CSV files..."):
-        concatenated_df = pd.DataFrame()
-        for input in args.inputs:
-            df = pd.read_csv(input, header=[0,1,2])
-            concatenated_df = pd.concat(
-                [concatenated_df, df],
+        concatenated_table = pd.DataFrame()
+        for input_path in args.inputs:
+            input_table = pd.read_csv(input_path, header=[0,1,2])
+            concatenated_table = pd.concat(
+                [concatenated_table, input_table],
                 ignore_index=True
             )
-            report.print(f"+ concatenated data from {input}")
+            report.print(f"+ concatenated data from {input_path}")
         report.success(f"Read & concatenated all {len(args.inputs)} CSV files")
 
-    with report.status("Saving concatenated dataset..."):
-        # Make sure the output directory exists
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        # Write the concatenated dataset to disk
-        concatenated_df.to_csv(args.output, index=None)
-        report.success(f"Saved concatenated dataset to {args.output}")
+    save_table_to_csv(args.output, concatenated_table)
 
 
 if __name__ == "__main__":

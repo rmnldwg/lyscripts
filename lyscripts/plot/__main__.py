@@ -6,7 +6,7 @@ from lyscripts.plot import corner, histograms, thermo_int
 # I need another __main__ guard here, because otherwise pdoc tries to run this
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="lyscripts",
+        prog="lyscripts plot",
         description=__doc__,
         formatter_class=RichDefaultHelpFormatter,
     )

@@ -15,12 +15,13 @@ import argparse
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
+from lyscripts.data.utils import load_csv_table, save_table_to_csv
 from lyscripts.utils import cli_load_yaml_params, get_modalities_subset, report
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
@@ -91,10 +92,72 @@ def get_sublvl_values(
     Get the values of sublevels (e.g. 'IIa' and 'IIb') for a given LNL and a
     dataframe.
     """
-    has_sublvls = all([lnl+sub in data_frame for sub in sub_ids])
+    has_sublvls = all(lnl+sub in data_frame for sub in sub_ids)
     if not has_sublvls:
         return None
     return data_frame[[lnl+sub for sub in sub_ids]].values
+
+
+def infer_superlvl_from_sublvls(
+    table: pd.DataFrame,
+    modalities: List[str],
+    lnls_with_sub: List[str],
+    sublvls: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """
+    Infer the involvement state of all `lnls_with_sub`, i.e. LNLs where sub-levels were
+    reported, for each patient in the `table`. Do this for all defined `modalities` and
+    take into account all specified `sublvls`.
+
+    This means that if e.g. sub-LNL IIa reports involvement and sub-LNL IIb shows no
+    sign of metastasis, this method will infer that the superlevel II must be involved
+    as well.
+    """
+    if sublvls is None:
+        sublvls = ["a", "b"]
+
+    fixed_table = table.copy()
+
+    for mod in modalities:
+        for side in ["ipsi", "contra"]:
+            for lnl in lnls_with_sub:
+                sublvl_values = get_sublvl_values(
+                        table[mod,side], lnl, sublvls
+                    )
+                if sublvl_values is None:
+                    continue
+
+                has_sublvl_involved = np.any(sublvl_values==True , axis=1)
+                all_sublvls_healthy = np.all(sublvl_values==False, axis=1)
+
+                fixed_table.loc[has_sublvl_involved, (mod,side,lnl)] = True
+                fixed_table.loc[all_sublvls_healthy, (mod,side,lnl)] = False
+
+    return fixed_table
+
+
+def get_lnl_observations(
+    patient: pd.Series,
+    side: str,
+    lnl: str,
+    modalities: List[str],
+) -> Tuple[bool]:
+    """
+    Collect the observations for an `lnl` from every one of the available `modalities`
+    in a tuple. Do this for one `side` of the neck of a particular `patient`.
+    """
+    observations = ()
+
+    for mod in modalities.keys():
+        try:
+            add_obs = patient[mod,side,lnl]
+            add_obs = None if pd.isna(add_obs) else add_obs
+        except KeyError:
+            add_obs = None
+        observations = (*observations, add_obs)
+
+    return observations
+
 
 @lru_cache
 def has_all_none(obs_tuple: Tuple[np.ndarray]):
@@ -206,6 +269,12 @@ CONSENSUS_FUNCS = {
     "logic_or": lambda obs, *_args, **_kwargs: or_consensus(obs),
     "logic_and": lambda obs, *_args, **_kwargs: and_consensus(obs),
 }
+PROGRESS = Progress(
+    SpinnerColumn(),
+    *Progress.get_default_columns(),
+    TimeElapsedColumn(),
+    console=report,
+)
 
 
 def main(args: argparse.Namespace):
@@ -213,53 +282,49 @@ def main(args: argparse.Namespace):
     Below is the help output (call with `lyscripts enhance --help`)
 
     ```
-    usage: lyscripts enhance [-h]
-                            [-c {max_llh,rank,logic_or,logic_and}
-    [{max_llh,rank,logic_or,logic_and} ...]]
-                            [-p PARAMS] [--modalities MODALITIES [MODALITIES ...]]
-                            [--sublvls SUBLVLS [SUBLVLS ...]]
-                            [--lnls-with-sub LNLS_WITH_SUB [LNLS_WITH_SUB ...]]
-                            input output
+    USAGE: lyscripts data enhance [-h]
+                                  [-c {max_llh,rank,logic_or,logic_and} [{max_llh,rank,logic_or,logic_and} ...]]
+                                  [-p PARAMS]
+                                  [--modalities MODALITIES [MODALITIES ...]]
+                                  [--sublvls SUBLVLS [SUBLVLS ...]]
+                                  [--lnls-with-sub LNLS_WITH_SUB [LNLS_WITH_SUB ...]]
+                                  input output
 
     Enhance a LyProX-style CSV dataset in two ways:
 
     1. Add consensus diagnoses based on all available modalities using on of two
     methods: `max_llh` infers the most likely true state of involvement given only the
-    available diagnoses. `rank` uses the available diagnositc modalities and ranks them
-    based on their respective sensitivity and specificity.
+    available diagnoses. `rank` uses the available diagnositc modalities and ranks
+    them based on their respective sensitivity and specificity.
 
-    2. Complete sub- & super-level fields. This means that if a dataset reports LNLs IIa
-    and IIb separately, this script will add the column for LNL II and fill it with the
-    correct values. Conversely, if e.g. LNL II is reported to be healthy, we can assume
-    the sublevels IIa and IIb would have been reported as healthy, too.
+    2. Complete sub- & super-level fields. This means that if a dataset reports LNLs
+    IIa and IIb separately, this script will add the column for LNL II and fill it
+    with the correct values. Conversely, if e.g. LNL II is reported to be healthy, we
+    can assume the sublevels IIa and IIb would have been reported as healthy, too.
 
+    POSITIONAL ARGUMENTS:
+      input                 Path to a LyProX-style CSV file
+      output                Destination for LyProX-style output file including the
+                            consensus
 
-    POSITIONAL ARGUMENTS
-    input                                 Path to a LyProX-style CSV file
-    output                                Destination for LyProX-style output file
-                                          including the consensus
-
-    OPTIONAL ARGUMENTS
-    -h, --help                            show this help message and exit
-    -c, --consensus                       Choose consensus method(s) (default:
-    {max_llh,rank,logic_or,logic_and}     ['max_llh'])
-    [{max_llh,rank,logic_or,logic_and}
-    ...]
-    -p, --params PARAMS                   Path to parameter file (default: params.yaml)
-    --modalities MODALITIES [MODALITIES   List of modalities for enhancement. Must be
-    ...]                                  defined in `params.yaml` (default: ['CT',
-                                          'MRI', 'PET', 'FNA', 'diagnostic_consensus',
-                                          'pathology', 'pCT'])
-    --sublvls SUBLVLS [SUBLVLS ...]       Indicate what kinds of sublevels exist
-                                          (default: ['a', 'b'])
-    --lnls-with-sub LNLS_WITH_SUB         List of LNLs where sublevel reporting has
-    [LNLS_WITH_SUB ...]                   been performed or is common (default: ['I',
-                                          'II', 'V'])
+    OPTIONAL ARGUMENTS:
+      -h, --help            show this help message and exit
+      -c, --consensus {max_llh,rank,logic_or,logic_and} [{max_llh,rank,logic_or,logic_and} ...]
+                            Choose consensus method(s) (default: ['max_llh'])
+      -p, --params PARAMS   Path to parameter file (default: params.yaml)
+      --modalities MODALITIES [MODALITIES ...]
+                            List of modalities for enhancement. Must be defined in
+                            `params.yaml` (default: ['CT', 'MRI', 'PET', 'FNA',
+                            'diagnostic_consensus', 'pathology', 'pCT'])
+      --sublvls SUBLVLS [SUBLVLS ...]
+                            Indicate what kinds of sublevels exist (default: ['a',
+                            'b'])
+      --lnls-with-sub LNLS_WITH_SUB [LNLS_WITH_SUB ...]
+                            List of LNLs where sublevel reporting has been performed
+                            or is common (default: ['I', 'II', 'V'])
     ```
     """
-    with report.status("Read CSV file..."):
-        data = pd.read_csv(args.input, header=[0,1,2])
-        report.success(f"Read CSV file from {args.input}")
+    input_table = load_csv_table(args.input, header=[0,1,2])
 
     params = cli_load_yaml_params(args.params)
     modalities = get_modalities_subset(
@@ -267,56 +332,41 @@ def main(args: argparse.Namespace):
         selection=args.modalities,
     )
 
-    # with report.status("Compute consensus of modalities..."):
     available_mod_keys = set(
-        data.columns.get_level_values(0)
+        input_table.columns.get_level_values(0)
     ).intersection(
         modalities.keys()
     )
     available_mods = {key: modalities[key] for key in available_mod_keys}
     lnl_union = set().union(
-        *[data[mod,"ipsi"].columns for mod in available_mod_keys]
+        *[input_table[mod,"ipsi"].columns for mod in available_mod_keys]
     )
 
     consensus = pd.DataFrame(
-        index=data.index,
+        index=input_table.index,
         columns=pd.MultiIndex.from_product(
             [args.consensus, ["ipsi", "contra"], lnl_union]
         )
     )
 
-    progress = Progress(
-        SpinnerColumn(),
-        *Progress.get_default_columns(),
-        TimeElapsedColumn(),
-        console=report,
-    )
-    with progress:
-        enhance_task = progress.add_task(
+    with PROGRESS:
+        enhance_task = PROGRESS.add_task(
             description="Compute consensus of modalities...",
-            total=2 * len(data),
+            total=2 * len(input_table),
         )
         for side in ["ipsi", "contra"]:
             # go through patients and LNLs and compute consensus for each
-            for p,patient in data.iterrows():
+            for p,patient in input_table.iterrows():
                 for lnl in lnl_union:
-                    observations = ()
-                    for mod in available_mods.keys():
-                        try:
-                            add_obs = patient[mod,side,lnl]
-                            add_obs = None if pd.isna(add_obs) else add_obs
-                        except KeyError:
-                            add_obs = None
-                        observations = (*observations, add_obs)
+                    observations = get_lnl_observations(
+                        patient, side, lnl, available_mods
+                    )
                     for cons in args.consensus:
-                        consensus[cons, side, lnl].iloc[p] = (
-                            CONSENSUS_FUNCS[cons](
-                                tuple(observations),
-                                available_mods.values()
-                            )
+                        consensus[cons, side, lnl].iloc[p] = CONSENSUS_FUNCS[cons](
+                            observations, available_mods.values()
                         )
-                progress.update(enhance_task, advance=1)
-        data = data.join(consensus)
+                PROGRESS.update(enhance_task, advance=1)
+        table_with_consensus = input_table.join(consensus)
 
     report.success(
         "Computed consensus of observations according to "
@@ -325,28 +375,19 @@ def main(args: argparse.Namespace):
 
     with report.status("Fixing sub- & super level fields..."):
         data_modalities = set(
-            data.columns.get_level_values(0)
+            table_with_consensus.columns.get_level_values(0)
         ).intersection(
             [*modalities.keys(), *args.consensus]
         )
-        for mod in data_modalities:
-            for side in ["ipsi", "contra"]:
-                for lnl in args.lnls_with_sub:
-                    sublvl_values = get_sublvl_values(
-                        data[mod,side], lnl, args.sublvls
-                    )
-                    if sublvl_values is None:
-                        continue
-                    sublvl_involved = np.any(sublvl_values==True, axis=1)
-                    sublvls_healthy = np.all(sublvl_values==False, axis=1)
-                    data.loc[sublvl_involved, (mod,side,lnl)] = True
-                    data.loc[sublvls_healthy, (mod,side,lnl)] = False
+        consensus_and_fixed_sublvlvs = infer_superlvl_from_sublvls(
+            table_with_consensus,
+            data_modalities,
+            lnls_with_sub=args.lnls_with_sub,
+            sublvls=args.sublvls,
+        )
         report.success("Fixed sub- & super level fields.")
 
-    with report.status("Saving enhanced file..."):
-        args.output.parent.mkdir(exist_ok=True)
-        data.to_csv(args.output, index=None)
-        report.success(f"Saved enhanced file to disk at {args.output}")
+    save_table_to_csv(args.output, consensus_and_fixed_sublvlvs)
 
 
 if __name__ == "__main__":
