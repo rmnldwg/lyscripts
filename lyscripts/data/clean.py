@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
-from lyscripts.data.utils import save_table_to_csv
+from lyscripts.data.utils import load_csv_table, save_table_to_csv
 from lyscripts.utils import cli_load_yaml_params, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -131,12 +131,13 @@ def main(args: argparse.Namespace):
     """
     params = cli_load_yaml_params(args.params)
 
-    with report.status("Reading in CSV file..."):
-        enhanced_df = pd.read_csv(args.input, header=[0,1,2])
-        cleaned_df = lyprox_to_lymph(enhanced_df, class_name=params["model"]["class"])
-        report.success(f"Read in CSV file from {args.input}")
+    input_table = load_csv_table(args.input, header=[0,1,2])
 
-    save_table_to_csv(args.output, cleaned_df)
+    with report.status("Prepare table for use with lymph model..."):
+        lymph_table = lyprox_to_lymph(input_table, class_name=params["model"]["class"])
+        report.success("Prepared table for use with lymph model.")
+
+    save_table_to_csv(args.output, lymph_table)
 
 
 if __name__ == "__main__":
