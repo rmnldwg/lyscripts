@@ -29,9 +29,9 @@ def save_table_to_csv(output_path: Path, table: pd.DataFrame):
     status_msg="Load input CSV file...",
     success_msg="Loaded input CSV file.",
     actions={
-        FileNotFoundError: (True, report.failure, "Input CSV file not found, stopping."),
-        UnicodeDecodeError: (True, report.failure, "Input is not a CSV file, stopping."),
-        EmptyDataError: (True, report.failure, "CSV input seems to be empty, stopping."),
+        FileNotFoundError: (True, report.exception, "Input CSV file not found, stopping."),
+        UnicodeDecodeError: (True, report.exception, "Input is not a CSV file, stopping."),
+        EmptyDataError: (True, report.exception, "CSV input seems to be empty, stopping."),
     }
 )
 @check_input_file_exists

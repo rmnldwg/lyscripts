@@ -40,7 +40,7 @@ class ConsoleReport(Console):
         objects = [CIRCL, *objects]
         return super().print(*objects, **kwargs)
 
-    def failure(self, *objects, **kwargs) -> None:
+    def exception(self, *objects, **kwargs) -> None:
         """Prefix a bold red cross to anything printed."""
         objects = [CROSS, *objects]
         return super().print(*objects, **kwargs)
@@ -208,6 +208,8 @@ def get_modalities_subset(
 def report_func_state(
     status_msg: str,
     success_msg: str,
+    status_func: Callable = report.status,
+    success_func: Callable = report.success,
     actions: Optional[Dict[type, Tuple[bool, Callable, str]]] = None,
 ) -> Callable:
     """
@@ -228,27 +230,27 @@ def report_func_state(
 
     dflt_action = (
         True,
-        report.failure,
+        report.exception,
         "Unexpected exception, stopping."
     )
 
     def assembled_decorator(func: Callable) -> Callable:
         """
-        This is the decorator that gets assembled, when providing the outer function
-        is called with its arguments.
+        This is the decorator that gets assembled, when the outer function is called
+        with its arguments.
         """
-        with report.status(status_msg):
+        with status_func(status_msg):
             def inner(*args, **kwargs) -> Any:
                 """The returned, wrapped function."""
                 try:
                     result = func(*args, **kwargs)
                 except Exception as exc:
-                    do_stop, report_func, message = actions.get(type(exc), dflt_action)
-                    report_func(message)
+                    do_stop, exception_func, message = actions.get(type(exc), dflt_action)
+                    exception_func(message)
                     if do_stop:
                         sys.exit()
                 else:
-                    report.success(success_msg)
+                    success_func(success_msg)
                     return result
 
                 return None
@@ -307,8 +309,8 @@ cli_load_yaml_params = report_func_state(
     status_msg="Load YAML params...",
     success_msg="Loaded YAML params.",
     actions={
-        FileNotFoundError: (True, report.failure, "YAML file not found, stopping."),
-        yaml.parser.ParserError: (True, report.failure, "Invalid YAML file, stopping"),
+        FileNotFoundError: (True, report.exception, "YAML file not found, stopping."),
+        yaml.parser.ParserError: (True, report.exception, "Invalid YAML file, stopping"),
     }
 )(load_yaml_params)
 """
@@ -331,8 +333,8 @@ cli_load_model_samples = report_func_state(
     status_msg="Load HDF5 samples from MCMC run...",
     success_msg="Loaded HDF5 samples from MCMC run.",
     actions={
-        FileNotFoundError: (True, report.failure, "HDF5 file not found, stopping."),
-        AttributeError: (True, report.failure, "No HDF5 file or no MCMC data present.")
+        FileNotFoundError: (True, report.exception, "HDF5 file not found, stopping."),
+        AttributeError: (True, report.exception, "No HDF5 file or no MCMC data present.")
     }
 )(load_model_samples)
 """

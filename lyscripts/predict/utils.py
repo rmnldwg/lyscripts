@@ -33,6 +33,8 @@ def clean_pattern(
         for lnl in lnls:
             if lnl not in pattern[side]:
                 pattern[side][lnl] = None
+            elif pattern[side][lnl] is None:
+                continue
             else:
                 pattern[side][lnl] = bool(pattern[side][lnl])
 

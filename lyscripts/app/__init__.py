@@ -4,7 +4,7 @@ Module containing scripts to run different `streamlit` applications.
 import argparse
 from pathlib import Path
 
-from . import risk
+from . import prevalence
 
 
 def _add_parser(
@@ -21,4 +21,4 @@ def _add_parser(
         formatter_class=help_formatter,
     )
     subparsers = parser.add_subparsers()
-    risk._add_parser(subparsers, help_formatter=parser.formatter_class)
+    prevalence._add_parser(subparsers, help_formatter=parser.formatter_class)
