@@ -7,7 +7,7 @@ import h5py
 import numpy as np
 import yaml
 
-from lyscripts.utils import LyScriptsError, report_state
+from lyscripts.utils import LyScriptsWarning, report_state
 
 
 @report_state(
@@ -19,7 +19,7 @@ def safe_yaml_load(file: Optional[TextIO] = None) -> dict:
     if file is not None:
         return yaml.safe_load(file)
 
-    raise LyScriptsError("No YAML file provided", level="warning")
+    raise LyScriptsWarning("No YAML file provided", level="warning")
 
 
 @report_state(
@@ -39,4 +39,4 @@ def samples_from_hdf5(file: Optional[TextIO] = None) -> np.ndarray:
             flattened_samples = samples.reshape(new_shape)
             return flattened_samples
 
-    raise LyScriptsError("No HDF5 file provided.", level="warning")
+    raise LyScriptsWarning("No HDF5 file provided.", level="warning")

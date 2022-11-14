@@ -2,6 +2,7 @@
 This module contains frequently used functions as well as instructions on how
 to parse and process the raw data from different institutions
 """
+import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -97,7 +98,7 @@ class LyScriptsReport(Console):
         if is_streamlit_running():
             return streamlit.exception(exception)
         else:
-            return super().print_exception(extra_lines=3, show_locals=True, **kwargs)
+            return super().print_exception(extra_lines=4, show_locals=True, **kwargs)
 
 report = LyScriptsReport()
 
@@ -259,7 +260,7 @@ def get_modalities_subset(
     return selected_modalities
 
 
-class LyScriptsError(RuntimeError):
+class LyScriptsWarning(Warning):
     """
     Exception that can be raised by methods if they want the `LyScriptsReport` instance
     to not stop and print a traceback, but display some message appropriately.
@@ -293,12 +294,13 @@ def report_state(
                 """The wrapped function."""
                 try:
                     result = func(*args, **kwargs)
-                except LyScriptsError as ly_err:
+                except LyScriptsWarning as ly_err:
                     msg = getattr(ly_err, "message", repr(ly_err))
                     level = getattr(ly_err, "level", "info")
                     getattr(report, level)(msg)
                 except Exception as exc:
                     report.exception(exc)
+                    sys.exit()
                 else:
                     report.success(success_msg)
                     return result
