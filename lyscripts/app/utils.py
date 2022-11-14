@@ -7,14 +7,25 @@ import h5py
 import numpy as np
 import yaml
 
-from lyscripts.utils import report_state
+from lyscripts.utils import LyScriptsError, report_state
 
 
+@report_state(
+    status_msg="Load YAML params...",
+    success_msg="Loaded YAML params.",
+)
 def safe_yaml_load(file: Optional[TextIO] = None) -> dict:
     """Safely load a dictionary from a YAML file."""
-    return yaml.safe_load(file) if file is not None else {}
+    if file is not None:
+        return yaml.safe_load(file)
+
+    raise LyScriptsError("No YAML file provided", level="warning")
 
 
+@report_state(
+    status_msg="Load HDF5 samples...",
+    success_msg="Loaded HDF5 samples.",
+)
 def samples_from_hdf5(file: Optional[TextIO] = None) -> np.ndarray:
     """Load a chain of samples from an uploaded HDF5 `file`."""
     if file is not None:
@@ -28,22 +39,4 @@ def samples_from_hdf5(file: Optional[TextIO] = None) -> np.ndarray:
             flattened_samples = samples.reshape(new_shape)
             return flattened_samples
 
-    return np.array([])
-
-
-st_load_yaml_params = report_state(
-    status_msg="Load YAML params...",
-    success_msg="Loaded YAML params.",
-)(safe_yaml_load)
-"""
-Function that safely loads YAML parameters and reports the progress along the way.
-"""
-
-
-st_chain_from_hdf5 = report_state(
-    status_msg="Load HDF5 samples...",
-    success_msg="Loaded HDF5 samples.",
-)(samples_from_hdf5)
-"""
-Function that safely loads YAML parameters and reports the progress along the way.
-"""
+    raise LyScriptsError("No HDF5 file provided.", level="warning")

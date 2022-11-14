@@ -8,7 +8,7 @@ from typing import Optional
 
 import lymph
 
-from lyscripts.app.utils import st_chain_from_hdf5, st_load_yaml_params
+from lyscripts.app.utils import safe_yaml_load, samples_from_hdf5
 from lyscripts.predict.utils import clean_pattern
 from lyscripts.utils import get_lnls, model_from_config
 
@@ -60,8 +60,8 @@ def launch_streamlit(*_args, discard_args_idx: int = 3, **_kwargs):
     """
     try:
         from streamlit.web.cli import main as st_main
-    except ModuleNotFoundError as mnf_err:
-        raise ModuleNotFoundError(
+    except ImportError as mnf_err:
+        raise ImportError(
             "Install lyscripts with the `apps` option to install the necessary "
             "requirements for running the streamlit apps."
         ) from mnf_err
@@ -84,7 +84,7 @@ def main(args: argparse.Namespace):
             type=["yaml", "yml"],
             help="Parameter YAML file containing configurations w.r.t. the model etc.",
         )
-        params = st_load_yaml_params(params_file)
+        params = safe_yaml_load(params_file)
 
         model = model_from_config(
             graph_params=params["graph"],
@@ -99,7 +99,7 @@ def main(args: argparse.Namespace):
             type=["hdf5", "hdf", "h5"],
             help="HDF5 file containing the samples."
         )
-        samples = st_chain_from_hdf5(samples_file)
+        samples = samples_from_hdf5(samples_file)
 
     contra_col, ipsi_col = st.columns(2)
     container = {"ipsi": ipsi_col, "contra": contra_col}
@@ -124,7 +124,6 @@ def main(args: argparse.Namespace):
 
     pattern = clean_pattern(pattern, lnls)
     st.write(pattern)
-
 
 
 if __name__ == "__main__":

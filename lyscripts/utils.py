@@ -259,12 +259,32 @@ def get_modalities_subset(
     return selected_modalities
 
 
+class LyScriptsError(RuntimeError):
+    """
+    Exception that can be raised by methods if they want the `LyScriptsReport` instance
+    to not stop and print a traceback, but display some message appropriately.
+
+    Essentially, this is a way for decorated functions to propagate messages through
+    the `report_state` decorator.
+    """
+    def __init__(self, *args: object, level: str = "info") -> None:
+        """Extract the `level` of the message (can be _info_, _warning_ or _error_)."""
+        self.level = level
+        self.message = args[0]
+        super().__init__(*args)
+
+
 def report_state(
     status_msg: str,
     success_msg: str,
 ) -> Callable:
     """
     Outermost decorator that catches and gracefully reports exceptions that occur.
+
+    During the execution of the decorated function, it will display the `status_msg`.
+    When successful, the `success_msg` will finally be printed. And if the decorated
+    function raises a `LyScriptsError`, then that exception's message will be passed on
+    to the methods of the reporting class/module.
     """
     def assembled_decorator(func: Callable) -> Callable:
         """The decorator that gets returned by `report_state`."""
@@ -273,6 +293,10 @@ def report_state(
                 """The wrapped function."""
                 try:
                     result = func(*args, **kwargs)
+                except LyScriptsError as ly_err:
+                    msg = getattr(ly_err, "message", repr(ly_err))
+                    level = getattr(ly_err, "level", "info")
+                    getattr(report, level)(msg)
                 except Exception as exc:
                     report.exception(exc)
                 else:
