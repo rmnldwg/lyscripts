@@ -8,7 +8,7 @@ import emcee
 import numpy as np
 
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.utils import cli_load_yaml_params, model_from_config, report
+from lyscripts.utils import load_yaml_params, model_from_config, report
 
 
 def _add_parser(
@@ -94,7 +94,7 @@ def main(args: argparse.Namespace):
                             (default: ./models/samples.hdf5)
     ```
     """
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
 
     with report.status("Create model..."):
         model = model_from_config(

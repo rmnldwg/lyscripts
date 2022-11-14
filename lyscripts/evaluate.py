@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import trapezoid
 
-from lyscripts.utils import cli_load_yaml_params, model_from_config, report
+from lyscripts.utils import load_yaml_params, model_from_config, report
 
 
 def _add_parser(
@@ -148,7 +148,7 @@ def main(args: argparse.Namespace):
     """
     metrics = {}
 
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
 
     with report.status("Read in patient data..."):
         # Only read in two header rows when using the Unilateral model

@@ -2,9 +2,8 @@
 This module contains frequently used functions as well as instructions on how
 to parse and process the raw data from different institutions
 """
-import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import lymph
 import numpy as np
@@ -21,31 +20,86 @@ from rich.progress import (
 )
 from scipy.special import factorial
 
+try:
+    import streamlit
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    streamlit.status = streamlit.spinner
+except ImportError:
+    def get_script_run_ctx() -> bool:
+        """A mock for the `get_script_run_ctx` function of `streamlit`."""
+        return None
+
+
 CROSS = "[bold red]✗[/bold red]"
-CIRCL = "[bold yellow]∘[/bold yellow]"
+CIRCL = "[bold blue]∘[/bold blue]"
+WARN = "[bold yellow]Δ[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
 
 
-class ConsoleReport(Console):
+def is_streamlit_running() -> bool:
+    """Checks if code is running inside a `streamlit` app."""
+    return get_script_run_ctx() is not None
+
+
+def redirect_to_streamlit(func: Callable) -> Callable:
+    """
+    If this method detects that it is called from within a `streamlit`
+    application, the output is redirected to the appropriate `streamlit` function.
+    """
+    func_name = func.__name__
+
+    def inner(self, *objects, **kwargs) -> Any:
+        """Wrapper function."""
+        if is_streamlit_running():
+            return getattr(streamlit, func_name)(" ".join(objects))
+
+        return func(self, *objects, **kwargs)
+
+    return inner
+
+
+class LyScriptsReport(Console):
     """
     Small extension to the `Console` class of the rich package.
     """
+
+    @redirect_to_streamlit
+    def status(self, *objects, **kwargs):
+        """Re-implement `status` method to allow decoration."""
+        return super().status(*objects, **kwargs)
+
+    @redirect_to_streamlit
     def success(self, *objects, **kwargs) -> None:
         """Prefix a bold green check mark to any output."""
         objects = [CHECK, *objects]
         return super().print(*objects, **kwargs)
 
+    @redirect_to_streamlit
     def info(self, *objects, **kwargs) -> None:
         """Prefix a bold yellow circle to any output."""
         objects = [CIRCL, *objects]
         return super().print(*objects, **kwargs)
 
-    def exception(self, *objects, **kwargs) -> None:
-        """Prefix a bold red cross to anything printed."""
+    @redirect_to_streamlit
+    def warning(self, *objects, **kwargs) -> None:
+        """Prefix a bold yellow triangle to any output."""
+        objects = [WARN, *objects]
+        return super().print(*objects, **kwargs)
+
+    @redirect_to_streamlit
+    def error(self, *objects, **kwargs) -> None:
+        """Prefix a bold red cross to any output."""
         objects = [CROSS, *objects]
         return super().print(*objects, **kwargs)
 
-report = ConsoleReport()
+    def exception(self, exception, **kwargs) -> None:
+        """Display a traceback either via `streamlit` or in the console."""
+        if is_streamlit_running():
+            return streamlit.exception(exception)
+        else:
+            return super().print_exception(extra_lines=3, show_locals=True, **kwargs)
+
+report = LyScriptsReport()
 
 
 class CustomProgress(Progress):
@@ -205,57 +259,30 @@ def get_modalities_subset(
     return selected_modalities
 
 
-def report_func_state(
+def report_state(
     status_msg: str,
     success_msg: str,
-    status_func: Callable = report.status,
-    success_func: Callable = report.success,
-    actions: Optional[Dict[type, Tuple[bool, Callable, str]]] = None,
 ) -> Callable:
     """
-    Decorator to report the state of a function. E.g., inform the user whether it
-    succeeded or failed to execute the desired action.
-
-    The `status_msg` will be shown during the function's execution and the `success_msg`
-    when the function was executed without any exceptions. The `actions` dictionary
-    defines what to report and what to do for each error type that might occur. Its
-    keys are exception types (e.g. `FileNotFoundError`). Its values are tuples of
-    `(do_stop, report.func, message)` where the boolean `do_stop` indicates whether the
-    execution of the entire program should stop, the `report.func` defines which
-    function should be called with the `message` as an argument to report what happens.
-
-    This should be the outermost decorator.
+    Outermost decorator that catches and gracefully reports exceptions that occur.
     """
-    actions = {} if actions is None else actions
-
-    dflt_action = (
-        True,
-        report.exception,
-        "Unexpected exception, stopping."
-    )
-
     def assembled_decorator(func: Callable) -> Callable:
-        """
-        This is the decorator that gets assembled, when the outer function is called
-        with its arguments.
-        """
-        with status_func(status_msg):
-            def inner(*args, **kwargs) -> Any:
-                """The returned, wrapped function."""
+        """The decorator that gets returned by `report_state`."""
+        with report.status(status_msg):
+            def inner(*args, **kwargs):
+                """The wrapped function."""
                 try:
                     result = func(*args, **kwargs)
                 except Exception as exc:
-                    do_stop, exception_func, message = actions.get(type(exc), dflt_action)
-                    exception_func(message)
-                    if do_stop:
-                        sys.exit()
+                    report.exception(exc)
                 else:
-                    success_func(success_msg)
+                    report.success(success_msg)
                     return result
 
                 return None
 
         return inner
+
     return assembled_decorator
 
 
@@ -283,9 +310,6 @@ def check_output_dir_exists(saving_func: Callable) -> Callable:
     """
     Decorator to make sure the parent directory of the file that is supposed to be
     saved does exist.
-
-    Just as the `check_input_file_exists`, this decorator serves the additional
-    purpose of providing consistent errors to the `report_func_state` outer decorator.
     """
     def inner(file_path: str, *args, **kwargs) -> Any:
         """Wrapped saving function."""
@@ -297,6 +321,10 @@ def check_output_dir_exists(saving_func: Callable) -> Callable:
     return inner
 
 
+@report_state(
+    status_msg="Load YAML params...",
+    success_msg="Loaded YAML params.",
+)
 @check_input_file_exists
 def load_yaml_params(file_path: Path) -> dict:
     """Load parameters from a YAML file at `file_path`."""
@@ -305,20 +333,10 @@ def load_yaml_params(file_path: Path) -> dict:
         return params
 
 
-cli_load_yaml_params = report_func_state(
-    status_msg="Load YAML params...",
-    success_msg="Loaded YAML params.",
-    actions={
-        FileNotFoundError: (True, report.exception, "YAML file not found, stopping."),
-        yaml.parser.ParserError: (True, report.exception, "Invalid YAML file, stopping"),
-    }
-)(load_yaml_params)
-"""
-The `load_yaml_params` function wrapped by the `report_func_state` such that error
-messages are directed to a `rich` console.
-"""
-
-
+@report_state(
+    status_msg="Load HDF5 samples from MCMC run...",
+    success_msg="Loaded HDF5 samples from MCMC run.",
+)
 @check_input_file_exists
 def load_model_samples(file_path: Path) -> np.ndarray:
     """
@@ -327,17 +345,3 @@ def load_model_samples(file_path: Path) -> np.ndarray:
     """
     backend = HDFBackend(file_path, read_only=True)
     return backend.get_chain(flat=True)
-
-
-cli_load_model_samples = report_func_state(
-    status_msg="Load HDF5 samples from MCMC run...",
-    success_msg="Loaded HDF5 samples from MCMC run.",
-    actions={
-        FileNotFoundError: (True, report.exception, "HDF5 file not found, stopping."),
-        AttributeError: (True, report.exception, "No HDF5 file or no MCMC data present.")
-    }
-)(load_model_samples)
-"""
-The `load_model_samples` function wrapped by the `report_func_state` such that error
-messages are directed to a `rich` console.
-"""

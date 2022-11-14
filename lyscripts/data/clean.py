@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import cli_load_yaml_params, report
+from lyscripts.utils import load_yaml_params, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -129,7 +129,7 @@ def main(args: argparse.Namespace):
                             (default: ./params.yaml)
     ```
     """
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
 
     input_table = load_csv_table(args.input, header=[0,1,2])
 

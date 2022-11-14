@@ -22,7 +22,7 @@ import pandas as pd
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import cli_load_yaml_params, get_modalities_subset, report
+from lyscripts.utils import get_modalities_subset, load_yaml_params, report
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 # pylint: disable=singleton-comparison
@@ -326,7 +326,7 @@ def main(args: argparse.Namespace):
     """
     input_table = load_csv_table(args.input, header=[0,1,2])
 
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
     modalities = get_modalities_subset(
         defined_modalities=params["modalities"],
         selection=args.modalities,

@@ -16,10 +16,10 @@ import pandas as pd
 
 from lyscripts.predict.utils import clean_pattern, rich_enumerate
 from lyscripts.utils import (
-    cli_load_model_samples,
-    cli_load_yaml_params,
     flatten,
     get_lnls,
+    load_model_samples,
+    load_yaml_params,
     model_from_config,
     report,
 )
@@ -309,8 +309,8 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = cli_load_yaml_params(args.params)
-    samples = cli_load_model_samples(args.model)
+    params = load_yaml_params(args.params)
+    samples = load_model_samples(args.model)
 
     with report.status("Read in training data..."):
         # Only read in two header rows when using the Unilateral model

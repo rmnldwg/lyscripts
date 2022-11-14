@@ -16,8 +16,7 @@ from matplotlib.figure import Figure
 from lyscripts.utils import (
     check_input_file_exists,
     check_output_dir_exists,
-    report,
-    report_func_state,
+    report_state,
 )
 
 # define USZ colors
@@ -265,12 +264,9 @@ def draw(
     return axes
 
 
-@report_func_state(
+@report_state(
     status_msg="Load MPL stylesheet...",
     success_msg="Loaded MPL stylesheet.",
-    actions={
-        OSError: (False, report.info, "Didn't find MPL stylesheet, proceeding without")
-    }
 )
 @check_input_file_exists
 def use_mpl_stylesheet(file_path: Union[str, Path]):
@@ -278,7 +274,7 @@ def use_mpl_stylesheet(file_path: Union[str, Path]):
     plt.style.use(file_path)
 
 
-@report_func_state(
+@report_state(
     status_msg="Save matplotlib figure...",
     success_msg="Saved matplotlib figure.",
 )

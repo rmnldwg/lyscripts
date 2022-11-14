@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from lyscripts.utils import cli_load_yaml_params, report
+from lyscripts.utils import load_yaml_params, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -71,7 +71,7 @@ def main(args: argparse.Namespace):
       -p, --params PARAMS   Path to parameter YAML file. (default: ./params.yaml)
     ```
     """
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
 
     with report.status("Reading in concatenated CSV file..."):
         header = [0,1] if params["model"]["class"] == "Unilateral" else [0,1,2]
