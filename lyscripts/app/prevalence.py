@@ -46,7 +46,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=launch_streamlit)
 
 
-def get_option_label(selected: Optional[bool] = None) -> str:
+def get_lnl_pattern_label(selected: Optional[bool] = None) -> str:
     """Return labels for the involvement options of an LNL."""
     if selected is None:
         return "Unknown"
@@ -54,6 +54,18 @@ def get_option_label(selected: Optional[bool] = None) -> str:
         return "Involved"
     elif not selected:
         return "Healthy"
+    else:
+        raise ValueError("Selected option can only be `True`, `False` or `None`.")
+
+
+def get_midline_ext_label(selected: Optional[bool] = None) -> str:
+    """Return labels for the options of the midline extension."""
+    if selected is None:
+        return "Unknown"
+    elif selected:
+        return "Extension"
+    elif not selected:
+        return "Lateralized"
     else:
         raise ValueError("Selected option can only be `True`, `False` or `None`.")
 
@@ -100,6 +112,26 @@ def main(args: argparse.Namespace):
 
     pattern = clean_pattern(pattern, lnls)
     st.write("---")
+
+
+    control_cols = st.columns([1,3,2])
+    t_stage = control_cols[0].selectbox(
+        label="T-category",
+        options=model.diag_time_dists.keys(),
+    )
+    midline_ext = control_cols[1].radio(
+        label="Midline Extension",
+        options=[False, None, True],
+        index=0,
+        format_func=get_midline_ext_label,
+        horizontal=True,
+    )
+    control_cols[2].write("")
+    control_cols[2].write("")
+    invert = control_cols[2].checkbox(
+        label="Invert?",
+        help="When selecting this option, 1 - the computed probability will be printed",
+    )
 
 
 def interactive_load(streamlit):
@@ -158,7 +190,7 @@ def interactive_pattern(
             options=[False, None, True],
             index=1,
             key=f"{side}_{lnl}",
-            format_func=get_option_label,
+            format_func=get_lnl_pattern_label,
             horizontal=True,
         )
 

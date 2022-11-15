@@ -101,6 +101,7 @@ def get_match_idx(
 
     return match_idx
 
+
 def does_t_stage_match(data: pd.DataFrame, t_stage: str) -> pd.Index:
     """Return the indices of the `data` where the `t_stage` of the patients matches."""
     if data.columns.nlevels == 2:
@@ -109,6 +110,7 @@ def does_t_stage_match(data: pd.DataFrame, t_stage: str) -> pd.Index:
         return data["info", "tumor", "t_stage"] == t_stage
     else:
         raise ValueError("Data has neither 2 nor 3 header rows")
+
 
 def does_midline_ext_match(
     data: pd.DataFrame,
@@ -127,6 +129,7 @@ def does_midline_ext_match(
             "Data does not seem to have midline extension information"
         ) from key_err
 
+
 def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     """Get the prevalence of midline extension from `data` for `t_stage`."""
     if data.columns.nlevels == 2:
@@ -137,6 +140,7 @@ def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     has_matching_midline_ext = does_midline_ext_match(eligible_data, midline_ext=True)
     matching_data = eligible_data[has_matching_midline_ext]
     return len(matching_data) / len(eligible_data)
+
 
 def create_patient_row(
     pattern: Dict[str, Dict[str, bool]],
@@ -171,6 +175,7 @@ def create_patient_row(
     without_midline_ext["info", "tumor", "midline_extension"] = False
 
     return with_midline_ext.append(without_midline_ext).reset_index()
+
 
 def observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
@@ -223,6 +228,7 @@ def observed_prevalence(
 
     matching_data = eligible_data.loc[do_lnls_match]
     return len(matching_data), len(eligible_data)
+
 
 def predicted_prevalence(
     pattern: Dict[str, Dict[str, bool]],
