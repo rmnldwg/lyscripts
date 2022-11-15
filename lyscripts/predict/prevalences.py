@@ -16,11 +16,12 @@ import pandas as pd
 
 from lyscripts.predict.utils import clean_pattern, rich_enumerate
 from lyscripts.utils import (
+    create_model_from_config,
     flatten,
     get_lnls,
-    load_model_samples,
+    load_data_for_model,
+    load_hdf5_samples,
     load_yaml_params,
-    model_from_config,
     report,
 )
 
@@ -310,34 +311,20 @@ def main(args: argparse.Namespace):
     ```
     """
     params = load_yaml_params(args.params)
-    samples = load_model_samples(args.model)
+    samples = load_hdf5_samples(args.model)
+    data = load_data_for_model(args.data)
 
-    with report.status("Read in training data..."):
-        # Only read in two header rows when using the Unilateral model
-        is_unilateral = params["model"]["class"] == "Unilateral"
-        header = [0, 1] if is_unilateral else [0, 1, 2]
-        DATA = pd.read_csv(args.data, header=header)
-        report.success(f"Read in training data from {args.data}")
-
-    with report.status("Set up model..."):
-        MODEL = model_from_config(
-            graph_params=params["graph"],
-            model_params=params["model"],
-        )
-        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        report.success(
-            f"Set up {type(MODEL)} model with {ndim} parameters"
-        )
+    model = create_model_from_config(params)
 
     args.output.parent.mkdir(exist_ok=True)
     num_prevalences = len(params["prevalences"])
     with h5py.File(args.output, mode="w") as prevalences_storage:
         for i,scenario in enumerate(params["prevalences"]):
             prevalences = predicted_prevalence(
-                model=MODEL,
+                model=model,
                 samples=samples[::args.thin],
                 description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
-                midline_ext_prob=get_midline_ext_prob(DATA, scenario["t_stage"]),
+                midline_ext_prob=get_midline_ext_prob(data, scenario["t_stage"]),
                 **scenario
             )
             prevalences_dset = prevalences_storage.create_dataset(
@@ -345,8 +332,8 @@ def main(args: argparse.Namespace):
                 data=prevalences,
             )
             num_match, num_total = observed_prevalence(
-                data=DATA,
-                lnls=get_lnls(MODEL),
+                data=data,
+                lnls=get_lnls(model),
                 **scenario,
             )
             for key,val in scenario.items():

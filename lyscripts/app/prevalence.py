@@ -4,13 +4,18 @@ A `streamlit` app for computing, displaying and reproducing prevalence estimates
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 import lymph
 
-from lyscripts.app.utils import safe_yaml_load, samples_from_hdf5
 from lyscripts.predict.utils import clean_pattern
-from lyscripts.utils import get_lnls, model_from_config
+from lyscripts.utils import (
+    create_model_from_config,
+    get_lnls,
+    load_data_for_model,
+    load_hdf5_samples,
+    load_yaml_params,
+)
 
 
 def _add_parser(
@@ -79,51 +84,85 @@ def main(args: argparse.Namespace):
     st.title("Prevalence")
 
     with st.sidebar:
-        params_file = st.file_uploader(
-            label="YAML params file",
-            type=["yaml", "yml"],
-            help="Parameter YAML file containing configurations w.r.t. the model etc.",
-        )
-        params = safe_yaml_load(params_file)
+        model, patient_data, samples = interactive_load(st)
 
-        model = model_from_config(
-            graph_params=params["graph"],
-            model_params=params["model"],
-        )
-        lnls = get_lnls(model)
-
-        st.write("---")
-
-        samples_file = st.file_uploader(
-            label="HDF5 sample file",
-            type=["hdf5", "hdf", "h5"],
-            help="HDF5 file containing the samples."
-        )
-        samples = samples_from_hdf5(samples_file)
-
+    st.write("---")
     contra_col, ipsi_col = st.columns(2)
     container = {"ipsi": ipsi_col, "contra": contra_col}
-    pattern = {"ipsi": {}, "contra": {}}
 
+    lnls = get_lnls(model)
+    is_unilateral = isinstance(model, lymph.Unilateral)
+
+    pattern = {}
     for side in ["ipsi", "contra"]:
         with container[side]:
-            st.subheader(f"{side}lateral")
-
-            if side == "contra" and isinstance(model, lymph.Unilateral):
-                continue
-
-            for lnl in lnls:
-                pattern[side][lnl] = st.radio(
-                    label=f"LNL {lnl}",
-                    options=[False, None, True],
-                    index=1,
-                    key=f"{side}_{lnl}",
-                    format_func=get_option_label,
-                    horizontal=True,
-                )
+            pattern[side] = interactive_pattern(st, is_unilateral, lnls, side)
 
     pattern = clean_pattern(pattern, lnls)
-    st.write(pattern)
+    st.write("---")
+
+
+def interactive_load(streamlit):
+    """
+    Load the YAML file defining the parameters, the CSV file with the patient data
+    and the HDF5 file with the drawn model samples interactively.
+    """
+    params_file = streamlit.file_uploader(
+        label="YAML params file",
+        type=["yaml", "yml"],
+        help="Parameter YAML file containing configurations w.r.t. the model etc.",
+    )
+    params = load_yaml_params(params_file)
+    model = create_model_from_config(params)
+    is_unilateral = isinstance(model, lymph.Unilateral)
+
+    streamlit.write("---")
+
+    data_file = streamlit.file_uploader(
+        label="CSV file of patient data",
+        type=["csv"],
+        help="CSV spreadsheet containing lymphatic patterns of progression",
+    )
+    header_rows = [0,1] if is_unilateral else [0,1,2]
+    patient_data = load_data_for_model(data_file, header_rows=header_rows)
+
+    streamlit.write("---")
+
+    samples_file = streamlit.file_uploader(
+        label="HDF5 sample file",
+        type=["hdf5", "hdf", "h5"],
+        help="HDF5 file containing the samples."
+    )
+    samples = load_hdf5_samples(samples_file)
+
+    return model, patient_data, samples
+
+
+def interactive_pattern(
+    streamlit,
+    is_unilateral: bool,
+    lnls: List[str],
+    side: str
+) -> Dict[str, bool]:
+    """
+    """
+    streamlit.subheader(f"{side}lateral")
+    side_pattern = {}
+
+    if side == "contra" and is_unilateral:
+        return side_pattern
+
+    for lnl in lnls:
+        side_pattern[lnl] = streamlit.radio(
+            label=f"LNL {lnl}",
+            options=[False, None, True],
+            index=1,
+            key=f"{side}_{lnl}",
+            format_func=get_option_label,
+            horizontal=True,
+        )
+
+    return side_pattern
 
 
 if __name__ == "__main__":
