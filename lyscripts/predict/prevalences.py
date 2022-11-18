@@ -177,7 +177,7 @@ def create_patient_row(
     return with_midline_ext.append(without_midline_ext).reset_index()
 
 
-def observed_prevalence(
+def compute_observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
     data: pd.DataFrame,
     t_stage: str,
@@ -230,7 +230,7 @@ def observed_prevalence(
     return len(matching_data), len(eligible_data)
 
 
-def predicted_prevalence(
+def compute_predicted_prevalence(
     pattern: Dict[str, Dict[str, bool]],
     model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
     samples: np.ndarray,
@@ -326,7 +326,7 @@ def main(args: argparse.Namespace):
     num_prevalences = len(params["prevalences"])
     with h5py.File(args.output, mode="w") as prevalences_storage:
         for i,scenario in enumerate(params["prevalences"]):
-            prevalences = predicted_prevalence(
+            prevalences = compute_predicted_prevalence(
                 model=model,
                 samples=samples[::args.thin],
                 description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
@@ -337,7 +337,7 @@ def main(args: argparse.Namespace):
                 name=scenario["name"],
                 data=prevalences,
             )
-            num_match, num_total = observed_prevalence(
+            num_match, num_total = compute_observed_prevalence(
                 data=data,
                 lnls=get_lnls(model),
                 **scenario,

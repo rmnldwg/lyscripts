@@ -4,12 +4,16 @@ A `streamlit` app for computing, displaying and reproducing prevalence estimates
 import argparse
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from types import ModuleType
+from typing import Dict, List, Optional, Tuple
 
 import lymph
+import pandas as pd
 
+from lyscripts.predict.prevalences import compute_observed_prevalence
 from lyscripts.predict.utils import clean_pattern
 from lyscripts.utils import (
+    LymphModel,
     create_model_from_config,
     get_lnls,
     load_data_for_model,
@@ -113,25 +117,58 @@ def main(args: argparse.Namespace):
     pattern = clean_pattern(pattern, lnls)
     st.write("---")
 
+    res_tuple = interactive_additional_params(st, model, patient_data)
+    t_stage, selected_modality, midline_ext, invert = res_tuple
 
-    control_cols = st.columns([1,3,2])
+    observed_prev = compute_observed_prevalence(
+        pattern=pattern,
+        lnls=lnls,
+        data=patient_data,
+        modality=selected_modality,
+        t_stage=t_stage,
+        midline_ext=midline_ext,
+        invert=invert,
+    )
+
+
+def interactive_additional_params(
+    streamlit: ModuleType,
+    model: LymphModel,
+    data: pd.DataFrame,
+) -> Tuple[str, bool, bool]:
+    """
+    Allow the user to select T-category, midline extension and whether to invert the
+    computed prevalence (meaning computing $1 - p$, when $p$ is the prevalence).
+
+    The respective controls are presented next to each other in three dedicated columns.
+    """
+    control_cols = streamlit.columns([1,2,1,1])
     t_stage = control_cols[0].selectbox(
         label="T-category",
         options=model.diag_time_dists.keys(),
     )
-    midline_ext = control_cols[1].radio(
+    modalities_in_data = data.columns.get_level_values(level=0).difference(
+        ["patient", "tumor", "positive_dissected", "total_dissected"]
+    )
+    selected_modality = control_cols[1].selectbox(
+        label="Modality",
+        options=modalities_in_data
+    )
+    midline_ext = control_cols[2].radio(
         label="Midline Extension",
         options=[False, None, True],
         index=0,
         format_func=get_midline_ext_label,
         horizontal=True,
     )
-    control_cols[2].write("")
-    control_cols[2].write("")
-    invert = control_cols[2].checkbox(
+    control_cols[3].write("")
+    control_cols[3].write("")
+    invert = control_cols[3].checkbox(
         label="Invert?",
-        help="When selecting this option, 1 - the computed probability will be printed",
+        help="When selecting this option, 1 - the prevalence will be computed",
     )
+
+    return t_stage, selected_modality, midline_ext, invert
 
 
 def interactive_load(streamlit):
