@@ -7,14 +7,15 @@ it to the empirical likelihood of a given pattern of lymphatic progression.
 """
 import argparse
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Generator, List, Optional, Union
 
 import h5py
 import lymph
 import numpy as np
 import pandas as pd
+from rich.progress import track
 
-from lyscripts.predict.utils import clean_pattern, rich_enumerate
+from lyscripts.predict.utils import clean_pattern
 from lyscripts.utils import (
     create_model_from_config,
     flatten,
@@ -239,9 +240,8 @@ def compute_predicted_prevalence(
     midline_ext_prob: float = 0.3,
     modality_spsn: Optional[List[float]] = None,
     invert: bool = False,
-    description: Optional[str] = None,
     **_kwargs,
-) -> np.ndarray:
+) -> Generator[float, None, None]:
     """Compute the prevalence of a given `pattern` of lymphatic progression using a
     `model` and trained `samples`.
 
@@ -260,7 +260,6 @@ def compute_predicted_prevalence(
     else:
         model.modalities = {"prev": modality_spsn}
 
-    prevalences = np.zeros(shape=len(samples), dtype=float)
     is_unilateral = isinstance(model, lymph.Unilateral)
     patient_row = create_patient_row(
         pattern, t_stage, midline_ext, make_unilateral=is_unilateral
@@ -268,25 +267,25 @@ def compute_predicted_prevalence(
     model.patient_data = patient_row
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
-    for i,sample in rich_enumerate(samples, description):
+    for sample in samples:
         if isinstance(model, lymph.MidlineBilateral):
             model.check_and_assign(sample)
             if midline_ext is None:
                 # marginalize over patients with and without midline extension
-                prevalences[i] = (
+                prevalence = (
                     midline_ext_prob * model.ext.likelihood(log=False) +
                     (1. - midline_ext_prob) * model.noext.likelihood(log=False)
                 )
             elif midline_ext:
-                prevalences[i] = model.ext.likelihood(log=False)
+                prevalence = model.ext.likelihood(log=False)
             else:
-                prevalences[i] = model.noext.likelihood(log=False)
+                prevalence = model.noext.likelihood(log=False)
         else:
-            prevalences[i] = model.likelihood(
+            prevalence = model.likelihood(
                 given_params=sample,
                 log=False,
             )
-    return 1. - prevalences if invert else prevalences
+        yield 1. - prevalence if invert else prevalence
 
 
 def main(args: argparse.Namespace):
@@ -317,25 +316,33 @@ def main(args: argparse.Namespace):
     ```
     """
     params = load_yaml_params(args.params)
-    samples = load_hdf5_samples(args.model)
-    data = load_data_for_model(args.data)
-
     model = create_model_from_config(params)
+    samples = load_hdf5_samples(args.model)
+
+    header_rows = [0,1] if isinstance(model, lymph.Unilateral) else [0,1,2]
+    data = load_data_for_model(args.data, header_rows)
 
     args.output.parent.mkdir(exist_ok=True)
     num_prevalences = len(params["prevalences"])
     with h5py.File(args.output, mode="w") as prevalences_storage:
         for i,scenario in enumerate(params["prevalences"]):
-            prevalences = compute_predicted_prevalence(
+            prevs_gen = compute_predicted_prevalence(
                 model=model,
                 samples=samples[::args.thin],
-                description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
                 midline_ext_prob=get_midline_ext_prob(data, scenario["t_stage"]),
                 **scenario
             )
+            progress_tracker = track(
+                prevs_gen,
+                total=len(samples[::args.thin]),
+                description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
+                console=report,
+                transient=True,
+            )
+            prevs_arr = np.array(list(p for p in progress_tracker))
             prevalences_dset = prevalences_storage.create_dataset(
                 name=scenario["name"],
-                data=prevalences,
+                data=prevs_arr,
             )
             num_match, num_total = compute_observed_prevalence(
                 data=data,
