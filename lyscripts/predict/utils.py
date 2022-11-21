@@ -1,12 +1,8 @@
 """
-Functions and methods that are shared by the prediction submodules.
+Functions and methods that are shared by the prediction submodules in
+`lyscripts.predict`.
 """
 from typing import Dict, List, Optional
-
-import numpy as np
-from rich.progress import track
-
-from lyscripts.utils import report
 
 
 def clean_pattern(
@@ -39,20 +35,3 @@ def clean_pattern(
                 pattern[side][lnl] = bool(pattern[side][lnl])
 
     return pattern
-
-
-def rich_enumerate(samples: np.ndarray, description: Optional[str] = None):
-    """
-    Create a progress bar while enumerating over the given samples.
-    """
-    enumerated_samples = enumerate(samples)
-    if description is None:
-        return enumerated_samples
-
-    return track(
-        enumerated_samples,
-        total=len(samples),
-        description=description,
-        console=report,
-        transient=True,
-    )
