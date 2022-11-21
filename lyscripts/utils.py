@@ -369,8 +369,8 @@ def model_from_config(
 LymphModel = Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]
 
 @report_state(
-    status_msg="Create model pased on YAML parameters...",
-    success_msg="Created model pased on YAML parameters",
+    status_msg="Create model based on YAML parameters...",
+    success_msg="Created model based on YAML parameters",
 )
 @raise_if_args_none(
     message="No valid params provided",

@@ -75,18 +75,22 @@ def _clean_and_check(filename: Union[str, Path]) -> Path:
 @dataclass
 class Histogram:
     """Class containing data for plotting a histogram."""
-    filename: Union[str, Path]
-    dataname: str
+    values: np.ndarray
     scale: float = field(default=100.)
     kwargs: Dict[str, Any] = field(default_factory=lambda: {})
 
     def __post_init__(self) -> None:
-        self.filename = _clean_and_check(self.filename)
-        with h5py.File(self.filename, mode="r") as h5file:
-            dataset = h5file[self.dataname]
-            self.values = self.scale * dataset[:]
-            if "label" not in self.kwargs:
-                self.kwargs["label"] = get_label(dataset.attrs)
+        self.values = self.scale * self.values
+
+    @classmethod
+    def from_hdf5(cls, filename, dataname, scale: float = 100., **kwargs):
+        """Create a histogram from an HDF5 file."""
+        filename = _clean_and_check(filename)
+        with h5py.File(filename, mode="r") as h5file:
+            dataset = h5file[dataname]
+            if "label" not in kwargs:
+                kwargs["label"] = get_label(dataset.attrs)
+            return cls(values=dataset[:], scale=scale, kwargs=kwargs)
 
     def left_percentile(self, percent: float) -> float:
         """Compute the point where `percent` of the values are to the left."""
@@ -99,23 +103,30 @@ class Histogram:
 @dataclass
 class Posterior:
     """Class for storing plot configs for a Beta posterior."""
-    filename: Union[str, Path]
-    dataname: str
+    num_success: int
+    num_total: int
     scale: float = field(default=100.)
     kwargs: Dict[str, Any] = field(default_factory=lambda: {})
 
-    def __post_init__(self) -> None:
-        self.filename = _clean_and_check(self.filename)
-        with h5py.File(self.filename, mode="r") as h5file:
-            dataset = h5file[self.dataname]
+    @classmethod
+    def from_hdf5(cls, filename, dataname, scale: float = 100., **kwargs) -> None:
+        """Initialize data container for Beta posteriors from HDF5 file."""
+        filename = _clean_and_check(filename)
+        with h5py.File(filename, mode="r") as h5file:
+            dataset = h5file[dataname]
             try:
-                self.num_success = int(dataset.attrs["num_match"])
-                self.num_total = int(dataset.attrs["num_total"])
+                num_success = int(dataset.attrs["num_match"])
+                num_total = int(dataset.attrs["num_total"])
             except KeyError as key_err:
                 raise KeyError(
                     "Dataset does not contain observed prevalence data"
                 ) from key_err
-            self.num_fail = self.num_total - self.num_success
+
+        return cls(num_success, num_total, scale=scale, kwargs=kwargs)
+
+    @property
+    def num_fail(self):
+        return self.num_total - self.num_success
 
     def pdf(self, x: np.ndarray) -> np.ndarray:
         """Compute the probability density function."""

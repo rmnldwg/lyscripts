@@ -1,7 +1,7 @@
 """
 Test utilities of the predict submodule.
 """
-from lyscripts.predict.utils import clean_pattern, rich_enumerate
+from lyscripts.predict.utils import clean_pattern
 
 
 def test_clean_pattern():
@@ -30,19 +30,3 @@ def test_clean_pattern():
         "ipsi": {"I": True, "II": None, "III": None},
         "contra": {"I": None, "II": None, "III": False}
     }, "Number pattern cleaned wrongly."
-
-
-def test_rich_enumerate():
-    """Make sure the enumeration with possible rich progress bar works."""
-    samples = [1, 2, 3, 4]
-
-    enum_with_desc = rich_enumerate(
-        samples,
-        description="A dummy description",
-    )
-    enum_without_desc = rich_enumerate(samples)
-
-    for item in enum_with_desc:
-        assert len(item) == 2, "Rich enumeration does not work."
-    for item in enum_without_desc:
-        assert len(item) == 2, "Non-rich enumeration does not work."

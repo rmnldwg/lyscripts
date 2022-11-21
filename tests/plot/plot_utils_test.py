@@ -60,16 +60,16 @@ def test_histogram_cls(beta_samples):
     non_existent_filename = "non_existent.hdf5"
     custom_label = "Lorem ipsum"
 
-    hist_from_str = Histogram(filename=str_filename, dataname="beta")
-    hist_from_path = Histogram(
+    hist_from_str = Histogram.from_hdf5(filename=str_filename, dataname="beta")
+    hist_from_path = Histogram.from_hdf5(
         filename=path_filename,
         dataname="beta",
         scale=10.,
-        kwargs={"label": custom_label}
+        label=custom_label,
     )
 
     with pytest.raises(FileNotFoundError):
-        Histogram(filename=non_existent_filename, dataname="does_not_matter")
+        Histogram.from_hdf5(filename=non_existent_filename, dataname="does_not_matter")
 
     assert np.all(np.isclose(hist_from_str.values, 10. * hist_from_path.values)), (
         "Scaling of data does not work correclty"
@@ -99,16 +99,16 @@ def test_posterior_cls(beta_samples):
     x_10 = np.linspace(0., 10., 100)
     x_100 = np.linspace(0., 100., 100)
 
-    post_from_str = Posterior(filename=str_filename, dataname="beta")
-    post_from_path = Posterior(
+    post_from_str = Posterior.from_hdf5(filename=str_filename, dataname="beta")
+    post_from_path = Posterior.from_hdf5(
         filename=path_filename,
         dataname="beta",
         scale=10.,
-        kwargs={"label": custom_label}
+        label=custom_label,
     )
 
     with pytest.raises(FileNotFoundError):
-        Posterior(filename=non_existent_filename, dataname="does_not_matter")
+        Posterior.from_hdf5(filename=non_existent_filename, dataname="does_not_matter")
 
     assert post_from_str.num_success == post_from_path.num_success == 20, (
         "Number of successes not correctly extracted"
@@ -138,8 +138,8 @@ def test_draw(beta_samples):
     """Check the drawing function."""
     filename = Path(beta_samples)
     dataname = "beta"
-    hist = Histogram(filename, dataname)
-    post = Posterior(filename, dataname)
+    hist = Histogram.from_hdf5(filename, dataname)
+    post = Posterior.from_hdf5(filename, dataname)
     fig, ax = plt.subplots()
     ax = draw(axes=ax, contents=[hist, post], percent_lims=(2.,2.))
     ax.legend()
@@ -155,10 +155,10 @@ def test_save_figure(capsys):
     output_path = "./tests/plot/results/sine"
     formats = ["png", "svg"]
     expected_output = (
-        "✓ Saved figure to tests/plot/results/sine in the formats ['png', 'svg'].\n"
+        "✓ Saved matplotlib figure.\n"
     )
 
-    save_figure(fig, output_path, formats)
+    save_figure(output_path, fig, formats)
     save_figure_capture = capsys.readouterr()
 
     assert mpl_comp.compare_images(
