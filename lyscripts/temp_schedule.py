@@ -17,7 +17,6 @@ from typing import Callable, List, Union
 
 import numpy as np
 import yaml
-from rich.panel import Panel
 
 from lyscripts.utils import report
 
@@ -52,7 +51,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Number of inverse temperatures in the schedule"
     )
     parser.add_argument(
-        "--pow", default=4, type=int,
+        "--pow", default=4, type=float,
         help="If a power schedule is chosen, use this as power"
     )
 
@@ -82,7 +81,7 @@ def linear_schedule(n: int, *_a) -> np.ndarray:
     return np.linspace(0., 1., n)
 
 @tolist
-def power_schedule(n: int, power: int, *_a) -> np.ndarray:
+def power_schedule(n: int, power: float, *_a) -> np.ndarray:
     """Create a power sequence of `n` numbers from 0. to 1."""
     lin_seq = np.linspace(0., 1., n)
     power_seq = lin_seq**power
@@ -133,7 +132,7 @@ def main(args: argparse.Namespace):
         schedule = func(args.num, args.pow)
         yaml_output = yaml.dump({"temp_schedule": schedule})
         report.success(f"Created {args.method} sequence of length {args.num}")
-        report.print(Panel(yaml_output, expand=False))
+        report.print(yaml_output)
 
 
 if __name__ == "__main__":
