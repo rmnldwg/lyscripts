@@ -4,9 +4,7 @@ process and scenarios as defined in a YAML file.
 
 The structure of these scenarios can is similar to how scenarios are defined for the
 `lyscripts.predict.prevalences` script. Examples can be seen in an actual `params.yaml`
-file over in the [`lynference`] repository.
-
-[`lynference`]: https://github.com/rmnldwg/lynference
+file over in the [`lynference`](https://github.com/rmnldwg/lynference) repository.
 """
 import argparse
 from pathlib import Path

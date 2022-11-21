@@ -45,7 +45,7 @@ class LyScriptsWarning(Warning):
     the `report_state` decorator.
     """
     def __init__(self, *args: object, level: str = "info") -> None:
-        """Extract the `level` of the message (can be _info_, _warning_ or _error_)."""
+        """Extract the `level` of the message (can be "info", "warning" or "error")."""
         self.level = level
         self.message = args[0]
         super().__init__(*args)
@@ -534,11 +534,14 @@ def load_model_samples(file_path: Path) -> np.ndarray:
     level="warning",
 )
 @provide_file(is_binary=True)
-def load_hdf5_samples(file: BinaryIO) -> np.ndarray:
-    """Load a chain of samples from an uploaded HDF5 `file`."""
+def load_hdf5_samples(file: BinaryIO, name: str = "mcmc/chain") -> np.ndarray:
+    """
+    Load a chain of samples from an uploaded HDF5 `file` that is stored in the dataset
+    called `name`.
+    """
     with h5py.File(file, mode="r") as h5file:
         try:
-            samples = h5file["mcmc/chain"][:]
+            samples = h5file[name][:]
         except KeyError as key_err:
             raise KeyError("Dataset `mcmc` not in the HDF5 file.") from key_err
 

@@ -1,6 +1,6 @@
 """
-Transform the enhanced lyDATA CSV files into a format that can be used by the
-lymph model using this package's utilities.
+Transform the enhanced lyDATA CSV files into a format that can be used by the lymph
+model using this package's utilities.
 """
 import argparse
 import warnings

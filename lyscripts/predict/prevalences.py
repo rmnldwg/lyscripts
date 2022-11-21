@@ -6,10 +6,8 @@ This essentially amounts to computing the data likelihood under the model and co
 it to the empirical likelihood of a given pattern of lymphatic progression.
 
 Like `lyscripts.predict.risks`, the computation of the prevalences can be done for
-different scenarios. How to define these scenarios can be seen in the [`lynference`]
-repository.
-
-[`lynferece`]: https://github.com/rmnldwg/lynference
+different scenarios. How to define these scenarios can be seen in the
+[`lynference`](https://github.com/rmnldwg/lynference) repository.
 """
 import argparse
 from pathlib import Path

@@ -1,6 +1,14 @@
 """
 Provide various plotting utilities for displaying results of e.g. the inference
-or prediction process.
+or prediction process. At the moment, three subcommands are grouped under
+`lyscripts.plot`:
+
+1. `lyscripts.plot.corner`, which simply outputs a corner plot with nice labels for
+a set of drawn samples.
+2. The module `lyscripts.plot.histograms` can be used to draw histograms, e.g. the ones
+over risks and prevalences as computed by the `lyscripts.predict` module.
+3. Module `lyscripts.plot.thermo_int` allows comparing rounds of thermodynamic
+integration for different models.
 """
 import argparse
 from pathlib import Path
