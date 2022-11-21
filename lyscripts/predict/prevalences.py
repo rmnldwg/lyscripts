@@ -7,7 +7,7 @@ it to the empirical likelihood of a given pattern of lymphatic progression.
 """
 import argparse
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Union
+from typing import Dict, Generator, List, Optional
 
 import h5py
 import lymph
@@ -17,6 +17,7 @@ from rich.progress import track
 
 from lyscripts.predict.utils import clean_pattern
 from lyscripts.utils import (
+    LymphModel,
     create_model_from_config,
     flatten,
     get_lnls,
@@ -232,8 +233,46 @@ def compute_observed_prevalence(
 
 
 def compute_predicted_prevalence(
+    loaded_model: LymphModel,
+    given_params: np.ndarray,
+    midline_ext: bool,
+    midline_ext_prob: float = 0.3,
+) -> float:
+    """
+    Given a `loaded_model` with loaded patient data and modalities, compute the
+    prevalence of the loaded data for a sample of `given_params`.
+
+    If `midline_ext` is `True`, the prevalence is computed for the case where the
+    tumor does extend over the mid-sagittal line, while if it is `False`, it is
+    predicted for the case of a lateralized tumor.
+
+    If `midline_ext` is set to `None`, the prevalence is marginalized over both cases,
+    assuming the provided `midline_ext_prob`.
+    """
+    if isinstance(loaded_model, lymph.MidlineBilateral):
+        loaded_model.check_and_assign(given_params)
+        if midline_ext is None:
+                # marginalize over patients with and without midline extension
+            prevalence = (
+                    midline_ext_prob * loaded_model.ext.likelihood(log=False) +
+                    (1. - midline_ext_prob) * loaded_model.noext.likelihood(log=False)
+                )
+        elif midline_ext:
+            prevalence = loaded_model.ext.likelihood(log=False)
+        else:
+            prevalence = loaded_model.noext.likelihood(log=False)
+    else:
+        prevalence = loaded_model.likelihood(
+            given_params=given_params,
+            log=False,
+        )
+
+    return prevalence
+
+
+def generate_predicted_prevalences(
     pattern: Dict[str, Dict[str, bool]],
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+    model: LymphModel,
     samples: np.ndarray,
     t_stage: str,
     midline_ext: Optional[bool] = None,
@@ -268,24 +307,13 @@ def compute_predicted_prevalence(
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
     for sample in samples:
-        if isinstance(model, lymph.MidlineBilateral):
-            model.check_and_assign(sample)
-            if midline_ext is None:
-                # marginalize over patients with and without midline extension
-                prevalence = (
-                    midline_ext_prob * model.ext.likelihood(log=False) +
-                    (1. - midline_ext_prob) * model.noext.likelihood(log=False)
-                )
-            elif midline_ext:
-                prevalence = model.ext.likelihood(log=False)
-            else:
-                prevalence = model.noext.likelihood(log=False)
-        else:
-            prevalence = model.likelihood(
-                given_params=sample,
-                log=False,
-            )
-        yield 1. - prevalence if invert else prevalence
+        prevalence = compute_predicted_prevalence(
+            loaded_model=model,
+            given_params=sample,
+            midline_ext=midline_ext,
+            midline_ext_prob=midline_ext_prob,
+        )
+        yield (1. - prevalence) if invert else prevalence
 
 
 def main(args: argparse.Namespace):
@@ -326,7 +354,7 @@ def main(args: argparse.Namespace):
     num_prevalences = len(params["prevalences"])
     with h5py.File(args.output, mode="w") as prevalences_storage:
         for i,scenario in enumerate(params["prevalences"]):
-            prevs_gen = compute_predicted_prevalence(
+            prevs_gen = generate_predicted_prevalences(
                 model=model,
                 samples=samples[::args.thin],
                 midline_ext_prob=get_midline_ext_prob(data, scenario["t_stage"]),

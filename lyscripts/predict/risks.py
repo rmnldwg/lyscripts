@@ -6,7 +6,7 @@ be seen in an actual `params.yaml` file over in the
 """
 import argparse
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Union
+from typing import Dict, Generator, List, Optional
 
 import h5py
 import lymph
@@ -15,6 +15,7 @@ from rich.progress import track
 
 from lyscripts.predict.utils import clean_pattern
 from lyscripts.utils import (
+    LymphModel,
     create_model_from_config,
     get_lnls,
     load_hdf5_samples,
@@ -65,7 +66,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def predicted_risk(
     involvement: Dict[str, Dict[str, bool]],
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+    model: LymphModel,
     samples: np.ndarray,
     t_stage: str,
     midline_ext: bool = False,
@@ -126,7 +127,7 @@ def predicted_risk(
                 t_stage=t_stage,
                 midline_extension=midline_ext,
             )
-            yield 1. - risk if invert else risk
+            yield (1. - risk) if invert else risk
 
     else:
         raise TypeError("Provided model is no valid `lymph` model.")
