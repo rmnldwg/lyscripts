@@ -8,9 +8,15 @@ from types import ModuleType
 from typing import Dict, List, Optional, Tuple
 
 import lymph
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
-from lyscripts.predict.prevalences import compute_observed_prevalence
+from lyscripts.plot.utils import Histogram, Posterior, draw
+from lyscripts.predict.prevalences import (
+    compute_observed_prevalence,
+    generate_predicted_prevalences,
+)
 from lyscripts.predict.utils import clean_pattern
 from lyscripts.utils import (
     LymphModel,
@@ -117,8 +123,8 @@ def main(args: argparse.Namespace):
     pattern = clean_pattern(pattern, lnls)
     st.write("---")
 
-    res_tuple = interactive_additional_params(st, model, patient_data)
-    t_stage, selected_modality, midline_ext, invert = res_tuple
+    res_tuple = interactive_additional_params(st, model, patient_data, samples)
+    t_stage, selected_modality, midline_ext, invert, thin = res_tuple
 
     observed_prev = compute_observed_prevalence(
         pattern=pattern,
@@ -129,12 +135,38 @@ def main(args: argparse.Namespace):
         midline_ext=midline_ext,
         invert=invert,
     )
+    prevs_progress = st.progress(0)
+    prevs_gen = generate_predicted_prevalences(
+        pattern=pattern,
+        model=model,
+        samples=samples[::thin],
+        t_stage=t_stage,
+        midline_ext=midline_ext,
+        invert=invert,
+    )
+    thinned_sample_len = len(samples[::thin])
+    computed_prevs = np.zeros(shape=thinned_sample_len)
+    for i, prevalence in enumerate(prevs_gen):
+        percent = int(100 * i / thinned_sample_len)
+        computed_prevs[i] = prevalence
+        prevs_progress.progress(percent)
+
+    st.write("---")
+
+    beta_post = Posterior(*observed_prev)
+    histogram = Histogram(computed_prevs)
+
+    fig, ax = plt.subplots()
+    draw(axes=ax, contents=[beta_post, histogram], xlims=(0., 100.))
+
+    st.pyplot(fig)
 
 
 def interactive_additional_params(
     streamlit: ModuleType,
     model: LymphModel,
     data: pd.DataFrame,
+    samples: np.ndarray,
 ) -> Tuple[str, bool, bool]:
     """
     Allow the user to select T-category, midline extension and whether to invert the
@@ -142,33 +174,41 @@ def interactive_additional_params(
 
     The respective controls are presented next to each other in three dedicated columns.
     """
-    control_cols = streamlit.columns([1,2,1,1])
+    control_cols = streamlit.columns([1,2,1,1,1])
     t_stage = control_cols[0].selectbox(
         label="T-category",
         options=model.diag_time_dists.keys(),
     )
     modalities_in_data = data.columns.get_level_values(level=0).difference(
-        ["patient", "tumor", "positive_dissected", "total_dissected"]
+        ["patient", "tumor", "positive_dissected", "total_dissected", "info"]
     )
     selected_modality = control_cols[1].selectbox(
         label="Modality",
-        options=modalities_in_data
+        options=modalities_in_data,
+        index=5,
     )
     midline_ext = control_cols[2].radio(
         label="Midline Extension",
         options=[False, None, True],
         index=0,
         format_func=get_midline_ext_label,
-        horizontal=True,
-    )
-    control_cols[3].write("")
-    control_cols[3].write("")
-    invert = control_cols[3].checkbox(
-        label="Invert?",
-        help="When selecting this option, 1 - the prevalence will be computed",
     )
 
-    return t_stage, selected_modality, midline_ext, invert
+    invert = control_cols[3].radio(
+        label="Invert?",
+        options=[False, True],
+        index=0,
+        format_func=lambda x: "Yes" if x else "No",
+    )
+
+    thin = control_cols[4].slider(
+        label="Sample thinning",
+        min_value=1,
+        max_value=len(samples) // 100,
+        value=100,
+    )
+
+    return t_stage, selected_modality, midline_ext, invert, thin
 
 
 def interactive_load(streamlit):

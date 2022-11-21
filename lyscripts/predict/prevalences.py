@@ -232,7 +232,13 @@ def compute_observed_prevalence(
                 invert=invert
             )
 
-    matching_data = eligible_data.loc[do_lnls_match]
+    try:
+        matching_data = eligible_data.loc[do_lnls_match]
+    except KeyError:
+        # return X, X if no actual pattern was selected
+        len_matching_data = 0 if invert else len(eligible_data)
+        return len_matching_data, len(eligible_data)
+
     return len(matching_data), len(eligible_data)
 
 
