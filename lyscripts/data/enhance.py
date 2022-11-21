@@ -324,7 +324,7 @@ def main(args: argparse.Namespace):
                             or is common (default: ['I', 'II', 'V'])
     ```
     """
-    input_table = load_csv_table(args.input, header=[0,1,2])
+    input_table = load_csv_table(args.input, header_row=[0,1,2])
 
     params = load_yaml_params(args.params)
     modalities = get_modalities_subset(

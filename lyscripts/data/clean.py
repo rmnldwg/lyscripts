@@ -131,7 +131,7 @@ def main(args: argparse.Namespace):
     """
     params = load_yaml_params(args.params)
 
-    input_table = load_csv_table(args.input, header=[0,1,2])
+    input_table = load_csv_table(args.input, header_row=[0,1,2])
 
     with report.status("Prepare table for use with lymph model..."):
         lymph_table = lyprox_to_lymph(input_table, class_name=params["model"]["class"])

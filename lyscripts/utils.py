@@ -212,7 +212,7 @@ def check_input_file_exists(loading_func: Callable) -> Callable:
         """Wrapped loading function."""
         file_path = Path(file_path)
         if not file_path.is_file():
-            raise FileNotFoundError(f"No file found at {file_path}")
+            raise LyScriptsWarning(f"No file found at {file_path}", level="warning")
 
         return loading_func(file_path, *args, **kwargs)
 
