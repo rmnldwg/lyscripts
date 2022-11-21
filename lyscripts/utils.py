@@ -1,6 +1,10 @@
 """
-This module contains frequently used functions as well as instructions on how
-to parse and process the raw data from different institutions
+This module contains frequently used functions and decorators that are used throughout
+the subcommands to load e.g. YAML specifications or model definitions.
+
+It also contains helpers for reporting the script's progress via a slightly customized
+`rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
+occuring issues to the right place.
 """
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union

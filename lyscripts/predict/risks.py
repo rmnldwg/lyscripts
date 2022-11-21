@@ -1,8 +1,12 @@
 """
 Predict risks of involvements using the samples that were drawn during the inference
-process and scenarios as defined in a YAML file. The structure of these scenarios can
-be seen in an actual `params.yaml` file over in the
-[lynference](https://github.com/rmnldwg/lynference) repository.
+process and scenarios as defined in a YAML file.
+
+The structure of these scenarios can is similar to how scenarios are defined for the
+`lyscripts.predict.prevalences` script. Examples can be seen in an actual `params.yaml`
+file over in the [`lynference`] repository.
+
+[`lynference`]: https://github.com/rmnldwg/lynference
 """
 import argparse
 from pathlib import Path
@@ -169,21 +173,21 @@ def main(args: argparse.Namespace):
                 samples=samples[::args.thin],
                 **scenario
             )
-            progress_tracker = track(
+            risks_progress = track(
                 risks_gen,
                 total=len(samples[::args.thin]),
                 description=f"Compute risks for scenario {i+1}/{num_risks}...",
                 console=report,
                 transient=True,
             )
-            risks_arr = np.array(list(r for r in progress_tracker))
-            risks_dset = risks_storage.create_dataset(
+            risks_arr = np.array(list(r for r in risks_progress))
+            risks_h5dset = risks_storage.create_dataset(
                 name=scenario["name"],
                 data=risks_arr,
             )
             for key,val in scenario.items():
                 try:
-                    risks_dset.attrs[key] = val
+                    risks_h5dset.attrs[key] = val
                 except TypeError:
                     pass
         report.success(

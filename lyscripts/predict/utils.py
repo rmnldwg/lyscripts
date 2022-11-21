@@ -1,5 +1,6 @@
 """
-Functions and methods that are shared by the prediction submodules.
+Functions and methods that are shared by the prediction submodules in
+`lyscripts.predict`.
 """
 from typing import Dict, List, Optional
 

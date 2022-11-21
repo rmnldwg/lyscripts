@@ -4,6 +4,12 @@ the model via MCMC sampling and compare them to the prevalence in the data.
 
 This essentially amounts to computing the data likelihood under the model and comparing
 it to the empirical likelihood of a given pattern of lymphatic progression.
+
+Like `lyscripts.predict.risks`, the computation of the prevalences can be done for
+different scenarios. How to define these scenarios can be seen in the [`lynference`]
+repository.
+
+[`lynferece`]: https://github.com/rmnldwg/lynference
 """
 import argparse
 from pathlib import Path
@@ -360,15 +366,15 @@ def main(args: argparse.Namespace):
                 midline_ext_prob=get_midline_ext_prob(data, scenario["t_stage"]),
                 **scenario
             )
-            progress_tracker = track(
+            prevs_progress = track(
                 prevs_gen,
                 total=len(samples[::args.thin]),
                 description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
                 console=report,
                 transient=True,
             )
-            prevs_arr = np.array(list(p for p in progress_tracker))
-            prevalences_dset = prevalences_storage.create_dataset(
+            prevs_arr = np.array(list(p for p in prevs_progress))
+            prevs_h5dset = prevalences_storage.create_dataset(
                 name=scenario["name"],
                 data=prevs_arr,
             )
@@ -379,12 +385,12 @@ def main(args: argparse.Namespace):
             )
             for key,val in scenario.items():
                 try:
-                    prevalences_dset.attrs[key] = val
+                    prevs_h5dset.attrs[key] = val
                 except TypeError:
                     pass
 
-            prevalences_dset.attrs["num_match"] = num_match
-            prevalences_dset.attrs["num_total"] = num_total
+            prevs_h5dset.attrs["num_match"] = num_match
+            prevs_h5dset.attrs["num_total"] = num_total
 
         report.success(
             f"Computed prevalences of {num_prevalences} scenarios stored at "
