@@ -5,14 +5,14 @@ import argparse
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Union
 
 import lymph
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from lyscripts.plot.utils import Histogram, Posterior, draw
+from lyscripts.plot.utils import COLOR_CYCLE, Histogram, Posterior, draw
 from lyscripts.predict.prevalences import (
     compute_observed_prevalence,
     generate_predicted_prevalences,
@@ -123,43 +123,92 @@ def main(args: argparse.Namespace):
     pattern = clean_pattern(pattern, lnls)
     st.write("---")
 
-    res_tuple = interactive_additional_params(st, model, patient_data, samples)
-    t_stage, selected_modality, midline_ext, invert, thin = res_tuple
-
-    observed_prev = compute_observed_prevalence(
-        pattern=pattern,
-        lnls=lnls,
-        data=patient_data,
-        modality=selected_modality,
-        t_stage=t_stage,
-        midline_ext=midline_ext,
-        invert=invert,
-    )
-    prevs_progress = st.progress(0)
-    prevs_gen = generate_predicted_prevalences(
-        pattern=pattern,
-        model=model,
-        samples=samples[::thin],
-        t_stage=t_stage,
-        midline_ext=midline_ext,
-        invert=invert,
-    )
-    thinned_sample_len = len(samples[::thin])
-    computed_prevs = np.zeros(shape=thinned_sample_len)
-    for i, prevalence in enumerate(prevs_gen):
-        percent = int(100 * i / thinned_sample_len)
-        computed_prevs[i] = prevalence
-        prevs_progress.progress(percent)
+    prevs_kwargs = interactive_additional_params(st, model, patient_data, samples)
+    thin = prevs_kwargs.pop("thin")
 
     st.write("---")
 
-    beta_post = Posterior(*observed_prev)
-    histogram = Histogram(computed_prevs)
+    if "contents" not in st.session_state:
+        st.session_state["contents"] = []
+
+    if "scenarios" not in st.session_state:
+        st.session_state["scenarios"] = []
+
+    button_cols = st.columns(6)
+    button_cols[0].button(
+        label="Reset plot",
+        on_click=reset,
+        args=(st.session_state,),
+        type="secondary",
+    )
+    button_cols[1].button(
+        label="Add figures",
+        on_click=add_current_scenario,
+        kwargs={
+            "streamlit": st,
+            "pattern": pattern,
+            "model": model,
+            "samples": samples[::thin],
+            "data": patient_data,
+            "prevs_kwargs": prevs_kwargs,
+        },
+        type="primary",
+    )
 
     fig, ax = plt.subplots()
-    draw(axes=ax, contents=[beta_post, histogram], xlims=(0., 100.))
-
+    draw(axes=ax, contents=st.session_state.get("contents", []), xlims=(0., 100.))
+    ax.legend()
     st.pyplot(fig)
+
+    st.write(type(st.session_state))
+
+
+def reset(session_state: Dict[str, Any]):
+    """Reset `streamlit` session state."""
+    for key in session_state.keys():
+        del session_state[key]
+
+
+def add_current_scenario(
+    session_state: Dict[str, Any],
+    pattern: Dict[str, Dict[str, bool]],
+    model: LymphModel,
+    samples: np.ndarray,
+    data: pd.DataFrame,
+    prevs_kwargs: Optional[Dict[str, Any]] = None,
+) -> List[Union[Histogram, Posterior]]:
+    """
+    Compute the prevalence of a `pattern` as observed in the `data` and as predicted
+    by the `model` (using a set of `samples`). The results are then stored in the
+    `contents` list ready to be plotted. The `prevs_kwargs` are directly passed on to
+    the functions `lyscripts.predict.prevalences.compute_observed_prevalence`
+    and `lyscripts.predict.prevalences.generate_predicted_prevalences`.
+    """
+    num_success, num_total = compute_observed_prevalence(
+        pattern=pattern,
+        data=data,
+        lnls=get_lnls(model),
+        **prevs_kwargs,
+    )
+
+    prevs_gen = generate_predicted_prevalences(
+        pattern=pattern,
+        model=model,
+        samples=samples,
+        **prevs_kwargs,
+    )
+    computed_prevs = np.zeros(shape=len(samples))
+    for i, prevalence in enumerate(prevs_gen):
+        computed_prevs[i] = prevalence
+
+    next_color = next(COLOR_CYCLE)
+    beta_posterior = Posterior(num_success, num_total, kwargs={"color": next_color})
+    histogram = Histogram(computed_prevs, kwargs={"color": next_color})
+
+    session_state["contents"].append(beta_posterior)
+    session_state["contents"].append(histogram)
+
+    session_state["scenarios"].append({"pattern": pattern, **prevs_kwargs})
 
 
 def interactive_additional_params(
@@ -167,7 +216,7 @@ def interactive_additional_params(
     model: LymphModel,
     data: pd.DataFrame,
     samples: np.ndarray,
-) -> Tuple[str, bool, bool]:
+) -> Dict[str, Any]:
     """
     Allow the user to select T-category, midline extension and whether to invert the
     computed prevalence (meaning computing $1 - p$, when $p$ is the prevalence).
@@ -208,7 +257,13 @@ def interactive_additional_params(
         value=100,
     )
 
-    return t_stage, selected_modality, midline_ext, invert, thin
+    return {
+        "t_stage": t_stage,
+        "modality": selected_modality,
+        "midline_ext": midline_ext,
+        "invert": invert,
+        "thin": thin,
+    }
 
 
 def interactive_load(streamlit):
@@ -254,6 +309,8 @@ def interactive_pattern(
     side: str
 ) -> Dict[str, bool]:
     """
+    Create a `streamlit` panel for all specified `lnls` in one `side` of a patient's
+    neck to specify the lymphatic pattern of interest, which is then returned.
     """
     streamlit.subheader(f"{side}lateral")
     side_pattern = {}

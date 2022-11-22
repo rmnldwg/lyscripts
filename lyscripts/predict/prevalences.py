@@ -186,8 +186,8 @@ def create_patient_row(
 def compute_observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
     data: pd.DataFrame,
-    t_stage: str,
     lnls: List[str],
+    t_stage: str = "early",
     modality: str = "max_llh",
     midline_ext: Optional[bool] = None,
     invert: bool = False,
@@ -213,7 +213,7 @@ def compute_observed_prevalence(
     eligible_data = eligible_data.dropna(axis="index", how="all")
 
     # filter the data by the LNL pattern they report
-    do_lnls_match = False if invert else True
+    do_lnls_match = not invert
     if data.columns.nlevels == 2:
         do_lnls_match = get_match_idx(
             do_lnls_match,
@@ -284,7 +284,7 @@ def generate_predicted_prevalences(
     pattern: Dict[str, Dict[str, bool]],
     model: LymphModel,
     samples: np.ndarray,
-    t_stage: str,
+    t_stage: str = "early",
     midline_ext: Optional[bool] = None,
     midline_ext_prob: float = 0.3,
     modality_spsn: Optional[List[float]] = None,
