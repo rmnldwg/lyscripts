@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from rich.progress import track
 
-from lyscripts.predict.utils import clean_pattern
+from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
@@ -204,7 +204,7 @@ def compute_observed_prevalence(
 
     When `invert` is set to `True`, the function returns 1 minus the prevalence.
     """
-    pattern = clean_pattern(pattern, lnls)
+    pattern = complete_pattern(pattern, lnls)
 
     has_matching_t_stage = does_t_stage_match(data, t_stage)
     has_matching_midline_ext = does_midline_ext_match(data, midline_ext)
@@ -302,7 +302,7 @@ def generate_predicted_prevalences(
     Use `invert` to compute 1 - p.
     """
     lnls = get_lnls(model)
-    pattern = clean_pattern(pattern, lnls)
+    pattern = complete_pattern(pattern, lnls)
 
     if modality_spsn is None:
         model.modalities = {"prev": [1., 1.]}

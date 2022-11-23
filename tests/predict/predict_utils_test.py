@@ -1,7 +1,7 @@
 """
 Test utilities of the predict submodule.
 """
-from lyscripts.predict.utils import clean_pattern
+from lyscripts.predict.utils import complete_pattern
 
 
 def test_clean_pattern():
@@ -14,9 +14,9 @@ def test_clean_pattern():
     nums_pattern = {"ipsi": {"I": 1}, "contra": {"III": 0}}
     lnls = ["I", "II", "III"]
 
-    empty_cleaned = clean_pattern(empty_pattern, lnls)
-    one_pos_cleaned = clean_pattern(one_pos_pattern, lnls)
-    nums_cleaned = clean_pattern(nums_pattern, lnls)
+    empty_cleaned = complete_pattern(empty_pattern, lnls)
+    one_pos_cleaned = complete_pattern(one_pos_pattern, lnls)
+    nums_cleaned = complete_pattern(nums_pattern, lnls)
 
     assert empty_cleaned == {
         "ipsi": {"I": None, "II": None, "III": None},

@@ -15,7 +15,7 @@ import lymph
 import numpy as np
 from rich.progress import track
 
-from lyscripts.predict.utils import clean_pattern
+from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
@@ -98,8 +98,8 @@ def predicted_risk(
     Set `verbose` to `True` for a visualization of the progress.
     """
     lnls = get_lnls(model)
-    involvement = clean_pattern(involvement, lnls)
-    given_diagnosis = clean_pattern(given_diagnosis, lnls)
+    involvement = complete_pattern(involvement, lnls)
+    given_diagnosis = complete_pattern(given_diagnosis, lnls)
 
     if given_diagnosis_spsn is not None:
         model.modalities = {"risk": given_diagnosis_spsn}
