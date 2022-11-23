@@ -14,7 +14,7 @@ import emcee
 import lymph
 
 from lyscripts.plot.utils import save_figure
-from lyscripts.utils import cli_load_yaml_params, model_from_config, report
+from lyscripts.utils import load_yaml_params, model_from_config, report
 
 
 def _add_parser(
@@ -132,7 +132,7 @@ def main(args: argparse.Namespace):
         -p, --params PARAMS   Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
 
     with report.status("Open model as emcee backend..."):
         backend = emcee.backends.HDFBackend(args.model, read_only=True)

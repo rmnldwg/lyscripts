@@ -23,8 +23,8 @@ import pandas as pd
 
 from lyscripts.utils import (
     CustomProgress,
-    cli_load_yaml_params,
     get_modalities_subset,
+    load_yaml_params,
     model_from_config,
     report,
 )
@@ -386,7 +386,7 @@ def main(args: argparse.Namespace):
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
 
     with report.status("Read in training data..."):
         # Only read in two header rows when using the Unilateral model

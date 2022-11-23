@@ -1,6 +1,13 @@
 """
 This module provides functions and scripts to predict the risk of hidden involvement,
 given observed diagnoses, and prevalences of patterns for diagnostic modalities.
+
+The submodules for prediction are currently:
+
+1. The `lyscripts.predict.prevalences` module for computing prevalences of certain
+involvement patterns that may also be compared to observed prevalences.
+2. A module `lyscripts.predict.risks` for predicting the risk of any specific pattern
+of involvement given any particular diagnosis.
 """
 import argparse
 from pathlib import Path

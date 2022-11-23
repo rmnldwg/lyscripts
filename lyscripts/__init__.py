@@ -9,7 +9,7 @@ from rich_argparse import RichHelpFormatter
 
 from lyscripts.utils import report
 
-from . import data, evaluate, plot, predict, sample, temp_schedule, utils
+from . import app, data, evaluate, plot, predict, sample, temp_schedule, utils
 from ._version import version
 
 __version__ = version
@@ -85,10 +85,11 @@ def main():
 
     # the individual scripts add `ArgumentParser` instances and their arguments to
     # this `subparsers` object
+    app._add_parser(subparsers, help_formatter=parser.formatter_class)
     data._add_parser(subparsers, help_formatter=parser.formatter_class)
     evaluate._add_parser(subparsers, help_formatter=parser.formatter_class)
-    predict._add_parser(subparsers, help_formatter=parser.formatter_class)
     plot._add_parser(subparsers, help_formatter=parser.formatter_class)
+    predict._add_parser(subparsers, help_formatter=parser.formatter_class)
     sample._add_parser(subparsers, help_formatter=parser.formatter_class)
     temp_schedule._add_parser(subparsers, help_formatter=parser.formatter_class)
 

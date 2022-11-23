@@ -1,23 +1,27 @@
 """
 Predict risks of involvements using the samples that were drawn during the inference
-process and scenarios as defined in a YAML file. The structure of these scenarios can
-be seen in an actual `params.yaml` file over in the
-[lynference](https://github.com/rmnldwg/lynference) repository.
+process and scenarios as defined in a YAML file.
+
+The structure of these scenarios can is similar to how scenarios are defined for the
+`lyscripts.predict.prevalences` script. Examples can be seen in an actual `params.yaml`
+file over in the [`lynference`](https://github.com/rmnldwg/lynference) repository.
 """
 import argparse
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Generator, List, Optional
 
 import h5py
 import lymph
 import numpy as np
+from rich.progress import track
 
-from lyscripts.predict.utils import clean_pattern, rich_enumerate
+from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
-    cli_load_model_samples,
-    cli_load_yaml_params,
+    LymphModel,
+    create_model_from_config,
     get_lnls,
-    model_from_config,
+    load_hdf5_samples,
+    load_yaml_params,
     report,
 )
 
@@ -64,16 +68,15 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def predicted_risk(
     involvement: Dict[str, Dict[str, bool]],
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+    model: LymphModel,
     samples: np.ndarray,
     t_stage: str,
     midline_ext: bool = False,
     given_diagnosis: Optional[Dict[str, Dict[str, bool]]] = None,
     given_diagnosis_spsn: Optional[List[float]] = None,
     invert: bool = False,
-    description: Optional[str] = None,
     **_kwargs,
-) -> np.ndarray:
+) -> Generator[float, None, None]:
     """Compute the probability of arriving in a particular `involvement` in a given
     `t_stage` using a `model` with pretrained `samples`. This probability can be
     computed for a `given_diagnosis` that was obtained using a modality with
@@ -95,42 +98,41 @@ def predicted_risk(
     Set `verbose` to `True` for a visualization of the progress.
     """
     lnls = get_lnls(model)
-    involvement = clean_pattern(involvement, lnls)
-    given_diagnosis = clean_pattern(given_diagnosis, lnls)
+    involvement = complete_pattern(involvement, lnls)
+    given_diagnosis = complete_pattern(given_diagnosis, lnls)
 
     if given_diagnosis_spsn is not None:
         model.modalities = {"risk": given_diagnosis_spsn}
     else:
         model.modalities = {"risk": [1., 1.]}
 
-    risks = np.zeros(shape=len(samples), dtype=float)
-
     if isinstance(model, lymph.Unilateral):
         given_diagnosis = {"risk": given_diagnosis["ipsi"]}
 
-        for i,sample in rich_enumerate(samples, description):
-            risks[i] = model.risk(
+        for sample in samples:
+            risk = model.risk(
                 involvement=involvement["ipsi"],
                 given_params=sample,
                 given_diagnoses=given_diagnosis,
                 t_stage=t_stage
             )
-        return 1. - risks if invert else risks
+            yield 1. - risk if invert else risk
 
-    elif not isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
-        raise TypeError("Model is not a known type.")
+    elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
+        given_diagnosis = {"risk": given_diagnosis}
 
-    given_diagnosis = {"risk": given_diagnosis}
+        for sample in samples:
+            risk = model.risk(
+                involvement=involvement,
+                given_params=sample,
+                given_diagnoses=given_diagnosis,
+                t_stage=t_stage,
+                midline_extension=midline_ext,
+            )
+            yield (1. - risk) if invert else risk
 
-    for i,sample in rich_enumerate(samples, description):
-        risks[i] = model.risk(
-            involvement=involvement,
-            given_params=sample,
-            given_diagnoses=given_diagnosis,
-            t_stage=t_stage,
-            midline_extension=midline_ext,
-        )
-    return 1. - risks if invert else risks
+    else:
+        raise TypeError("Provided model is no valid `lymph` model.")
 
 
 def main(args: argparse.Namespace):
@@ -156,36 +158,34 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = cli_load_yaml_params(args.params)
-    samples = cli_load_model_samples(args.model)
-
-    with report.status("Set up model..."):
-        MODEL = model_from_config(
-            graph_params=params["graph"],
-            model_params=params["model"],
-        )
-        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        report.success(
-            f"Set up {type(MODEL)} model with {ndim} parameters"
-        )
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    samples = load_hdf5_samples(args.model)
 
     args.output.parent.mkdir(exist_ok=True)
     num_risks = len(params["risks"])
     with h5py.File(args.output, mode="w") as risks_storage:
         for i,scenario in enumerate(params["risks"]):
-            risks = predicted_risk(
-                model=MODEL,
+            risks_gen = predicted_risk(
+                model=model,
                 samples=samples[::args.thin],
-                description=f"Compute risks for scenario {i+1}/{num_risks}...",
                 **scenario
             )
-            risks_dset = risks_storage.create_dataset(
+            risks_progress = track(
+                risks_gen,
+                total=len(samples[::args.thin]),
+                description=f"Compute risks for scenario {i+1}/{num_risks}...",
+                console=report,
+                transient=True,
+            )
+            risks_arr = np.array(list(r for r in risks_progress))
+            risks_h5dset = risks_storage.create_dataset(
                 name=scenario["name"],
-                data=risks,
+                data=risks_arr,
             )
             for key,val in scenario.items():
                 try:
-                    risks_dset.attrs[key] = val
+                    risks_h5dset.attrs[key] = val
                 except TypeError:
                     pass
         report.success(

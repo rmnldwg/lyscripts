@@ -1,6 +1,6 @@
 """
-Transform the enhanced lyDATA CSV files into a format that can be used by the
-lymph model using this package's utilities.
+Transform the enhanced lyDATA CSV files into a format that can be used by the lymph
+model using this package's utilities.
 """
 import argparse
 import warnings
@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import cli_load_yaml_params, report
+from lyscripts.utils import load_yaml_params, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -129,9 +129,9 @@ def main(args: argparse.Namespace):
                             (default: ./params.yaml)
     ```
     """
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
 
-    input_table = load_csv_table(args.input, header=[0,1,2])
+    input_table = load_csv_table(args.input, header_row=[0,1,2])
 
     with report.status("Prepare table for use with lymph model..."):
         lymph_table = lyprox_to_lymph(input_table, class_name=params["model"]["class"])
