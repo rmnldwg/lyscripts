@@ -14,7 +14,7 @@ import emcee
 import lymph
 
 from lyscripts.plot.utils import save_figure
-from lyscripts.utils import cli_load_yaml_params, model_from_config, report
+from lyscripts.utils import load_yaml_params, model_from_config, report
 
 
 def _add_parser(
@@ -57,14 +57,16 @@ def _add_arguments(parser: argparse.ArgumentParser):
 def get_param_labels(
     model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
 ) -> List[str]:
-    """Create labels from a `model`. An example:
+    """Create labels from a `model`.
 
+    An example:
     >>> graph = {
     ...     ("tumor", "primary"): ["II", "III"],
     ...     ("lnl", "II"): ["III"],
     ...     ("lnl", "III"): [],
     ... }
     >>> model = lymph.Unilateral(graph)
+    >>> from lyscripts.utils import add_tstage_marg
     >>> add_tstage_marg(model, ["early", "late"], 0.3, 10)
     >>> get_param_labels(model)
     ['primary->II', 'primary->III', 'II->III', 'late']
@@ -132,7 +134,7 @@ def main(args: argparse.Namespace):
         -p, --params PARAMS   Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
 
     with report.status("Open model as emcee backend..."):
         backend = emcee.backends.HDFBackend(args.model, read_only=True)

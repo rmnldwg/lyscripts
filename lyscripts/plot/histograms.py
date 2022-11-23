@@ -101,14 +101,14 @@ def main(args: argparse.Namespace):
         contents = []
         for name in args.names:
             color = next(COLOR_CYCLE)
-            contents.append(Histogram(
+            contents.append(Histogram.from_hdf5(
                 filename=args.input,
                 dataname=name,
                 kwargs={"color": color},
             ))
             report.success(f"Added histogram {name} to figure")
             try:
-                contents.append(Posterior(
+                contents.append(Posterior.from_hdf5(
                     filename=args.input,
                     dataname=name,
                     kwargs={"color": color},

@@ -10,11 +10,17 @@ from typing import Tuple
 
 import emcee
 import h5py
+import lymph
 import numpy as np
 import pandas as pd
 from scipy.integrate import trapezoid
 
-from lyscripts.utils import cli_load_yaml_params, model_from_config, report
+from lyscripts.utils import (
+    create_model_from_config,
+    load_data_for_model,
+    load_yaml_params,
+    report,
+)
 
 
 def _add_parser(
@@ -148,25 +154,12 @@ def main(args: argparse.Namespace):
     """
     metrics = {}
 
-    params = cli_load_yaml_params(args.params)
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
+    is_uni = isinstance(model, lymph.Unilateral)
 
-    with report.status("Read in patient data..."):
-        # Only read in two header rows when using the Unilateral model
-        is_unilateral = params["model"]["class"] == "Unilateral"
-        header = [0, 1] if is_unilateral else [0, 1, 2]
-        DATA = pd.read_csv(args.data, header=header)
-        report.success(f"Read in patient data from {args.data}")
-
-    with report.status("Recreate model & load data..."):
-        MODEL = model_from_config(
-            graph_params=params["graph"],
-            model_params=params["model"],
-        )
-        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        report.success(
-            f"Recreated {type(MODEL)} model with {ndim} parameters and loaded "
-            f"{len(DATA)} patients"
-        )
+    data = load_data_for_model(args.data, header_rows=[0,1] if is_uni else [0,1,2])
 
     h5_file = h5py.File(args.model, mode="r")
     # check if TI has been performed
@@ -224,7 +217,7 @@ def main(args: argparse.Namespace):
 
         # further populate metrics dictionary
         metrics["BIC"] = comp_bic(
-            final_log_probs, ndim, len(DATA),
+            final_log_probs, ndim, len(data),
         )
         metrics["max_llh"] = np.max(final_log_probs)
         metrics["mean_llh"] = np.mean(final_log_probs)

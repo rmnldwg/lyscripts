@@ -1,26 +1,22 @@
 """
-Functions and methods that are shared by the prediction submodules.
+Functions and methods that are shared by the prediction submodules in
+`lyscripts.predict`.
 """
 from typing import Dict, List, Optional
 
-import numpy as np
-from rich.progress import track
 
-from lyscripts.utils import report
-
-
-def clean_pattern(
+def complete_pattern(
     pattern: Optional[Dict[str, Dict[str, bool]]],
     lnls: List[str],
 ) -> Dict[str, Dict[str, bool]]:
     """
     Make sure the provided involvement `pattern` is correct. For each side of the neck,
     and for each of the `lnls` this should in the end contain `True`, `False` or `None`.
-    For example,
 
+    Example:
     >>> pattern = {"ipsi": {"II": True}}
     >>> lnls = ["II", "III"]
-    >>> clean_pattern(pattern, lnls)
+    >>> complete_pattern(pattern, lnls)
     {'ipsi': {'II': True, 'III': None}, 'contra': {'II': None, 'III': None}}
     """
     if pattern is None:
@@ -33,24 +29,35 @@ def clean_pattern(
         for lnl in lnls:
             if lnl not in pattern[side]:
                 pattern[side][lnl] = None
+            elif pattern[side][lnl] is None:
+                continue
             else:
                 pattern[side][lnl] = bool(pattern[side][lnl])
 
     return pattern
 
 
-def rich_enumerate(samples: np.ndarray, description: Optional[str] = None):
+def reduce_pattern(pattern: Dict[str, Dict[str, bool]]) -> Dict[str, Dict[str, bool]]:
     """
-    Create a progress bar while enumerating over the given samples.
-    """
-    enumerated_samples = enumerate(samples)
-    if description is None:
-        return enumerated_samples
+    Reduce a `pattern` by removing all entries that are `None`. This way, it should
+    be completely recoverable by the `complete_pattern` function but be shorter to
+    store.
 
-    return track(
-        enumerated_samples,
-        total=len(samples),
-        description=description,
-        console=report,
-        transient=True,
-    )
+    Example:
+    >>> full = {
+    ...     "ipsi": {"I": None, "II": True, "III": None},
+    ...     "contra": {"I": None, "II": None, "III": None},
+    ... }
+    >>> reduce_pattern(full)
+    {'ipsi': {'II': True}}
+    """
+    tmp_pattern = pattern.copy()
+    reduced_pattern = {}
+    for side in ["ipsi", "contra"]:
+        if not all(v is None for v in tmp_pattern[side].values()):
+            reduced_pattern[side] = {}
+            for lnl, val in tmp_pattern[side].items():
+                if val is not None:
+                    reduced_pattern[side][lnl] = val
+
+    return reduced_pattern

@@ -4,23 +4,30 @@ the model via MCMC sampling and compare them to the prevalence in the data.
 
 This essentially amounts to computing the data likelihood under the model and comparing
 it to the empirical likelihood of a given pattern of lymphatic progression.
+
+Like `lyscripts.predict.risks`, the computation of the prevalences can be done for
+different scenarios. How to define these scenarios can be seen in the
+[`lynference`](https://github.com/rmnldwg/lynference) repository.
 """
 import argparse
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Generator, List, Optional
 
 import h5py
 import lymph
 import numpy as np
 import pandas as pd
+from rich.progress import track
 
-from lyscripts.predict.utils import clean_pattern, rich_enumerate
+from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
-    cli_load_model_samples,
-    cli_load_yaml_params,
+    LymphModel,
+    create_model_from_config,
     flatten,
     get_lnls,
-    model_from_config,
+    load_data_for_model,
+    load_hdf5_samples,
+    load_yaml_params,
     report,
 )
 
@@ -100,6 +107,7 @@ def get_match_idx(
 
     return match_idx
 
+
 def does_t_stage_match(data: pd.DataFrame, t_stage: str) -> pd.Index:
     """Return the indices of the `data` where the `t_stage` of the patients matches."""
     if data.columns.nlevels == 2:
@@ -108,6 +116,7 @@ def does_t_stage_match(data: pd.DataFrame, t_stage: str) -> pd.Index:
         return data["info", "tumor", "t_stage"] == t_stage
     else:
         raise ValueError("Data has neither 2 nor 3 header rows")
+
 
 def does_midline_ext_match(
     data: pd.DataFrame,
@@ -126,6 +135,7 @@ def does_midline_ext_match(
             "Data does not seem to have midline extension information"
         ) from key_err
 
+
 def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     """Get the prevalence of midline extension from `data` for `t_stage`."""
     if data.columns.nlevels == 2:
@@ -136,6 +146,7 @@ def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     has_matching_midline_ext = does_midline_ext_match(eligible_data, midline_ext=True)
     matching_data = eligible_data[has_matching_midline_ext]
     return len(matching_data) / len(eligible_data)
+
 
 def create_patient_row(
     pattern: Dict[str, Dict[str, bool]],
@@ -171,11 +182,12 @@ def create_patient_row(
 
     return with_midline_ext.append(without_midline_ext).reset_index()
 
-def observed_prevalence(
+
+def compute_observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
     data: pd.DataFrame,
-    t_stage: str,
     lnls: List[str],
+    t_stage: str = "early",
     modality: str = "max_llh",
     midline_ext: Optional[bool] = None,
     invert: bool = False,
@@ -192,7 +204,7 @@ def observed_prevalence(
 
     When `invert` is set to `True`, the function returns 1 minus the prevalence.
     """
-    pattern = clean_pattern(pattern, lnls)
+    pattern = complete_pattern(pattern, lnls)
 
     has_matching_t_stage = does_t_stage_match(data, t_stage)
     has_matching_midline_ext = does_midline_ext_match(data, midline_ext)
@@ -201,7 +213,7 @@ def observed_prevalence(
     eligible_data = eligible_data.dropna(axis="index", how="all")
 
     # filter the data by the LNL pattern they report
-    do_lnls_match = False if invert else True
+    do_lnls_match = not invert
     if data.columns.nlevels == 2:
         do_lnls_match = get_match_idx(
             do_lnls_match,
@@ -220,21 +232,65 @@ def observed_prevalence(
                 invert=invert
             )
 
-    matching_data = eligible_data.loc[do_lnls_match]
+    try:
+        matching_data = eligible_data.loc[do_lnls_match]
+    except KeyError:
+        # return X, X if no actual pattern was selected
+        len_matching_data = 0 if invert else len(eligible_data)
+        return len_matching_data, len(eligible_data)
+
     return len(matching_data), len(eligible_data)
 
-def predicted_prevalence(
+
+def compute_predicted_prevalence(
+    loaded_model: LymphModel,
+    given_params: np.ndarray,
+    midline_ext: bool,
+    midline_ext_prob: float = 0.3,
+) -> float:
+    """
+    Given a `loaded_model` with loaded patient data and modalities, compute the
+    prevalence of the loaded data for a sample of `given_params`.
+
+    If `midline_ext` is `True`, the prevalence is computed for the case where the
+    tumor does extend over the mid-sagittal line, while if it is `False`, it is
+    predicted for the case of a lateralized tumor.
+
+    If `midline_ext` is set to `None`, the prevalence is marginalized over both cases,
+    assuming the provided `midline_ext_prob`.
+    """
+    if isinstance(loaded_model, lymph.MidlineBilateral):
+        loaded_model.check_and_assign(given_params)
+        if midline_ext is None:
+                # marginalize over patients with and without midline extension
+            prevalence = (
+                    midline_ext_prob * loaded_model.ext.likelihood(log=False) +
+                    (1. - midline_ext_prob) * loaded_model.noext.likelihood(log=False)
+                )
+        elif midline_ext:
+            prevalence = loaded_model.ext.likelihood(log=False)
+        else:
+            prevalence = loaded_model.noext.likelihood(log=False)
+    else:
+        prevalence = loaded_model.likelihood(
+            given_params=given_params,
+            log=False,
+        )
+
+    return prevalence
+
+
+def generate_predicted_prevalences(
     pattern: Dict[str, Dict[str, bool]],
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+    model: LymphModel,
     samples: np.ndarray,
-    t_stage: str,
+    t_stage: str = "early",
     midline_ext: Optional[bool] = None,
     midline_ext_prob: float = 0.3,
     modality_spsn: Optional[List[float]] = None,
     invert: bool = False,
-    description: Optional[str] = None,
     **_kwargs,
-) -> np.ndarray:
+) -> Generator[float, None, None]:
     """Compute the prevalence of a given `pattern` of lymphatic progression using a
     `model` and trained `samples`.
 
@@ -246,14 +302,13 @@ def predicted_prevalence(
     Use `invert` to compute 1 - p.
     """
     lnls = get_lnls(model)
-    pattern = clean_pattern(pattern, lnls)
+    pattern = complete_pattern(pattern, lnls)
 
     if modality_spsn is None:
         model.modalities = {"prev": [1., 1.]}
     else:
         model.modalities = {"prev": modality_spsn}
 
-    prevalences = np.zeros(shape=len(samples), dtype=float)
     is_unilateral = isinstance(model, lymph.Unilateral)
     patient_row = create_patient_row(
         pattern, t_stage, midline_ext, make_unilateral=is_unilateral
@@ -261,25 +316,14 @@ def predicted_prevalence(
     model.patient_data = patient_row
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
-    for i,sample in rich_enumerate(samples, description):
-        if isinstance(model, lymph.MidlineBilateral):
-            model.check_and_assign(sample)
-            if midline_ext is None:
-                # marginalize over patients with and without midline extension
-                prevalences[i] = (
-                    midline_ext_prob * model.ext.likelihood(log=False) +
-                    (1. - midline_ext_prob) * model.noext.likelihood(log=False)
-                )
-            elif midline_ext:
-                prevalences[i] = model.ext.likelihood(log=False)
-            else:
-                prevalences[i] = model.noext.likelihood(log=False)
-        else:
-            prevalences[i] = model.likelihood(
-                given_params=sample,
-                log=False,
-            )
-    return 1. - prevalences if invert else prevalences
+    for sample in samples:
+        prevalence = compute_predicted_prevalence(
+            loaded_model=model,
+            given_params=sample,
+            midline_ext=midline_ext,
+            midline_ext_prob=midline_ext_prob,
+        )
+        yield (1. - prevalence) if invert else prevalence
 
 
 def main(args: argparse.Namespace):
@@ -309,54 +353,48 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = cli_load_yaml_params(args.params)
-    samples = cli_load_model_samples(args.model)
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    samples = load_hdf5_samples(args.model)
 
-    with report.status("Read in training data..."):
-        # Only read in two header rows when using the Unilateral model
-        is_unilateral = params["model"]["class"] == "Unilateral"
-        header = [0, 1] if is_unilateral else [0, 1, 2]
-        DATA = pd.read_csv(args.data, header=header)
-        report.success(f"Read in training data from {args.data}")
-
-    with report.status("Set up model..."):
-        MODEL = model_from_config(
-            graph_params=params["graph"],
-            model_params=params["model"],
-        )
-        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        report.success(
-            f"Set up {type(MODEL)} model with {ndim} parameters"
-        )
+    header_rows = [0,1] if isinstance(model, lymph.Unilateral) else [0,1,2]
+    data = load_data_for_model(args.data, header_rows)
 
     args.output.parent.mkdir(exist_ok=True)
     num_prevalences = len(params["prevalences"])
     with h5py.File(args.output, mode="w") as prevalences_storage:
         for i,scenario in enumerate(params["prevalences"]):
-            prevalences = predicted_prevalence(
-                model=MODEL,
+            prevs_gen = generate_predicted_prevalences(
+                model=model,
                 samples=samples[::args.thin],
-                description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
-                midline_ext_prob=get_midline_ext_prob(DATA, scenario["t_stage"]),
+                midline_ext_prob=get_midline_ext_prob(data, scenario["t_stage"]),
                 **scenario
             )
-            prevalences_dset = prevalences_storage.create_dataset(
-                name=scenario["name"],
-                data=prevalences,
+            prevs_progress = track(
+                prevs_gen,
+                total=len(samples[::args.thin]),
+                description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
+                console=report,
+                transient=True,
             )
-            num_match, num_total = observed_prevalence(
-                data=DATA,
-                lnls=get_lnls(MODEL),
+            prevs_arr = np.array(list(p for p in prevs_progress))
+            prevs_h5dset = prevalences_storage.create_dataset(
+                name=scenario["name"],
+                data=prevs_arr,
+            )
+            num_match, num_total = compute_observed_prevalence(
+                data=data,
+                lnls=get_lnls(model),
                 **scenario,
             )
             for key,val in scenario.items():
                 try:
-                    prevalences_dset.attrs[key] = val
+                    prevs_h5dset.attrs[key] = val
                 except TypeError:
                     pass
 
-            prevalences_dset.attrs["num_match"] = num_match
-            prevalences_dset.attrs["num_total"] = num_total
+            prevs_h5dset.attrs["num_match"] = num_match
+            prevs_h5dset.attrs["num_total"] = num_total
 
         report.success(
             f"Computed prevalences of {num_prevalences} scenarios stored at "

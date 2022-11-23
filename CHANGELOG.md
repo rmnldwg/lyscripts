@@ -1,3 +1,46 @@
+<a name="0.6.0"></a>
+## [0.6.0] - 2022-11-23
+
+### Bug Fixes
+- display errors and stop, but don't reraise
+- add & update main entry point for script use
+
+### Code Refactoring
+- use `lyscripts.utils` consistently across data commands
+- use `lyscripts.utils` for `evaluate` script
+- pull out method to compare prevalence for one sample
+- write modular functions for loading YAML, CSV and HDF5 data
+- make `lyscripts data join` command a bit more readable
+- further modularize `lyscripts data ...` scripts
+- standardize CSV saving process
+- start to add `utils` for data commands
+- put data commands in separate submodule, fixes [#5] (**BREAKING CHANGE!**)
+
+### Documentation
+- expand documentation on data, plot & predict subcommands
+- enrich the module documentation of predict scripts
+- update docstrings of data commands
+
+### Features
+- add YAML scenario output to prevalence app
+- working version of prevalence app
+- add prevalence plot to app
+- allow constructing the `lyscripts.plot.utils.Histogram` and `lyscripts.plot.utils.Posterior` from plain data without HDF5 file (**BREAKING CHANGE!**)
+- `lyscripts.temp_schedule` output does not have pretty border anymore, making copy & paste easier
+- use generators for risk & prevalence prediction, fixes [#23]
+- add more params widgets for prevalence app
+- add t_stage, midline_ext, ... to prevalence app
+- add `LyScriptsError` for passing up messages
+- make smart decorators for status reporting
+- implement setup of prevalence app
+- start implementing streamlit apps
+
+### Testing
+- add GitHub action for tests
+- fix missing import for corner doctests
+- generally, the module is now partially covered by unit tests
+
+
 <a name="0.5.11"></a>
 ## [0.5.11] - 2022-11-06
 
@@ -129,7 +172,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.5.11...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/rmnldwg/lyscripts/compare/0.5.11...0.6.0
 [0.5.11]: https://github.com/rmnldwg/lyscripts/compare/0.5.10...0.5.11
 [0.5.10]: https://github.com/rmnldwg/lyscripts/compare/0.5.9...0.5.10
 [0.5.9]: https://github.com/rmnldwg/lyscripts/compare/0.5.8...0.5.9
@@ -140,6 +184,7 @@ returns `None` instead. Fixes [#11]
 [0.5.4]: https://github.com/rmnldwg/lyscripts/compare/0.5.3...0.5.4
 [0.5.3]: https://github.com/rmnldwg/lyscripts/compare/0.5.2...0.5.3
 
+[#5]: https://github.com/rmnldwg/lyscripts/issues/5
 [#8]: https://github.com/rmnldwg/lyscripts/issues/8
 [#11]: https://github.com/rmnldwg/lyscripts/issues/11
 [#13]: https://github.com/rmnldwg/lyscripts/issues/13
@@ -148,5 +193,6 @@ returns `None` instead. Fixes [#11]
 [#17]: https://github.com/rmnldwg/lyscripts/issues/17
 [#20]: https://github.com/rmnldwg/lyscripts/issues/20
 [#21]: https://github.com/rmnldwg/lyscripts/issues/21
+[#23]: https://github.com/rmnldwg/lyscripts/issues/23
 
 [`rich_argparse`]: https://github.com/hamdanal/rich_argparse
