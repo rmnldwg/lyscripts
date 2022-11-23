@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="pdoc 12.2.1"/>
+    <meta name="generator" content="pdoc 12.3.0"/>
     <title>lyscripts.sample API documentation</title>
             <link rel="icon" href="https://raw.githubusercontent.com/rmnldwg/lyscripts/main/favicon.png"/>
 
@@ -29,7 +29,12 @@
             {childList: true}
         );
     })
-</script></head>
+</script>
+<style>
+    mjx-container {
+        overflow-x: auto;
+    }
+</style></head>
 <body>
     <nav class="pdoc">
         <label id="navtoggle" for="togglestate" class="pdoc-button"><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path stroke-linecap='round' stroke="currentColor" stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/></svg></label>
@@ -134,8 +139,8 @@ objective decisions with respect to defining the <em>elective clinical target vo
 </span><span id="L-23"><a href="#L-23"><span class="linenos"> 23</span></a>
 </span><span id="L-24"><a href="#L-24"><span class="linenos"> 24</span></a><span class="kn">from</span> <span class="nn">lyscripts.utils</span> <span class="kn">import</span> <span class="p">(</span>
 </span><span id="L-25"><a href="#L-25"><span class="linenos"> 25</span></a>    <span class="n">CustomProgress</span><span class="p">,</span>
-</span><span id="L-26"><a href="#L-26"><span class="linenos"> 26</span></a>    <span class="n">cli_load_yaml_params</span><span class="p">,</span>
-</span><span id="L-27"><a href="#L-27"><span class="linenos"> 27</span></a>    <span class="n">get_modalities_subset</span><span class="p">,</span>
+</span><span id="L-26"><a href="#L-26"><span class="linenos"> 26</span></a>    <span class="n">get_modalities_subset</span><span class="p">,</span>
+</span><span id="L-27"><a href="#L-27"><span class="linenos"> 27</span></a>    <span class="n">load_yaml_params</span><span class="p">,</span>
 </span><span id="L-28"><a href="#L-28"><span class="linenos"> 28</span></a>    <span class="n">model_from_config</span><span class="p">,</span>
 </span><span id="L-29"><a href="#L-29"><span class="linenos"> 29</span></a>    <span class="n">report</span><span class="p">,</span>
 </span><span id="L-30"><a href="#L-30"><span class="linenos"> 30</span></a><span class="p">)</span>
@@ -497,7 +502,7 @@ objective decisions with respect to defining the <em>elective clinical target vo
 </span><span id="L-386"><a href="#L-386"><span class="linenos">386</span></a>
 </span><span id="L-387"><a href="#L-387"><span class="linenos">387</span></a><span class="sd">    [^1]: https://doi.org/10.1007/s11571-021-09696-9</span>
 </span><span id="L-388"><a href="#L-388"><span class="linenos">388</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-389"><a href="#L-389"><span class="linenos">389</span></a>    <span class="n">params</span> <span class="o">=</span> <span class="n">cli_load_yaml_params</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+</span><span id="L-389"><a href="#L-389"><span class="linenos">389</span></a>    <span class="n">params</span> <span class="o">=</span> <span class="n">load_yaml_params</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
 </span><span id="L-390"><a href="#L-390"><span class="linenos">390</span></a>
 </span><span id="L-391"><a href="#L-391"><span class="linenos">391</span></a>    <span class="k">with</span> <span class="n">report</span><span class="o">.</span><span class="n">status</span><span class="p">(</span><span class="s2">&quot;Read in training data...&quot;</span><span class="p">):</span>
 </span><span id="L-392"><a href="#L-392"><span class="linenos">392</span></a>        <span class="c1"># Only read in two header rows when using the Unilateral model</span>
@@ -1219,7 +1224,7 @@ after which it will draw another <code>nsteps</code> samples.</p>
 </span><span id="main-387"><a href="#main-387"><span class="linenos">387</span></a>
 </span><span id="main-388"><a href="#main-388"><span class="linenos">388</span></a><span class="sd">    [^1]: https://doi.org/10.1007/s11571-021-09696-9</span>
 </span><span id="main-389"><a href="#main-389"><span class="linenos">389</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="main-390"><a href="#main-390"><span class="linenos">390</span></a>    <span class="n">params</span> <span class="o">=</span> <span class="n">cli_load_yaml_params</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+</span><span id="main-390"><a href="#main-390"><span class="linenos">390</span></a>    <span class="n">params</span> <span class="o">=</span> <span class="n">load_yaml_params</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
 </span><span id="main-391"><a href="#main-391"><span class="linenos">391</span></a>
 </span><span id="main-392"><a href="#main-392"><span class="linenos">392</span></a>    <span class="k">with</span> <span class="n">report</span><span class="o">.</span><span class="n">status</span><span class="p">(</span><span class="s2">&quot;Read in training data...&quot;</span><span class="p">):</span>
 </span><span id="main-393"><a href="#main-393"><span class="linenos">393</span></a>        <span class="c1"># Only read in two header rows when using the Unilateral model</span>
