@@ -1,3 +1,10 @@
+<a name="0.6.1"></a>
+## [0.6.1] - 2022-11-24
+
+### Features
+- add new command under `lyscripts data` to preprocess any raw data into a format that can be parsed by [LyProX]. Fixes [#25]
+
+
 <a name="0.6.0"></a>
 ## [0.6.0] - 2022-11-23
 
@@ -172,7 +179,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.1...HEAD
+[0.6.1]: https://github.com/rmnldwg/lyscripts/compare/0.6.0...0.6.1
 [0.6.0]: https://github.com/rmnldwg/lyscripts/compare/0.5.11...0.6.0
 [0.5.11]: https://github.com/rmnldwg/lyscripts/compare/0.5.10...0.5.11
 [0.5.10]: https://github.com/rmnldwg/lyscripts/compare/0.5.9...0.5.10
@@ -194,5 +202,7 @@ returns `None` instead. Fixes [#11]
 [#20]: https://github.com/rmnldwg/lyscripts/issues/20
 [#21]: https://github.com/rmnldwg/lyscripts/issues/21
 [#23]: https://github.com/rmnldwg/lyscripts/issues/23
+[#25]: https://github.com/rmnldwg/lyscripts/issues/25
 
 [`rich_argparse`]: https://github.com/hamdanal/rich_argparse
+[LyProX]: https://lyprox.org
