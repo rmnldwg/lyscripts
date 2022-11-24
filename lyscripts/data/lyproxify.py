@@ -15,7 +15,7 @@ from types import ModuleType
 import pandas as pd
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import report
+from lyscripts.utils import raise_if_args_none, report, report_state
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -46,7 +46,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Location of raw CSV data."
     )
     parser.add_argument(
-        "-r", "--header-rows", nargs="+", default=[0],
+        "-r", "--header-rows", nargs="+", default=[0], type=int,
         help="List with header row indices of raw file."
     )
     parser.add_argument(
@@ -64,11 +64,20 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
+@report_state(
+    status_msg="Transform raw data to LyProX style table...",
+    success_msg="Transformed raw data to LyProX style table.",
+)
+@raise_if_args_none(
+    message="Must provide raw data and mapping instruction module",
+    level="warning",
+)
 def transform_to_lyprox(raw: pd.DataFrame, mapping: ModuleType) -> pd.DataFrame:
     """
     Transform any `raw` data frame into a table that can be uploaded directly to
-    [LyProX](https://lyprox.org). To do so, it imports instructions form the `mapping` module. In it, a
-    dictionary `column_map` must be provided with a particular structure:
+    [LyProX](https://lyprox.org). To do so, it imports instructions form the `mapping`
+    module. In it, a dictionary `column_map` must be provided with a particular
+    structure:
 
     For each column in the final 'lyproxified' `pd.DataFrame`, one entry must exist in
     the `column_map` dctionary. E.g., for the column corresponding to a patient's age,
@@ -96,12 +105,44 @@ def transform_to_lyprox(raw: pd.DataFrame, mapping: ModuleType) -> pd.DataFrame:
                 processed[multi_idx_col] = [instruction["default"]] * len(raw)
             else:
                 cols = instruction.get("columns", [])
-                kwargs = instruction.get("kwrags", {})
+                kwargs = instruction.get("kwargs", {})
                 func = instruction.get("func", lambda x, *_a, **_kw: x)
                 processed[multi_idx_col] = [
-                        func(*values, **kwargs) for values in raw[cols].values
+                        func(*vals, **kwargs) for vals in raw[cols].values
                     ]
     return processed
+
+
+@report_state(
+    status_msg="Transform absolute side reporting to tumor-relative...",
+    success_msg="Transformed absolute side reporting to tumor-relative.",
+)
+@raise_if_args_none(message="Missing data table", level="warning")
+def leftright_to_ipsicontra(data: pd.DataFrame):
+    """
+    Transform reporting of LNL involvement by absolute side (right & left) to a
+    reporting relative to the tumor (ipsi- & contralateral). The table `data` should
+    already be in the format LyProX requires, except for the side-reporting of LNL
+    involvement.
+    """
+    len_before = len(data)
+    left_data = data.loc[
+                data["tumor", "1", "side"] != "right"
+            ]
+    right_data = data.loc[
+                data["tumor", "1", "side"] == "right"
+            ]
+
+    left_data = left_data.rename(columns={"left": "ipsi"}, level=1)
+    left_data = left_data.rename(columns={"right": "contra"}, level=1)
+    right_data = right_data.rename(columns={"left": "contra"}, level=1)
+    right_data = right_data.rename(columns={"right": "ipsi"}, level=1)
+
+    data = pd.concat(
+                [left_data, right_data], ignore_index=True
+            )
+    assert len_before == len(data), "Number of patients changed"
+    return data
 
 
 def main(args: argparse.Namespace):
@@ -141,29 +182,16 @@ def main(args: argparse.Namespace):
         spec.loader.exec_module(mapping)
         report.success(f"Imported mapping instructions from {args.mapping}")
 
-    with report.status("Transform columns..."):
-        processed = transform_to_lyprox(raw, mapping)
-        report.success(f"Transformed {len(mapping.column_map)} columns.")
+    with report.status("Exclude patients..."):
+        len_before = len(raw)
+        for column, condition in mapping.exclude:
+            exclude = raw[column] == condition
+            raw = raw.loc[~exclude]
+        report.success(f"Excluded {len_before - len(raw)} patients.")
+
+    processed = transform_to_lyprox(raw, mapping)
 
     if ("tumor", "1", "side") in processed.columns:
-        with report.status("Tranform 'left'/'right' to 'ipsi'/'contra'..."):
-            len_before = len(processed)
-            left_data = processed.loc[
-                processed["tumor", "1", "side"] != "right"
-            ]
-            right_data = processed.loc[
-                processed["tumor", "1", "side"] == "right"
-            ]
-
-            left_data = left_data.rename(columns={"left": "ipsi"}, level=1)
-            left_data = left_data.rename(columns={"right": "contra"}, level=1)
-            right_data = right_data.rename(columns={"left": "contra"}, level=1)
-            right_data = right_data.rename(columns={"right": "ipsi"}, level=1)
-
-            processed = pd.concat(
-                [left_data, right_data], ignore_index=True
-            )
-            assert len_before == len(processed)
-            report.success("Transformed 'left' & 'right' to 'ipsi' & 'contra'")
+        processed = leftright_to_ipsicontra(processed)
 
     save_table_to_csv(args.output, processed)
