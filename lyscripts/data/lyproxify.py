@@ -79,6 +79,21 @@ class ParsingError(Exception):
     """Error while parsing the CSV file."""
 
 
+def clean_header(
+    table: pd.DataFrame,
+    num_cols: int,
+    num_header_rows: int,
+) -> pd.DataFrame:
+    """Rename the header cells in the `table`."""
+    for col in range(num_cols):
+        for row in range(num_header_rows):
+            table.rename(
+                columns={f"Unnamed: {col}_level_{row}": f"{col}_lvl_{row}"},
+                inplace=True,
+            )
+    return table
+
+
 @report_state(
     status_msg="Transform raw data to LyProX style table...",
     success_msg="Transformed raw data to LyProX style table.",
@@ -214,10 +229,15 @@ def main(args: argparse.Namespace):
                             None)
     ```
     """
-    raw = load_csv_table(args.input, header_row=args.header_rows)
-    cols_to_drop = raw.columns[args.drop_cols]
-    trimmed = raw.drop(cols_to_drop, axis="columns")
-    trimmed = trimmed.drop(index=args.drop_rows)
+    raw: pd.DataFrame = load_csv_table(args.input, header_row=args.header_rows)
+    raw = clean_header(raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows))
+
+    with report.status("Trim rows and columns..."):
+        cols_to_drop = raw.columns[args.drop_cols]
+        trimmed = raw.drop(cols_to_drop, axis="columns")
+        trimmed = trimmed.drop(index=args.drop_rows)
+        trimmed = trimmed.dropna(axis="index", how="all")
+        report.success("Trimmed rows and columns.")
 
     with report.status("Import mapping instructions..."):
         spec = importlib.util.spec_from_file_location("map_module", args.mapping)

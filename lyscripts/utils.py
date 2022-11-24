@@ -7,6 +7,7 @@ It also contains helpers for reporting the script's progress via a slightly cust
 occuring issues to the right place.
 """
 import sys
+from functools import wraps
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
 
@@ -156,6 +157,8 @@ def report_state(
     def assembled_decorator(func: Callable) -> Callable:
         """The decorator that gets returned by `report_state`."""
         with report.status(status_msg):
+
+            @wraps(func)
             def inner(*args, **kwargs):
                 """The wrapped function."""
                 try:
@@ -190,6 +193,7 @@ def raise_if_args_none(message: str, level: str = "warning") -> Callable:
     """
     def assembled_decorator(func: Callable) -> Callable:
         """The decorator that gets returned by `raise_if_args_none`."""
+        @wraps(func)
         def inner(*args, **kwargs) -> Any:
             """The wrapped function."""
             for arg in args:
@@ -212,6 +216,7 @@ def check_input_file_exists(loading_func: Callable) -> Callable:
     `report_func_state`, since some libraries throw other errors when a file is not
     found.
     """
+    @wraps(loading_func)
     def inner(file_path: str, *args, **kwargs) -> Any:
         """Wrapped loading function."""
         file_path = Path(file_path)
@@ -237,6 +242,7 @@ def provide_file(is_binary: bool) -> Callable:
         The assembled decorator that provides the decorated function with either a
         test or binary file.
         """
+        @wraps(loading_func)
         def inner(file_or_path: Union[str, Path, TextIO, BinaryIO], *args, **kwargs):
             """The wrapped function."""
             if isinstance(file_or_path, (str, Path)):
@@ -263,6 +269,7 @@ def provide_text_file(loading_func: Callable) -> Callable:
     Decorator that makes sure the `loading_func` is provided with a file-like object
     regardless of whether the input is a `str`, `Path` or already file-like.
     """
+    @wraps(loading_func)
     def inner(file_or_path: Union[str, Path, TextIO], *args, **kwargs) -> Any:
         """Wrapped loading function."""
         if isinstance(file_or_path, (str, Path)):
@@ -283,6 +290,7 @@ def check_output_dir_exists(saving_func: Callable) -> Callable:
     Decorator to make sure the parent directory of the file that is supposed to be
     saved does exist.
     """
+    @wraps(saving_func)
     def inner(file_path: str, *args, **kwargs) -> Any:
         """Wrapped saving function."""
         file_path = Path(file_path)
