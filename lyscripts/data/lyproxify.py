@@ -145,6 +145,24 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     return data
 
 
+@report_state(
+    status_msg="Exclude patients based on provided mapping module...",
+    success_msg="Excluded patients based on provided mapping module.",
+)
+@raise_if_args_none(message="Raw data and mapping module needed", level="warning")
+def exclude_patients(raw: pd.DataFrame, mapping: ModuleType):
+    """
+    Exclude patients in the `raw` data based on a list called `exclude` in the
+    `mapping` module. This list contains tuples `(column: str, condition: Any)`. This
+    function will then axclude any patients from the cohort where
+    `raw[column] == condition`.
+    """
+    for column, condition in mapping.exclude:
+        exclude = raw[column] == condition
+        raw = raw.loc[~exclude]
+    return raw
+
+
 def main(args: argparse.Namespace):
     """
     The main entry point for the CLI of this command. Upon requesting `lyscripts
@@ -182,13 +200,7 @@ def main(args: argparse.Namespace):
         spec.loader.exec_module(mapping)
         report.success(f"Imported mapping instructions from {args.mapping}")
 
-    with report.status("Exclude patients..."):
-        len_before = len(raw)
-        for column, condition in mapping.exclude:
-            exclude = raw[column] == condition
-            raw = raw.loc[~exclude]
-        report.success(f"Excluded {len_before - len(raw)} patients.")
-
+    raw = exclude_patients(raw, mapping)
     processed = transform_to_lyprox(raw, mapping)
 
     if ("tumor", "1", "side") in processed.columns:
