@@ -10,7 +10,7 @@ import argparse
 import importlib.util
 import warnings
 from pathlib import Path
-from types import ModuleType
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
@@ -50,6 +50,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="List with header row indices of raw file."
     )
     parser.add_argument(
+        "-o", "--output", type=Path, required=True,
+        help="Location to store the lyproxified CSV file."
+    )
+    parser.add_argument(
         "-m", "--mapping", type=Path, required=True,
         help=(
             "Location of the Python file that contains column mapping instructions. "
@@ -57,27 +61,41 @@ def _add_arguments(parser: argparse.ArgumentParser):
         )
     )
     parser.add_argument(
-        "-o", "--output", type=Path, required=True,
-        help="Location to store the lyproxified CSV file."
+        "--drop-rows", nargs="+", type=int, default=[],
+        help=(
+            "Delete rows of specified indices. Counting of rows start at 0 _after_ "
+            "the `header-rows`."
+        )
+    )
+    parser.add_argument(
+        "--drop-cols", nargs="+", type=int, default=[],
+        help="Delete columns of specified indices.",
     )
 
     parser.set_defaults(run_main=main)
 
 
+class ParsingError(Exception):
+    """Error while parsing the CSV file."""
+
+
 @report_state(
     status_msg="Transform raw data to LyProX style table...",
     success_msg="Transformed raw data to LyProX style table.",
+    stop_on_exc=True
 )
 @raise_if_args_none(
     message="Must provide raw data and mapping instruction module",
     level="warning",
 )
-def transform_to_lyprox(raw: pd.DataFrame, mapping: ModuleType) -> pd.DataFrame:
+def transform_to_lyprox(
+    raw: pd.DataFrame,
+    column_map: Dict[Tuple, Dict[str, Any]]
+) -> pd.DataFrame:
     """
     Transform any `raw` data frame into a table that can be uploaded directly to
-    [LyProX](https://lyprox.org). To do so, it imports instructions form the `mapping`
-    module. In it, a dictionary `column_map` must be provided with a particular
-    structure:
+    [LyProX](https://lyprox.org). To do so, it uses instructions in the `colum_map`
+    dictionary, that needs to have a particular structure:
 
     For each column in the final 'lyproxified' `pd.DataFrame`, one entry must exist in
     the `column_map` dctionary. E.g., for the column corresponding to a patient's age,
@@ -92,14 +110,11 @@ def transform_to_lyprox(raw: pd.DataFrame, mapping: ModuleType) -> pd.DataFrame:
         },
     }
     ```
-
-    The example function `compute_age_from_raw` should also be defined in the
-    `mapping` module.
     """
-    multi_idx = pd.MultiIndex.from_tuples(mapping.column_map.keys())
+    multi_idx = pd.MultiIndex.from_tuples(column_map.keys())
     processed = pd.DataFrame(columns=multi_idx)
 
-    for multi_idx_col, instruction in mapping.column_map.items():
+    for multi_idx_col, instruction in column_map.items():
         if instruction != "":
             if "default" in instruction:
                 processed[multi_idx_col] = [instruction["default"]] * len(raw)
@@ -107,15 +122,22 @@ def transform_to_lyprox(raw: pd.DataFrame, mapping: ModuleType) -> pd.DataFrame:
                 cols = instruction.get("columns", [])
                 kwargs = instruction.get("kwargs", {})
                 func = instruction.get("func", lambda x, *_a, **_kw: x)
-                processed[multi_idx_col] = [
+
+                try:
+                    processed[multi_idx_col] = [
                         func(*vals, **kwargs) for vals in raw[cols].values
                     ]
+                except Exception as exc:
+                    raise ParsingError(
+                        f"Exception encountered while parsing column {multi_idx_col}"
+                    ) from exc
     return processed
 
 
 @report_state(
     status_msg="Transform absolute side reporting to tumor-relative...",
     success_msg="Transformed absolute side reporting to tumor-relative.",
+    stop_on_exc=True,
 )
 @raise_if_args_none(message="Missing data table", level="warning")
 def leftright_to_ipsicontra(data: pd.DataFrame):
@@ -148,16 +170,16 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
 @report_state(
     status_msg="Exclude patients based on provided mapping module...",
     success_msg="Excluded patients based on provided mapping module.",
+    stop_on_exc=True,
 )
 @raise_if_args_none(message="Raw data and mapping module needed", level="warning")
-def exclude_patients(raw: pd.DataFrame, mapping: ModuleType):
+def exclude_patients(raw: pd.DataFrame, exclude: List[Tuple[str, Any]]):
     """
-    Exclude patients in the `raw` data based on a list called `exclude` in the
-    `mapping` module. This list contains tuples `(column: str, condition: Any)`. This
-    function will then axclude any patients from the cohort where
-    `raw[column] == condition`.
+    Exclude patients in the `raw` data based on a list of what to `exclude`. This
+    list contains tuples `(column: str, condition: Any)`. This function will then
+    axclude any patients from the cohort where `raw[column] == condition`.
     """
-    for column, condition in mapping.exclude:
+    for column, condition in exclude:
         exclude = raw[column] == condition
         raw = raw.loc[~exclude]
     return raw
@@ -193,6 +215,9 @@ def main(args: argparse.Namespace):
     ```
     """
     raw = load_csv_table(args.input, header_row=args.header_rows)
+    cols_to_drop = raw.columns[args.drop_cols]
+    trimmed = raw.drop(cols_to_drop, axis="columns")
+    trimmed = trimmed.drop(index=args.drop_rows)
 
     with report.status("Import mapping instructions..."):
         spec = importlib.util.spec_from_file_location("map_module", args.mapping)
@@ -200,8 +225,8 @@ def main(args: argparse.Namespace):
         spec.loader.exec_module(mapping)
         report.success(f"Imported mapping instructions from {args.mapping}")
 
-    raw = exclude_patients(raw, mapping)
-    processed = transform_to_lyprox(raw, mapping)
+    reduced = exclude_patients(trimmed, mapping.exclude)
+    processed = transform_to_lyprox(reduced, mapping.column_map)
 
     if ("tumor", "1", "side") in processed.columns:
         processed = leftright_to_ipsicontra(processed)

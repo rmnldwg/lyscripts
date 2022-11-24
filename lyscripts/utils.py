@@ -6,6 +6,7 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
+import sys
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
 
@@ -141,6 +142,7 @@ report_progress = CustomProgress()
 def report_state(
     status_msg: str,
     success_msg: str,
+    stop_on_exc: bool = False,
 ) -> Callable:
     """
     Outermost decorator that catches and gracefully reports exceptions that occur.
@@ -148,7 +150,8 @@ def report_state(
     During the execution of the decorated function, it will display the `status_msg`.
     When successful, the `success_msg` will finally be printed. And if the decorated
     function raises a `LyScriptsError`, then that exception's message will be passed on
-    to the methods of the reporting class/module.
+    to the methods of the reporting class/module. If `stop_on_exc` is set to `True`,
+    the program exits when catching an error.
     """
     def assembled_decorator(func: Callable) -> Callable:
         """The decorator that gets returned by `report_state`."""
@@ -163,7 +166,8 @@ def report_state(
                     getattr(report, level)(msg)
                 except Exception as exc:
                     report.exception(exc)
-                    return None
+                    if stop_on_exc:
+                        sys.exit(1)
                 else:
                     report.success(success_msg)
                     return result
