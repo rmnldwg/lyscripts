@@ -71,6 +71,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--drop-cols", nargs="+", type=int, default=[],
         help="Delete columns of specified indices.",
     )
+    parser.add_argument(
+        "--add-index", action="store_true",
+        help="If the data doesn't contain an index, add one by enumerating the patients"
+    )
 
     parser.set_defaults(run_main=main)
 
@@ -238,6 +242,11 @@ def main(args: argparse.Namespace):
         trimmed = trimmed.drop(index=args.drop_rows)
         trimmed = trimmed.dropna(axis="index", how="all")
         report.success("Trimmed rows and columns.")
+
+    if args.add_index:
+        with report.status("Add index column to data..."):
+            trimmed["patient", "#", "id"] = list(range(len(trimmed)))
+            report.success("Added index column to data.")
 
     with report.status("Import mapping instructions..."):
         spec = importlib.util.spec_from_file_location("map_module", args.mapping)
