@@ -152,8 +152,12 @@ def report_state(
     During the execution of the decorated function, it will display the `status_msg`.
     When successful, the `success_msg` will finally be printed. And if the decorated
     function raises a `LyScriptsError`, then that exception's message will be passed on
-    to the methods of the reporting class/module. If `stop_on_exc` is set to `True`,
-    the program exits when catching an error.
+    to the methods of the reporting class/module.
+
+    If `stop_on_exc` is set to `True`, the program exits when catching an error. And
+    lastly, with `verbose=False`, one can turn off the reporting entirely which may
+    in turn be overrridden when calling the decorated function with `verbose=True` and
+    vice versa.
     """
     def assembled_decorator(func: Callable) -> Callable:
         """The decorator that gets returned by `report_state`."""

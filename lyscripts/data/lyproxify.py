@@ -187,19 +187,30 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
 
 
 @report_state(
-    status_msg="Exclude patients based on provided mapping module...",
-    success_msg="Excluded patients based on provided mapping module.",
+    status_msg="Exclude patients based on provided exclusion criteria...",
+    success_msg="Excluded patients based on provided exclusion criteria.",
     stop_on_exc=True,
 )
-@raise_if_args_none(message="Raw data and mapping module needed", level="warning")
+@raise_if_args_none(message="Raw data and exclusion criteria needed", level="warning")
 def exclude_patients(raw: pd.DataFrame, exclude: List[Tuple[str, Any]]):
     """
     Exclude patients in the `raw` data based on a list of what to `exclude`. This
-    list contains tuples `(column: str, condition: Any)`. This function will then
-    axclude any patients from the cohort where `raw[column] == condition`.
+    list contains tuples `(column, check)`. The `check` function will then exclude
+    any patients from the cohort where `check(raw[column])` evaluates to `True`.
+
+    Example:
+    >>> exclude = [("age", lambda s: s > 50)]
+    >>> table = pd.DataFrame({
+    ...     "age":        [43, 82, 18, 67],
+    ...     "T-category": [ 3,  4,  2,  1],
+    ... })
+    >>> exclude_patients(table, exclude, verbose=False)
+       age  T-category
+    0   43           3
+    2   18           2
     """
-    for column, condition in exclude:
-        exclude = raw[column] == condition
+    for column, check in exclude:
+        exclude = check(raw[column])
         raw = raw.loc[~exclude]
     return raw
 
