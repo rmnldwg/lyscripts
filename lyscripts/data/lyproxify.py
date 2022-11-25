@@ -222,7 +222,10 @@ def main(args: argparse.Namespace):
 
     ```
     USAGE: lyscripts data lyproxify [-h] -i INPUT [-r HEADER_ROWS [HEADER_ROWS ...]]
-                                    -m MAPPING -o OUTPUT
+                                    -o OUTPUT -m MAPPING
+                                    [--drop-rows DROP_ROWS [DROP_ROWS ...]]
+                                    [--drop-cols DROP_COLS [DROP_COLS ...]]
+                                    [--add-index]
 
     Consumes raw data and transforms it into a CSV of the format that LyProX can
     understand.
@@ -236,12 +239,19 @@ def main(args: argparse.Namespace):
       -i, --input INPUT     Location of raw CSV data. (default: None)
       -r, --header-rows HEADER_ROWS [HEADER_ROWS ...]
                             List with header row indices of raw file. (default: [0])
+      -o, --output OUTPUT   Location to store the lyproxified CSV file. (default:
+                            None)
       -m, --mapping MAPPING
                             Location of the Python file that contains column mapping
                             instructions. This must contain a dictionary with the name
                             'column_map'. (default: None)
-      -o, --output OUTPUT   Location to store the lyproxified CSV file. (default:
-                            None)
+      --drop-rows DROP_ROWS [DROP_ROWS ...]
+                            Delete rows of specified indices. Counting of rows start
+                            at 0 _after_ the `header-rows`. (default: [])
+      --drop-cols DROP_COLS [DROP_COLS ...]
+                            Delete columns of specified indices. (default: [])
+      --add-index           If the data doesn't contain an index, add one by
+                            enumerating the patients (default: False)
     ```
     """
     raw: pd.DataFrame = load_csv_table(args.input, header_row=args.header_rows)
