@@ -1,3 +1,10 @@
+<a name="0.6.3"></a>
+## [0.6.3]
+
+### Bug Fixes
+- `lyproxify`: apply re-indexing only _after_ excluding patients
+
+
 <a name="0.6.2"></a>
 ## [0.6.2] - 2022-11-25
 
