@@ -6,6 +6,8 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
+import sys
+from functools import wraps
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
 
@@ -141,6 +143,8 @@ report_progress = CustomProgress()
 def report_state(
     status_msg: str,
     success_msg: str,
+    stop_on_exc: bool = False,
+    verbose: bool = True,
 ) -> Callable:
     """
     Outermost decorator that catches and gracefully reports exceptions that occur.
@@ -149,12 +153,26 @@ def report_state(
     When successful, the `success_msg` will finally be printed. And if the decorated
     function raises a `LyScriptsError`, then that exception's message will be passed on
     to the methods of the reporting class/module.
+
+    If `stop_on_exc` is set to `True`, the program exits when catching an error. And
+    lastly, with `verbose=False`, one can turn off the reporting entirely which may
+    in turn be overrridden when calling the decorated function with `verbose=True` and
+    vice versa.
     """
     def assembled_decorator(func: Callable) -> Callable:
         """The decorator that gets returned by `report_state`."""
-        with report.status(status_msg):
-            def inner(*args, **kwargs):
-                """The wrapped function."""
+        default_verbosity = verbose
+
+        @wraps(func)
+        def inner(*args, **kwargs):
+            """The wrapped function."""
+            verbose = kwargs.pop("verbose", default_verbosity)
+            try:
+                report.quiet = not verbose
+            except AttributeError:
+                pass
+
+            with report.status(status_msg):
                 try:
                     result = func(*args, **kwargs)
                 except LyScriptsWarning as ly_err:
@@ -163,7 +181,8 @@ def report_state(
                     getattr(report, level)(msg)
                 except Exception as exc:
                     report.exception(exc)
-                    return None
+                    if stop_on_exc:
+                        sys.exit(1)
                 else:
                     report.success(success_msg)
                     return result
@@ -186,6 +205,7 @@ def raise_if_args_none(message: str, level: str = "warning") -> Callable:
     """
     def assembled_decorator(func: Callable) -> Callable:
         """The decorator that gets returned by `raise_if_args_none`."""
+        @wraps(func)
         def inner(*args, **kwargs) -> Any:
             """The wrapped function."""
             for arg in args:
@@ -208,6 +228,7 @@ def check_input_file_exists(loading_func: Callable) -> Callable:
     `report_func_state`, since some libraries throw other errors when a file is not
     found.
     """
+    @wraps(loading_func)
     def inner(file_path: str, *args, **kwargs) -> Any:
         """Wrapped loading function."""
         file_path = Path(file_path)
@@ -233,6 +254,7 @@ def provide_file(is_binary: bool) -> Callable:
         The assembled decorator that provides the decorated function with either a
         test or binary file.
         """
+        @wraps(loading_func)
         def inner(file_or_path: Union[str, Path, TextIO, BinaryIO], *args, **kwargs):
             """The wrapped function."""
             if isinstance(file_or_path, (str, Path)):
@@ -259,6 +281,7 @@ def provide_text_file(loading_func: Callable) -> Callable:
     Decorator that makes sure the `loading_func` is provided with a file-like object
     regardless of whether the input is a `str`, `Path` or already file-like.
     """
+    @wraps(loading_func)
     def inner(file_or_path: Union[str, Path, TextIO], *args, **kwargs) -> Any:
         """Wrapped loading function."""
         if isinstance(file_or_path, (str, Path)):
@@ -279,6 +302,7 @@ def check_output_dir_exists(saving_func: Callable) -> Callable:
     Decorator to make sure the parent directory of the file that is supposed to be
     saved does exist.
     """
+    @wraps(saving_func)
     def inner(file_path: str, *args, **kwargs) -> Any:
         """Wrapped saving function."""
         file_path = Path(file_path)

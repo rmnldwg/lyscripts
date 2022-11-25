@@ -2,6 +2,7 @@
 .. include:: ../README.md
 """
 import argparse
+import re
 
 from rich.containers import Lines
 from rich.text import Text
@@ -9,7 +10,7 @@ from rich_argparse import RichHelpFormatter
 
 from lyscripts.utils import report
 
-from . import app, data, evaluate, plot, predict, sample, temp_schedule, utils
+from . import app, data, evaluate, plot, predict, sample, temp_schedule
 from ._version import version
 
 __version__ = version
@@ -69,10 +70,13 @@ def exit_cli(args: argparse.Namespace):
         report.print("No command chosen. Exiting...")
 
 def main():
-    """The main entry point of the CLI."""
+    """
+    Utility for performing common tasks w.r.t. the inference and prediction tasks one
+    can use the `lymph` package for.
+    """
     parser = argparse.ArgumentParser(
         prog="lyscripts",
-        description=__doc__,
+        description=re.sub(r"\s+", " ", main.__doc__)[1:],
         formatter_class=RichDefaultHelpFormatter,
     )
     parser.set_defaults(run_main=exit_cli)
