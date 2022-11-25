@@ -144,6 +144,7 @@ def report_state(
     status_msg: str,
     success_msg: str,
     stop_on_exc: bool = False,
+    verbose: bool = True,
 ) -> Callable:
     """
     Outermost decorator that catches and gracefully reports exceptions that occur.
@@ -156,11 +157,18 @@ def report_state(
     """
     def assembled_decorator(func: Callable) -> Callable:
         """The decorator that gets returned by `report_state`."""
-        with report.status(status_msg):
+        default_verbosity = verbose
 
-            @wraps(func)
-            def inner(*args, **kwargs):
-                """The wrapped function."""
+        @wraps(func)
+        def inner(*args, **kwargs):
+            """The wrapped function."""
+            verbose = kwargs.pop("verbose", default_verbosity)
+            try:
+                report.quiet = not verbose
+            except AttributeError:
+                pass
+
+            with report.status(status_msg):
                 try:
                     result = func(*args, **kwargs)
                 except LyScriptsWarning as ly_err:
