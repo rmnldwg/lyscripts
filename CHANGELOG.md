@@ -1,3 +1,21 @@
+<a name="0.6.2"></a>
+## [0.6.2] - 2022-11-25
+
+### Bug Fixes
+- `lyproxify` cleans empty header cell names
+
+### Documentation
+- update lyproxify's `main` docstring
+- improve `report_state` & `exclude_patients` documentation
+- update top-level `lyproxify` help in README.md
+
+### Features
+- allow muting `report_state` decorator globally for a decorated function, while also allowing to override the verbosity per function call
+- allow adding an index column during `lyproxify`
+- add options to `lyproxify` for dropping rows and columns before starting transformation of raw data
+- the `report_state` decorator can now be configured to exit the program when encountering an unexpected exception
+
+
 <a name="0.6.1"></a>
 ## [0.6.1] - 2022-11-24
 
@@ -179,7 +197,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.1...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.2...HEAD
+[0.6.2]: https://github.com/rmnldwg/lyscripts/compare/0.6.1...0.6.2
 [0.6.1]: https://github.com/rmnldwg/lyscripts/compare/0.6.0...0.6.1
 [0.6.0]: https://github.com/rmnldwg/lyscripts/compare/0.5.11...0.6.0
 [0.5.11]: https://github.com/rmnldwg/lyscripts/compare/0.5.10...0.5.11
