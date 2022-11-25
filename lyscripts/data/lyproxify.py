@@ -274,7 +274,7 @@ def main(args: argparse.Namespace):
 
     if args.add_index:
         with report.status("Add index column to data..."):
-            trimmed["patient", "#", "id"] = list(range(len(trimmed)))
+            reduced.insert(0, ("patient", "#", "id"), list(range(len(reduced))))
             report.success("Added index column to data.")
 
     processed = transform_to_lyprox(reduced, mapping.column_map)
