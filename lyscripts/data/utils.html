@@ -128,30 +128,26 @@
                 <section id="save_table_to_csv">
                             <input id="save_table_to_csv-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
-            
+                    <div class="decorator">@report_state(status_msg=&#39;Save processed CSV file...&#39;, success_msg=&#39;Saved processed CSV file.&#39;)</div>
+        <div class="decorator">@check_output_dir_exists</div>
+        <div class="decorator">@raise_if_args_none(message=&#39;Specify table to save&#39;, level=&#39;warning&#39;)</div>
+
         <span class="def">def</span>
-        <span class="name">save_table_to_csv</span><span class="signature pdoc-code condensed">(<span class="param"><span class="o">*</span><span class="n">args</span>, </span><span class="param"><span class="o">**</span><span class="n">kwargs</span></span><span class="return-annotation">):</span></span>
+        <span class="name">save_table_to_csv</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">output_path</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span>, </span><span class="param"><span class="n">table</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span></span><span class="return-annotation">):</span></span>
 
                 <label class="view-source-button" for="save_table_to_csv-view-source"><span>View Source</span></label>
 
     </div>
     <a class="headerlink" href="#save_table_to_csv"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="save_table_to_csv-157"><a href="#save_table_to_csv-157"><span class="linenos">157</span></a>            <span class="k">def</span> <span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span id="save_table_to_csv-158"><a href="#save_table_to_csv-158"><span class="linenos">158</span></a>                <span class="sd">&quot;&quot;&quot;The wrapped function.&quot;&quot;&quot;</span>
-</span><span id="save_table_to_csv-159"><a href="#save_table_to_csv-159"><span class="linenos">159</span></a>                <span class="k">try</span><span class="p">:</span>
-</span><span id="save_table_to_csv-160"><a href="#save_table_to_csv-160"><span class="linenos">160</span></a>                    <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="save_table_to_csv-161"><a href="#save_table_to_csv-161"><span class="linenos">161</span></a>                <span class="k">except</span> <span class="n">LyScriptsWarning</span> <span class="k">as</span> <span class="n">ly_err</span><span class="p">:</span>
-</span><span id="save_table_to_csv-162"><a href="#save_table_to_csv-162"><span class="linenos">162</span></a>                    <span class="n">msg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">))</span>
-</span><span id="save_table_to_csv-163"><a href="#save_table_to_csv-163"><span class="linenos">163</span></a>                    <span class="n">level</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">,</span> <span class="s2">&quot;level&quot;</span><span class="p">,</span> <span class="s2">&quot;info&quot;</span><span class="p">)</span>
-</span><span id="save_table_to_csv-164"><a href="#save_table_to_csv-164"><span class="linenos">164</span></a>                    <span class="nb">getattr</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">level</span><span class="p">)(</span><span class="n">msg</span><span class="p">)</span>
-</span><span id="save_table_to_csv-165"><a href="#save_table_to_csv-165"><span class="linenos">165</span></a>                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="save_table_to_csv-166"><a href="#save_table_to_csv-166"><span class="linenos">166</span></a>                    <span class="n">report</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-</span><span id="save_table_to_csv-167"><a href="#save_table_to_csv-167"><span class="linenos">167</span></a>                    <span class="k">return</span> <span class="kc">None</span>
-</span><span id="save_table_to_csv-168"><a href="#save_table_to_csv-168"><span class="linenos">168</span></a>                <span class="k">else</span><span class="p">:</span>
-</span><span id="save_table_to_csv-169"><a href="#save_table_to_csv-169"><span class="linenos">169</span></a>                    <span class="n">report</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="n">success_msg</span><span class="p">)</span>
-</span><span id="save_table_to_csv-170"><a href="#save_table_to_csv-170"><span class="linenos">170</span></a>                    <span class="k">return</span> <span class="n">result</span>
-</span><span id="save_table_to_csv-171"><a href="#save_table_to_csv-171"><span class="linenos">171</span></a>
-</span><span id="save_table_to_csv-172"><a href="#save_table_to_csv-172"><span class="linenos">172</span></a>                <span class="k">return</span> <span class="kc">None</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="save_table_to_csv-18"><a href="#save_table_to_csv-18"><span class="linenos">18</span></a><span class="nd">@report_state</span><span class="p">(</span>
+</span><span id="save_table_to_csv-19"><a href="#save_table_to_csv-19"><span class="linenos">19</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Save processed CSV file...&quot;</span><span class="p">,</span>
+</span><span id="save_table_to_csv-20"><a href="#save_table_to_csv-20"><span class="linenos">20</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved processed CSV file.&quot;</span><span class="p">,</span>
+</span><span id="save_table_to_csv-21"><a href="#save_table_to_csv-21"><span class="linenos">21</span></a><span class="p">)</span>
+</span><span id="save_table_to_csv-22"><a href="#save_table_to_csv-22"><span class="linenos">22</span></a><span class="nd">@check_output_dir_exists</span>
+</span><span id="save_table_to_csv-23"><a href="#save_table_to_csv-23"><span class="linenos">23</span></a><span class="nd">@raise_if_args_none</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Specify table to save&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;warning&quot;</span><span class="p">)</span>
+</span><span id="save_table_to_csv-24"><a href="#save_table_to_csv-24"><span class="linenos">24</span></a><span class="k">def</span> <span class="nf">save_table_to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+</span><span id="save_table_to_csv-25"><a href="#save_table_to_csv-25"><span class="linenos">25</span></a>    <span class="sd">&quot;&quot;&quot;Save a `pd.DataFrame` to `output_path`.&quot;&quot;&quot;</span>
+</span><span id="save_table_to_csv-26"><a href="#save_table_to_csv-26"><span class="linenos">26</span></a>    <span class="n">table</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -163,30 +159,29 @@
                 <section id="load_csv_table">
                             <input id="load_csv_table-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
-            
+                    <div class="decorator">@report_state(status_msg=&#39;Load input CSV file...&#39;, success_msg=&#39;Loaded input CSV file.&#39;)</div>
+        <div class="decorator">@check_input_file_exists</div>
+        <div class="decorator">@raise_if_args_none(message=&#39;Header rows must be specified&#39;, level=&#39;warning&#39;)</div>
+
         <span class="def">def</span>
-        <span class="name">load_csv_table</span><span class="signature pdoc-code condensed">(<span class="param"><span class="o">*</span><span class="n">args</span>, </span><span class="param"><span class="o">**</span><span class="n">kwargs</span></span><span class="return-annotation">):</span></span>
+        <span class="name">load_csv_table</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">input_path</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span>,</span><span class="param">	<span class="n">header_row</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
 
                 <label class="view-source-button" for="load_csv_table-view-source"><span>View Source</span></label>
 
     </div>
     <a class="headerlink" href="#load_csv_table"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="load_csv_table-157"><a href="#load_csv_table-157"><span class="linenos">157</span></a>            <span class="k">def</span> <span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span id="load_csv_table-158"><a href="#load_csv_table-158"><span class="linenos">158</span></a>                <span class="sd">&quot;&quot;&quot;The wrapped function.&quot;&quot;&quot;</span>
-</span><span id="load_csv_table-159"><a href="#load_csv_table-159"><span class="linenos">159</span></a>                <span class="k">try</span><span class="p">:</span>
-</span><span id="load_csv_table-160"><a href="#load_csv_table-160"><span class="linenos">160</span></a>                    <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="load_csv_table-161"><a href="#load_csv_table-161"><span class="linenos">161</span></a>                <span class="k">except</span> <span class="n">LyScriptsWarning</span> <span class="k">as</span> <span class="n">ly_err</span><span class="p">:</span>
-</span><span id="load_csv_table-162"><a href="#load_csv_table-162"><span class="linenos">162</span></a>                    <span class="n">msg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">))</span>
-</span><span id="load_csv_table-163"><a href="#load_csv_table-163"><span class="linenos">163</span></a>                    <span class="n">level</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">,</span> <span class="s2">&quot;level&quot;</span><span class="p">,</span> <span class="s2">&quot;info&quot;</span><span class="p">)</span>
-</span><span id="load_csv_table-164"><a href="#load_csv_table-164"><span class="linenos">164</span></a>                    <span class="nb">getattr</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">level</span><span class="p">)(</span><span class="n">msg</span><span class="p">)</span>
-</span><span id="load_csv_table-165"><a href="#load_csv_table-165"><span class="linenos">165</span></a>                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="load_csv_table-166"><a href="#load_csv_table-166"><span class="linenos">166</span></a>                    <span class="n">report</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-</span><span id="load_csv_table-167"><a href="#load_csv_table-167"><span class="linenos">167</span></a>                    <span class="k">return</span> <span class="kc">None</span>
-</span><span id="load_csv_table-168"><a href="#load_csv_table-168"><span class="linenos">168</span></a>                <span class="k">else</span><span class="p">:</span>
-</span><span id="load_csv_table-169"><a href="#load_csv_table-169"><span class="linenos">169</span></a>                    <span class="n">report</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="n">success_msg</span><span class="p">)</span>
-</span><span id="load_csv_table-170"><a href="#load_csv_table-170"><span class="linenos">170</span></a>                    <span class="k">return</span> <span class="n">result</span>
-</span><span id="load_csv_table-171"><a href="#load_csv_table-171"><span class="linenos">171</span></a>
-</span><span id="load_csv_table-172"><a href="#load_csv_table-172"><span class="linenos">172</span></a>                <span class="k">return</span> <span class="kc">None</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="load_csv_table-29"><a href="#load_csv_table-29"><span class="linenos">29</span></a><span class="nd">@report_state</span><span class="p">(</span>
+</span><span id="load_csv_table-30"><a href="#load_csv_table-30"><span class="linenos">30</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Load input CSV file...&quot;</span><span class="p">,</span>
+</span><span id="load_csv_table-31"><a href="#load_csv_table-31"><span class="linenos">31</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded input CSV file.&quot;</span><span class="p">,</span>
+</span><span id="load_csv_table-32"><a href="#load_csv_table-32"><span class="linenos">32</span></a><span class="p">)</span>
+</span><span id="load_csv_table-33"><a href="#load_csv_table-33"><span class="linenos">33</span></a><span class="nd">@check_input_file_exists</span>
+</span><span id="load_csv_table-34"><a href="#load_csv_table-34"><span class="linenos">34</span></a><span class="nd">@raise_if_args_none</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Header rows must be specified&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;warning&quot;</span><span class="p">)</span>
+</span><span id="load_csv_table-35"><a href="#load_csv_table-35"><span class="linenos">35</span></a><span class="k">def</span> <span class="nf">load_csv_table</span><span class="p">(</span><span class="n">input_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">header_row</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+</span><span id="load_csv_table-36"><a href="#load_csv_table-36"><span class="linenos">36</span></a>    <span class="sd">&quot;&quot;&quot;</span>
+</span><span id="load_csv_table-37"><a href="#load_csv_table-37"><span class="linenos">37</span></a><span class="sd">    Load a CSV table from `input_path` into a `pd.DataFrame` where the list `header`</span>
+</span><span id="load_csv_table-38"><a href="#load_csv_table-38"><span class="linenos">38</span></a><span class="sd">    defines which rows make up the column names.</span>
+</span><span id="load_csv_table-39"><a href="#load_csv_table-39"><span class="linenos">39</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="load_csv_table-40"><a href="#load_csv_table-40"><span class="linenos">40</span></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header_row</span><span class="p">)</span>
 </span></pre></div>
 
 

@@ -985,30 +985,24 @@ have defined.</p>
                 <section id="use_mpl_stylesheet">
                             <input id="use_mpl_stylesheet-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
-            
+                    <div class="decorator">@report_state(status_msg=&#39;Load MPL stylesheet...&#39;, success_msg=&#39;Loaded MPL stylesheet.&#39;)</div>
+        <div class="decorator">@check_input_file_exists</div>
+
         <span class="def">def</span>
-        <span class="name">use_mpl_stylesheet</span><span class="signature pdoc-code condensed">(<span class="param"><span class="o">*</span><span class="n">args</span>, </span><span class="param"><span class="o">**</span><span class="n">kwargs</span></span><span class="return-annotation">):</span></span>
+        <span class="name">use_mpl_stylesheet</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">file_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span></span><span class="return-annotation">):</span></span>
 
                 <label class="view-source-button" for="use_mpl_stylesheet-view-source"><span>View Source</span></label>
 
     </div>
     <a class="headerlink" href="#use_mpl_stylesheet"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="use_mpl_stylesheet-157"><a href="#use_mpl_stylesheet-157"><span class="linenos">157</span></a>            <span class="k">def</span> <span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span id="use_mpl_stylesheet-158"><a href="#use_mpl_stylesheet-158"><span class="linenos">158</span></a>                <span class="sd">&quot;&quot;&quot;The wrapped function.&quot;&quot;&quot;</span>
-</span><span id="use_mpl_stylesheet-159"><a href="#use_mpl_stylesheet-159"><span class="linenos">159</span></a>                <span class="k">try</span><span class="p">:</span>
-</span><span id="use_mpl_stylesheet-160"><a href="#use_mpl_stylesheet-160"><span class="linenos">160</span></a>                    <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="use_mpl_stylesheet-161"><a href="#use_mpl_stylesheet-161"><span class="linenos">161</span></a>                <span class="k">except</span> <span class="n">LyScriptsWarning</span> <span class="k">as</span> <span class="n">ly_err</span><span class="p">:</span>
-</span><span id="use_mpl_stylesheet-162"><a href="#use_mpl_stylesheet-162"><span class="linenos">162</span></a>                    <span class="n">msg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">))</span>
-</span><span id="use_mpl_stylesheet-163"><a href="#use_mpl_stylesheet-163"><span class="linenos">163</span></a>                    <span class="n">level</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">,</span> <span class="s2">&quot;level&quot;</span><span class="p">,</span> <span class="s2">&quot;info&quot;</span><span class="p">)</span>
-</span><span id="use_mpl_stylesheet-164"><a href="#use_mpl_stylesheet-164"><span class="linenos">164</span></a>                    <span class="nb">getattr</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">level</span><span class="p">)(</span><span class="n">msg</span><span class="p">)</span>
-</span><span id="use_mpl_stylesheet-165"><a href="#use_mpl_stylesheet-165"><span class="linenos">165</span></a>                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="use_mpl_stylesheet-166"><a href="#use_mpl_stylesheet-166"><span class="linenos">166</span></a>                    <span class="n">report</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-</span><span id="use_mpl_stylesheet-167"><a href="#use_mpl_stylesheet-167"><span class="linenos">167</span></a>                    <span class="k">return</span> <span class="kc">None</span>
-</span><span id="use_mpl_stylesheet-168"><a href="#use_mpl_stylesheet-168"><span class="linenos">168</span></a>                <span class="k">else</span><span class="p">:</span>
-</span><span id="use_mpl_stylesheet-169"><a href="#use_mpl_stylesheet-169"><span class="linenos">169</span></a>                    <span class="n">report</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="n">success_msg</span><span class="p">)</span>
-</span><span id="use_mpl_stylesheet-170"><a href="#use_mpl_stylesheet-170"><span class="linenos">170</span></a>                    <span class="k">return</span> <span class="n">result</span>
-</span><span id="use_mpl_stylesheet-171"><a href="#use_mpl_stylesheet-171"><span class="linenos">171</span></a>
-</span><span id="use_mpl_stylesheet-172"><a href="#use_mpl_stylesheet-172"><span class="linenos">172</span></a>                <span class="k">return</span> <span class="kc">None</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="use_mpl_stylesheet-279"><a href="#use_mpl_stylesheet-279"><span class="linenos">279</span></a><span class="nd">@report_state</span><span class="p">(</span>
+</span><span id="use_mpl_stylesheet-280"><a href="#use_mpl_stylesheet-280"><span class="linenos">280</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Load MPL stylesheet...&quot;</span><span class="p">,</span>
+</span><span id="use_mpl_stylesheet-281"><a href="#use_mpl_stylesheet-281"><span class="linenos">281</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded MPL stylesheet.&quot;</span><span class="p">,</span>
+</span><span id="use_mpl_stylesheet-282"><a href="#use_mpl_stylesheet-282"><span class="linenos">282</span></a><span class="p">)</span>
+</span><span id="use_mpl_stylesheet-283"><a href="#use_mpl_stylesheet-283"><span class="linenos">283</span></a><span class="nd">@check_input_file_exists</span>
+</span><span id="use_mpl_stylesheet-284"><a href="#use_mpl_stylesheet-284"><span class="linenos">284</span></a><span class="k">def</span> <span class="nf">use_mpl_stylesheet</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
+</span><span id="use_mpl_stylesheet-285"><a href="#use_mpl_stylesheet-285"><span class="linenos">285</span></a>    <span class="sd">&quot;&quot;&quot;Load a `.mplstyle` stylesheet from `file_path`.&quot;&quot;&quot;</span>
+</span><span id="use_mpl_stylesheet-286"><a href="#use_mpl_stylesheet-286"><span class="linenos">286</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -1020,30 +1014,29 @@ have defined.</p>
                 <section id="save_figure">
                             <input id="save_figure-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
-            
+                    <div class="decorator">@report_state(status_msg=&#39;Save matplotlib figure...&#39;, success_msg=&#39;Saved matplotlib figure.&#39;)</div>
+        <div class="decorator">@check_output_dir_exists</div>
+
         <span class="def">def</span>
-        <span class="name">save_figure</span><span class="signature pdoc-code condensed">(<span class="param"><span class="o">*</span><span class="n">args</span>, </span><span class="param"><span class="o">**</span><span class="n">kwargs</span></span><span class="return-annotation">):</span></span>
+        <span class="name">save_figure</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">output_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span>,</span><span class="param">	<span class="n">figure</span><span class="p">:</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">Figure</span>,</span><span class="param">	<span class="n">formats</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">NoneType</span><span class="p">]</span></span><span class="return-annotation">):</span></span>
 
                 <label class="view-source-button" for="save_figure-view-source"><span>View Source</span></label>
 
     </div>
     <a class="headerlink" href="#save_figure"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="save_figure-157"><a href="#save_figure-157"><span class="linenos">157</span></a>            <span class="k">def</span> <span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span id="save_figure-158"><a href="#save_figure-158"><span class="linenos">158</span></a>                <span class="sd">&quot;&quot;&quot;The wrapped function.&quot;&quot;&quot;</span>
-</span><span id="save_figure-159"><a href="#save_figure-159"><span class="linenos">159</span></a>                <span class="k">try</span><span class="p">:</span>
-</span><span id="save_figure-160"><a href="#save_figure-160"><span class="linenos">160</span></a>                    <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="save_figure-161"><a href="#save_figure-161"><span class="linenos">161</span></a>                <span class="k">except</span> <span class="n">LyScriptsWarning</span> <span class="k">as</span> <span class="n">ly_err</span><span class="p">:</span>
-</span><span id="save_figure-162"><a href="#save_figure-162"><span class="linenos">162</span></a>                    <span class="n">msg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">))</span>
-</span><span id="save_figure-163"><a href="#save_figure-163"><span class="linenos">163</span></a>                    <span class="n">level</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ly_err</span><span class="p">,</span> <span class="s2">&quot;level&quot;</span><span class="p">,</span> <span class="s2">&quot;info&quot;</span><span class="p">)</span>
-</span><span id="save_figure-164"><a href="#save_figure-164"><span class="linenos">164</span></a>                    <span class="nb">getattr</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">level</span><span class="p">)(</span><span class="n">msg</span><span class="p">)</span>
-</span><span id="save_figure-165"><a href="#save_figure-165"><span class="linenos">165</span></a>                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="save_figure-166"><a href="#save_figure-166"><span class="linenos">166</span></a>                    <span class="n">report</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-</span><span id="save_figure-167"><a href="#save_figure-167"><span class="linenos">167</span></a>                    <span class="k">return</span> <span class="kc">None</span>
-</span><span id="save_figure-168"><a href="#save_figure-168"><span class="linenos">168</span></a>                <span class="k">else</span><span class="p">:</span>
-</span><span id="save_figure-169"><a href="#save_figure-169"><span class="linenos">169</span></a>                    <span class="n">report</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="n">success_msg</span><span class="p">)</span>
-</span><span id="save_figure-170"><a href="#save_figure-170"><span class="linenos">170</span></a>                    <span class="k">return</span> <span class="n">result</span>
-</span><span id="save_figure-171"><a href="#save_figure-171"><span class="linenos">171</span></a>
-</span><span id="save_figure-172"><a href="#save_figure-172"><span class="linenos">172</span></a>                <span class="k">return</span> <span class="kc">None</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="save_figure-289"><a href="#save_figure-289"><span class="linenos">289</span></a><span class="nd">@report_state</span><span class="p">(</span>
+</span><span id="save_figure-290"><a href="#save_figure-290"><span class="linenos">290</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Save matplotlib figure...&quot;</span><span class="p">,</span>
+</span><span id="save_figure-291"><a href="#save_figure-291"><span class="linenos">291</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved matplotlib figure.&quot;</span><span class="p">,</span>
+</span><span id="save_figure-292"><a href="#save_figure-292"><span class="linenos">292</span></a><span class="p">)</span>
+</span><span id="save_figure-293"><a href="#save_figure-293"><span class="linenos">293</span></a><span class="nd">@check_output_dir_exists</span>
+</span><span id="save_figure-294"><a href="#save_figure-294"><span class="linenos">294</span></a><span class="k">def</span> <span class="nf">save_figure</span><span class="p">(</span>
+</span><span id="save_figure-295"><a href="#save_figure-295"><span class="linenos">295</span></a>    <span class="n">output_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+</span><span id="save_figure-296"><a href="#save_figure-296"><span class="linenos">296</span></a>    <span class="n">figure</span><span class="p">:</span> <span class="n">Figure</span><span class="p">,</span>
+</span><span id="save_figure-297"><a href="#save_figure-297"><span class="linenos">297</span></a>    <span class="n">formats</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+</span><span id="save_figure-298"><a href="#save_figure-298"><span class="linenos">298</span></a><span class="p">):</span>
+</span><span id="save_figure-299"><a href="#save_figure-299"><span class="linenos">299</span></a>    <span class="sd">&quot;&quot;&quot;Save a `figure` to `output_path` in every one of the provided `formats`.&quot;&quot;&quot;</span>
+</span><span id="save_figure-300"><a href="#save_figure-300"><span class="linenos">300</span></a>    <span class="k">for</span> <span class="n">frmt</span> <span class="ow">in</span> <span class="n">formats</span><span class="p">:</span>
+</span><span id="save_figure-301"><a href="#save_figure-301"><span class="linenos">301</span></a>        <span class="n">figure</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">frmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
 </span></pre></div>
 
 
