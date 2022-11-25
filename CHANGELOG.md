@@ -1,3 +1,11 @@
+<a name="0.6.3"></a>
+## [0.6.3]
+
+### Bug Fixes
+- `lyproxify`: apply re-indexing only _after_ excluding patients
+- fix `SettingWithCopyWarning` during re-indexing in `lyproxify`
+
+
 <a name="0.6.2"></a>
 ## [0.6.2] - 2022-11-25
 
