@@ -92,6 +92,14 @@ class Histogram:
                 kwargs["label"] = get_label(dataset.attrs)
             return cls(values=dataset[:], scale=scale, kwargs=kwargs)
 
+    def to_hdf5(self, filename, dataname, mode="a"):
+        """Store data & information necessary to recreate the plot in an HDF5 file."""
+        filename = Path(filename)
+        with h5py.File(filename, mode=mode) as h5file:
+            dataset = h5file.create_dataset(dataname, data=self.values / self.scale)
+            for key, val in self.kwargs.items():
+                dataset.attrs[key] = val
+
     def left_percentile(self, percent: float) -> float:
         """Compute the point where `percent` of the values are to the left."""
         return np.percentile(self.values, percent)
@@ -123,6 +131,23 @@ class Posterior:
                 ) from key_err
 
         return cls(num_success, num_total, scale=scale, kwargs=kwargs)
+
+    def to_hdf5(self, filename, dataname, mode="a"):
+        """Store data & information necessary to recreate the plot in an HDF5 file."""
+        filename = Path(filename)
+        with h5py.File(filename, mode=mode) as h5file:
+            try:
+                dataset = h5file[dataname]
+            except KeyError as key_err:
+                raise KeyError(
+                    "Observed prevalence must be stored in dataset alongside values "
+                    "for predicted prevalence."
+                ) from key_err
+
+            dataset.attrs["num_match"] = self.num_success
+            dataset.attrs["num_total"] = self.num_total
+            for key, val in self.kwargs.items():
+                dataset.attrs[key] = val
 
     @property
     def num_fail(self):
