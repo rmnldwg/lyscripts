@@ -264,11 +264,6 @@ def main(args: argparse.Namespace):
         trimmed = trimmed.dropna(axis="index", how="all")
         report.success("Trimmed rows and columns.")
 
-    if args.add_index:
-        with report.status("Add index column to data..."):
-            trimmed["patient", "#", "id"] = list(range(len(trimmed)))
-            report.success("Added index column to data.")
-
     with report.status("Import mapping instructions..."):
         spec = importlib.util.spec_from_file_location("map_module", args.mapping)
         mapping = importlib.util.module_from_spec(spec)
@@ -276,6 +271,12 @@ def main(args: argparse.Namespace):
         report.success(f"Imported mapping instructions from {args.mapping}")
 
     reduced = exclude_patients(trimmed, mapping.exclude)
+
+    if args.add_index:
+        with report.status("Add index column to data..."):
+            reduced.insert(0, ("patient", "#", "id"), list(range(len(reduced))))
+            report.success("Added index column to data.")
+
     processed = transform_to_lyprox(reduced, mapping.column_map)
 
     if ("tumor", "1", "side") in processed.columns:

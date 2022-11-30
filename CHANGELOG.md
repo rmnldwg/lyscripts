@@ -1,3 +1,11 @@
+<a name="0.6.3"></a>
+## [0.6.3] - 2022-11-25
+
+### Bug Fixes
+- `lyproxify`: apply re-indexing only _after_ excluding patients
+- fix `SettingWithCopyWarning` during re-indexing in `lyproxify`
+
+
 <a name="0.6.2"></a>
 ## [0.6.2] - 2022-11-25
 
@@ -197,7 +205,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.2...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.3...HEAD
+[0.6.3]: https://github.com/rmnldwg/lyscripts/compare/0.6.2...0.6.3
 [0.6.2]: https://github.com/rmnldwg/lyscripts/compare/0.6.1...0.6.2
 [0.6.1]: https://github.com/rmnldwg/lyscripts/compare/0.6.0...0.6.1
 [0.6.0]: https://github.com/rmnldwg/lyscripts/compare/0.5.11...0.6.0
