@@ -84,6 +84,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
             "will use all cores. If set to zero, multiprocessing will not be used."
         )
     )
+    parser.add_argument(
+        "--seed", type=int, default=42,
+        help="Seed value to reproduce the same sampling round."
+    )
 
     parser.set_defaults(run_main=main)
 
@@ -242,6 +246,7 @@ def run_mcmc_with_burnin(
     thin_by: int = 1,
     npools: Optional[int] = None,
     verbose: bool = True,
+    seed: int = 42,
 ) -> Dict[str, Any]:
     """
     Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
@@ -260,6 +265,8 @@ def run_mcmc_with_burnin(
 
     If `verbose` is set to `True`, the progress will be displayed.
 
+    The `seed` value makes the sampling reproducible.
+
     Returns a dictionary with some information about the burnin phase.
     """
     if sampling_kwargs is None:
@@ -275,6 +282,8 @@ def run_mcmc_with_burnin(
         raise ValueError(
             "Number of pools must be integer larger or equal to 0 (or `None`)"
         )
+
+    np.random.seed(seed)
 
     with created_pool as pool:
         # Burnin phase
@@ -346,42 +355,38 @@ def main(args: argparse.Namespace):
     Th help via `lyscripts sample --help` shows this output:
 
     ```
-    usage: lyscripts sample [-h] [--params PARAMS]
+    USAGE: lyscripts sample [-h] [--params PARAMS]
                             [--modalities MODALITIES [MODALITIES ...]] [--plots PLOTS]
-                            [--ti] [--pools POOLS]
+                            [--ti] [--pools POOLS] [--seed SEED]
                             input output
 
-    Learn the spread probabilities of the HMM for lymphatic tumor progression using the
-    preprocessed data as input and MCMC as sampling method.
+    Learn the spread probabilities of the HMM for lymphatic tumor progression using
+    the preprocessed data as input and MCMC as sampling method.
 
-    This is the central script performing for our project on modelling lymphatic spread
-    in head & neck cancer. We use it for model comparison via the thermodynamic
+    This is the central script performing for our project on modelling lymphatic
+    spread in head & neck cancer. We use it for model comparison via the thermodynamic
     integration functionality and use the sampled parameter estimates for risk
     predictions. This risk estimate may in turn some day guide clinicians to make more
     objective decisions with respect to defining the *elective clinical target volume*
     (CTV-N) in radiotherapy.
 
+    POSITIONAL ARGUMENTS:
+      input                 Path to training data files
+      output                Path to the HDF5 file to store the results in
 
-    POSITIONAL ARGUMENTS
-    input                                 Path to training data files
-    output                                Path to the HDF5 file to store the results in
-
-    OPTIONAL ARGUMENTS
-    -h, --help                            show this help message and exit
-    --params PARAMS                       Path to parameter file (default:
-                                          ./params.yaml)
-    --modalities MODALITIES [MODALITIES ...]
-                                          List of modalities for inference. Must be
-                                          defined in `params.yaml` (default:
-                                          ['max_llh'])
-    --plots PLOTS                         Directory to store plot of acor times
-                                          (default: ./plots)
-    --ti                                  Perform thermodynamic integration (default:
-                                          False)
-    --pools POOLS                         Number of parallel worker pools (CPU cores)
-                                          to use. If not provided, it will use all
-                                          cores. If set to zero, multiprocessing will
-                                          not be used. (default: None)
+    OPTIONAL ARGUMENTS:
+      -h, --help            show this help message and exit
+      --params PARAMS       Path to parameter file (default: ./params.yaml)
+      --modalities MODALITIES [MODALITIES ...]
+                            List of modalities for inference. Must be defined in
+                            `params.yaml` (default: ['max_llh'])
+      --plots PLOTS         Directory to store plot of acor times (default: ./plots)
+      --ti                  Perform thermodynamic integration (default: False)
+      --pools POOLS         Number of parallel worker pools (CPU cores) to use. If not
+                            provided, it will use all cores. If set to zero,
+                            multiprocessing will not be used. (default: None)
+      --seed SEED           Seed value to reproduce the same sampling round. (default:
+                            42)
     ```
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
@@ -447,6 +452,7 @@ def main(args: argparse.Namespace):
                 thin_by=thin_by,
                 verbose=True,
                 npools=args.pools,
+                seed=args.seed,
             )
             plots["acor_times"].append(burnin_info["acor_times"][-1])
             plots["accept_rates"].append(burnin_info["accept_rates"][-1])
@@ -475,6 +481,7 @@ def main(args: argparse.Namespace):
             thin_by=thin_by,
             verbose=True,
             npools=args.pools,
+            seed=args.seed,
         )
         x_axis = np.array(burnin_info["iterations"])
         plots = {
