@@ -239,7 +239,7 @@ def draw(
     Both these keyword arguments can be overwritten by what the individual `contents`
     have defined.
     """
-    if not all(isinstance(c, Histogram) or isinstance(c, Posterior) for c in contents):
+    if not all(isinstance(c, (Histogram, Posterior)) for c in contents):
         raise TypeError("Contents must be `Histogram` or `Posterior` instances")
 
     if xlims is None:
@@ -251,22 +251,25 @@ def draw(
 
     hist_kwargs = {} if hist_kwargs is None else hist_kwargs
     nbins = hist_kwargs.pop("nbins", 60)
-    hist_kwargs.update({
+    default_hist_kwargs = {
         "density": True,
         "bins": np.linspace(*xlims, nbins),
         "histtype": "stepfilled",
         "alpha": 0.7,
-    })
+    }
+    default_hist_kwargs.update(hist_kwargs)
 
     plot_kwargs = {} if plot_kwargs is None else plot_kwargs
+    default_plot_kwargs = {}
+    default_plot_kwargs.update(plot_kwargs)
 
     for content in contents:
         if isinstance(content, Histogram):
-            tmp_hist_kwargs = hist_kwargs.copy()
+            tmp_hist_kwargs = default_hist_kwargs.copy()
             tmp_hist_kwargs.update(content.kwargs)
             axes.hist(content.values, **tmp_hist_kwargs)
         elif isinstance(content, Posterior):
-            tmp_plot_kwargs = plot_kwargs.copy()
+            tmp_plot_kwargs = default_plot_kwargs.copy()
             tmp_plot_kwargs["label"] = f"{content.num_success} / {content.num_total}"
             tmp_plot_kwargs.update(content.kwargs)
             axes.plot(x, content.pdf(x), **tmp_plot_kwargs)
