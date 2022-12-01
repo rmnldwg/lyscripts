@@ -1,3 +1,11 @@
+<a name="0.6.5"></a>
+## [0.6.5] - 2022-12-01
+
+### Bug Fixes
+- swap arguments in the `save_figure` call of the `corner` command
+- pull a function using [`rich`] to report its status out of an enclosing [`rich`] context. This fixes [#33].
+
+
 <a name="0.6.4"></a>
 ## [0.6.4] - 2022-12-01
 
@@ -215,7 +223,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.4...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.5...HEAD
+[0.6.5]: https://github.com/rmnldwg/lyscripts/compare/0.6.4...0.6.5
 [0.6.4]: https://github.com/rmnldwg/lyscripts/compare/0.6.3...0.6.4
 [0.6.3]: https://github.com/rmnldwg/lyscripts/compare/0.6.2...0.6.3
 [0.6.2]: https://github.com/rmnldwg/lyscripts/compare/0.6.1...0.6.2
@@ -244,7 +253,9 @@ returns `None` instead. Fixes [#11]
 [#25]: https://github.com/rmnldwg/lyscripts/issues/25
 [#30]: https://github.com/rmnldwg/lyscripts/issues/30
 [#31]: https://github.com/rmnldwg/lyscripts/issues/31
+[#33]: https://github.com/rmnldwg/lyscripts/issues/33
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
+[`rich`]: https://rich.readthedocs.io/en/latest/
 [`rich_argparse`]: https://github.com/hamdanal/rich_argparse
 [LyProX]: https://lyprox.org
