@@ -1,3 +1,13 @@
+<a name="0.6.4"></a>
+## [0.6.4] - 2022-12-01
+
+### Bug Fixes
+- `hist_kwargs` now overrides the default plot settings for `Histogram`. This fixes [#30]
+
+### Features
+- the `lyscripts sample` command now has an argument `--seed` with the aim of making sampling runs reproducible via a random number generator seed. However, it seems as if the [`emcee`] package does not properly support this as runs using the same seed still produce different results. Related to, but not resolving [#31].
+
+
 <a name="0.6.3"></a>
 ## [0.6.3] - 2022-11-25
 
@@ -205,7 +215,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.3...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.4...HEAD
+[0.6.4]: https://github.com/rmnldwg/lyscripts/compare/0.6.3...0.6.4
 [0.6.3]: https://github.com/rmnldwg/lyscripts/compare/0.6.2...0.6.3
 [0.6.2]: https://github.com/rmnldwg/lyscripts/compare/0.6.1...0.6.2
 [0.6.1]: https://github.com/rmnldwg/lyscripts/compare/0.6.0...0.6.1
@@ -231,6 +242,9 @@ returns `None` instead. Fixes [#11]
 [#21]: https://github.com/rmnldwg/lyscripts/issues/21
 [#23]: https://github.com/rmnldwg/lyscripts/issues/23
 [#25]: https://github.com/rmnldwg/lyscripts/issues/25
+[#30]: https://github.com/rmnldwg/lyscripts/issues/30
+[#31]: https://github.com/rmnldwg/lyscripts/issues/31
 
+[`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich_argparse`]: https://github.com/hamdanal/rich_argparse
 [LyProX]: https://lyprox.org
