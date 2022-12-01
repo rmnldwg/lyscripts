@@ -157,7 +157,7 @@ def main(args: argparse.Namespace):
             show_titles=True,
         )
 
-        save_figure(fig, args.output, formats=["png", "svg"])
+    save_figure(args.output, fig, formats=["png", "svg"])
 
 
 if __name__ == "__main__":
