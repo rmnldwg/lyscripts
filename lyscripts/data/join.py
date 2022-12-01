@@ -71,16 +71,15 @@ def main(args: argparse.Namespace):
                             None)
     ```
     """
-    with report.status("Reading & concatenating CSV files..."):
-        concatenated_table = pd.DataFrame()
-        for input_path in args.inputs:
-            input_table = load_csv_table(input_path, header_row=[0,1,2])
-            concatenated_table = pd.concat(
-                [concatenated_table, input_table],
-                ignore_index=True
-            )
-            report.print(f"+ concatenated data from {input_path}")
-        report.success(f"Read & concatenated all {len(args.inputs)} CSV files")
+    concatenated_table = pd.DataFrame()
+    for input_path in args.inputs:
+        input_table = load_csv_table(input_path, header_row=[0,1,2])
+        concatenated_table = pd.concat(
+            [concatenated_table, input_table],
+            ignore_index=True
+        )
+        report.print(f"+ concatenated data from {input_path}")
+    report.success(f"Read & concatenated all {len(args.inputs)} CSV files")
 
     save_table_to_csv(args.output, concatenated_table)
 
