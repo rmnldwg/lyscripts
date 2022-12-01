@@ -20,6 +20,7 @@ import emcee
 import h5py
 import numpy as np
 import pandas as pd
+from numpy.random import MT19937, RandomState, SeedSequence
 
 from lyscripts.utils import (
     CustomProgress,
@@ -115,9 +116,12 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         log_prob_fn,
         pool=None,
         backend=None,
+        random_state=None,
     ):
         """Initialize sampler with sane defaults."""
         moves = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
+        if random_state is not None:
+            self.random_state = random_state.get_state()
         super().__init__(nwalkers, ndim, log_prob_fn, pool, moves, backend=backend)
 
     def run_sampling(
@@ -265,7 +269,8 @@ def run_mcmc_with_burnin(
 
     If `verbose` is set to `True`, the progress will be displayed.
 
-    The `seed` value makes the sampling reproducible.
+    The `seed` value is supposed to make the sampling procedure reproducible, but it
+    does not seem to work here.
 
     Returns a dictionary with some information about the burnin phase.
     """
@@ -283,8 +288,6 @@ def run_mcmc_with_burnin(
             "Number of pools must be integer larger or equal to 0 (or `None`)"
         )
 
-    np.random.seed(seed)
-
     with created_pool as pool:
         # Burnin phase
         if keep_burnin:
@@ -292,9 +295,11 @@ def run_mcmc_with_burnin(
         else:
             burnin_backend = emcee.backends.Backend()
 
+        random_state = RandomState(MT19937(SeedSequence(seed)))  # does not work...
         burnin_sampler = ConvenienceSampler(
             nwalkers, ndim, log_prob_fn,
             pool=pool, backend=burnin_backend,
+            random_state=random_state,
         )
 
         if burnin is None:
@@ -310,9 +315,11 @@ def run_mcmc_with_burnin(
             )
 
         # persistent sampling phase
+        random_state = RandomState(MT19937(SeedSequence(seed)))  # does not work...
         sampler = ConvenienceSampler(
             nwalkers, ndim, log_prob_fn,
             pool=pool, backend=persistent_backend,
+            random_state=random_state,
         )
         sampler.run_sampling(
             min_steps=nsteps,
