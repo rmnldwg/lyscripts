@@ -146,6 +146,52 @@ def test_draw(beta_samples):
     return fig
 
 
+def test_draw_hist_kwargs(beta_samples):
+    """Make sure the `hist_kwargs` can override the defaults."""
+    filename = Path(beta_samples)
+    dataname = "beta"
+
+    hist = Histogram.from_hdf5(filename, dataname)
+    default_kwargs_path = "./tests/plot/results/default_kwargs"
+    fig, default_kwargs_ax = plt.subplots()
+    default_kwargs_ax = draw(default_kwargs_ax, contents=[hist])
+    save_figure(default_kwargs_path, fig, ["png"])
+
+    bins_kwargs_path = "./tests/plot/results/bins_kwargs"
+    fig, bins_kwargs_ax = plt.subplots()
+    bins_kwargs_ax = draw(bins_kwargs_ax, contents=[hist], hist_kwargs={"bins": 70})
+    save_figure(bins_kwargs_path, fig, ["png"])
+
+    global_kwargs_path = "./tests/plot/results/global_kwargs"
+    fig, global_kwargs_ax = plt.subplots()
+    global_kwargs_ax = draw(global_kwargs_ax, contents=[hist], hist_kwargs={"alpha": 0.3})
+    save_figure(global_kwargs_path, fig, ["png"])
+
+    hist = Histogram.from_hdf5(filename, dataname, alpha=0.3)
+    local_kwargs_path = "./tests/plot/results/local_kwargs"
+    fig, local_kwargs_ax = plt.subplots()
+    local_kwargs_ax = draw(local_kwargs_ax, contents=[hist], hist_kwargs={"alpha": 1.0})
+    save_figure(local_kwargs_path, fig, ["png"])
+
+    assert mpl_comp.compare_images(
+        expected=default_kwargs_path + ".png",
+        actual=bins_kwargs_path + ".png",
+        tol=0.001,
+    ) is not None, "Changing bin number did not result in different plot"
+
+    assert mpl_comp.compare_images(
+        expected=default_kwargs_path + ".png",
+        actual=global_kwargs_path + ".png",
+        tol=0.001,
+    ) is not None, "Changing global kwargs in `draw` did not result in different plot"
+
+    assert mpl_comp.compare_images(
+        expected=local_kwargs_path + ".png",
+        actual=global_kwargs_path + ".png",
+        tol=0.001,
+    ) is None, "Overriding global with `Histogram` specific kwargs did not work"
+
+
 def test_save_figure(capsys):
     """Check that figures get stored correctly."""
     x = np.linspace(0., 2*np.pi, 200)
