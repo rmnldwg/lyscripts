@@ -96,7 +96,7 @@ def main(args: argparse.Namespace):
     """
     params = load_yaml_params(args.params)
     model = create_model_from_config(params)
-    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
+    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric + 1
 
     if args.set_theta is not None:
         with report.status("Assign given parameters to model..."):

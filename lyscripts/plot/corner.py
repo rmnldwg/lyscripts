@@ -102,12 +102,14 @@ def get_param_labels(
             "mixing $\\alpha$",
             *trans_labels,
             *binom_labels,
+            "midext_prob",
         ] if model.use_mixing else [
             *base_ipsi_labels,
             *base_contra_ext_labels,
             *base_contra_noext_labels,
             *trans_labels,
             *binom_labels,
+            "midext_prob",
         ]
 
 

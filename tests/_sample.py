@@ -66,7 +66,7 @@ def test_sampling(
 ):
     """Test the basic sampling function."""
     model.patient_data = data
-    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
+    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric + 1
     nwalker = ndim * params["sampling"]["walkers_per_dim"]
 
     info = run_mcmc_with_burnin(

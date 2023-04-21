@@ -418,7 +418,7 @@ def main(args: argparse.Namespace):
             ),
         )
         MODEL.patient_data = inference_data
-        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
+        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric + 1
         nwalkers = ndim * params["sampling"]["walkers_per_dim"]
         thin_by = params["sampling"]["thin_by"]
         report.success(
