@@ -156,7 +156,7 @@ def main(args: argparse.Namespace):
 
     params = load_yaml_params(args.params)
     model = create_model_from_config(params)
-    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
+    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric + 1
     is_uni = isinstance(model, lymph.Unilateral)
 
     data = load_data_for_model(args.data, header_rows=[0,1] if is_uni else [0,1,2])
