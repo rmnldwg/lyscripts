@@ -6,6 +6,8 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
+import functools
+import logging
 import sys
 from functools import wraps
 from pathlib import Path
@@ -138,6 +140,86 @@ class CustomProgress(Progress):
         super().__init__(*columns, **kwargs)
 
 report_progress = CustomProgress()
+
+
+def extract_logger(*args, **kwargs) -> logging.Logger:
+    """Extract a logger from the arguments if present.
+
+    The function will first search if the function is in fact a method of a class that
+    has any attributes that are instances of `logging.Logger`. If not, it will search
+    the arguments and keyword arguments for instances of `logging.Logger` and return
+    the first one it finds. If none is found, it will return the logger of this module.
+    """
+    first_arg = next(iter(args), None)
+    if hasattr(first_arg, "__dict__"):
+        attr_loggers = []
+        for attr in first_arg.__dict__.values():
+            if isinstance(attr, logging.Logger):
+                attr_loggers.append(attr)
+
+    args_loggers = [arg for arg in args if isinstance(arg, logging.Logger)]
+    kwargs_loggers = [arg for arg in kwargs.values() if isinstance(arg, logging.Logger)]
+
+    found_loggers = [*attr_loggers, *args_loggers, *kwargs_loggers]
+    logger = next(iter(found_loggers), None)
+
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
+    return logger
+
+
+def assemble_signature(*args, **kwargs) -> str:
+    """Assemble the signature of the function call."""
+    args_str = ", ".join(str(arg) for arg in args)
+    kwargs_str = ", ".join(f"{key}={value}" for key, value in kwargs.items())
+    signature = ", ".join([args_str, kwargs_str])
+    return signature
+
+
+def log_state(
+    direct_func: Callable = None,
+    status_msg: str = None,
+    success_msg: str = None,
+    logger: logging.Logger = None,
+) -> Callable:
+    """Provide a decorator that logs the state of the function execution.
+
+    This function can either be used directly as a decorator or be called with the
+    desired `status_msg` and `success_msg` to return a decorator that can be then in
+    turn be used to decorate a function.
+    """
+    # pylint: disable=logging-fstring-interpolation
+    def log_decorator(func: Callable):
+        """The decorator wrapping the decorated function."""
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            """The wrapper around the decorated function."""
+            if logger is None:
+                logger = extract_logger(*args, **kwargs)
+
+            signature = assemble_signature(*args, **kwargs)
+            logger.debug(f"Executing {func.__name__}({signature}).")
+
+            if status_msg is not None:
+                logger.info(status_msg)
+
+            try:
+                result = func(*args, **kwargs)
+                if success_msg is not None:
+                    logger.info(success_msg)
+                return result
+
+            except Exception as exc:
+                logger.error(f"Error in {func.__name__}({signature}).", exc_info=exc)
+                raise exc
+
+        return wrapper
+
+    if direct_func is not None:
+        return log_decorator(direct_func)
+
+    return log_decorator
 
 
 def report_state(
