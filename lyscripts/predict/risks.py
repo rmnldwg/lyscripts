@@ -118,7 +118,7 @@ def predicted_risk(
             )
             yield 1. - risk if invert else risk
 
-    elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
+    elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral, lymph.MidlineBilateraltime)):
         given_diagnosis = {"risk": given_diagnosis}
 
         for sample in samples:

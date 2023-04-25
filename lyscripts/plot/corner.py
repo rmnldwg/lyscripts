@@ -55,7 +55,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def get_param_labels(
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
+    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral, lymph.MidlineBilateraltime],
 ) -> List[str]:
     """Create labels from a `model`.
 
@@ -110,6 +110,31 @@ def get_param_labels(
             *trans_labels,
             *binom_labels,
             "midext_prob",
+        ]
+    
+    if isinstance(model, lymph.MidlineBilateraltime):
+        base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ext.ipsi.base_edges]
+        base_contra_ext_labels = [
+            f"ce {e.start}->{e.end}" for e in model.ext.contra.base_edges
+        ]
+        base_contra_noext_labels = [
+            f"cn {e.start}->{e.end}" for e in model.noext.contra.base_edges
+        ]
+        trans_labels = [f"{e.start}->{e.end}" for e in model.ext.ipsi.trans_edges]
+        return [
+            *base_ipsi_labels,
+            *base_contra_noext_labels,
+            "mixing $\\alpha$",
+            *trans_labels,
+            *binom_labels,
+            "midext_trans",
+        ] if model.use_mixing else [
+            *base_ipsi_labels,
+            *base_contra_ext_labels,
+            *base_contra_noext_labels,
+            *trans_labels,
+            *binom_labels,
+            "midext_trans",
         ]
 
 

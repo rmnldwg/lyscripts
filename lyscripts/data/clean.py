@@ -102,6 +102,8 @@ def lyprox_to_lymph(
 
     if class_name == "MidlineBilateral":
         diagnostic_data[("info", "tumor", "midline_extension")] = midline_extension_data
+    if class_name == "MidlineBilateraltime":
+        diagnostic_data[("info", "tumor", "midline_extension")] = midline_extension_data
     elif class_name == "Unilateral":
         diagnostic_data = diagnostic_data.drop(columns=["contra"], level=1)
         diagnostic_data.columns = diagnostic_data.columns.droplevel(1)

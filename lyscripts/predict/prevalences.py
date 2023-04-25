@@ -259,7 +259,7 @@ def compute_predicted_prevalence(
     If `midline_ext` is set to `None`, the prevalence is marginalized over both cases,
     assuming the provided `midline_ext_prob`.
     """
-    if isinstance(loaded_model, lymph.MidlineBilateral):
+    if isinstance(loaded_model, (lymph.MidlineBilateral, lymph.MidlineBilateraltime):
         loaded_model.check_and_assign(given_params)
         if midline_ext is None:
                 # marginalize over patients with and without midline extension
@@ -271,6 +271,7 @@ def compute_predicted_prevalence(
             prevalence = loaded_model.ext.likelihood(log=False)
         else:
             prevalence = loaded_model.noext.likelihood(log=False)
+
     else:
         prevalence = loaded_model.likelihood(
             given_params=given_params,

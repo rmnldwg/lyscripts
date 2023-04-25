@@ -24,15 +24,17 @@ def test_get_lnls():
     uni_model = lymph.Unilateral(graph)
     bi_model = lymph.Bilateral(graph)
     mid_model = lymph.MidlineBilateral(graph)
+    midtime_model = lymph.MidlineBilateraltime(graph)
 
     uni_lnls = get_lnls(uni_model)
     bi_lnls = get_lnls(bi_model)
     mid_lnls = get_lnls(mid_model)
+    midtime_lnls = get_lnls(midtime_model)
 
     assert uni_lnls == lnls, "Did not extract LNLs correctly from unilateral model"
     assert bi_lnls == lnls, "Did not extract LNLs correctly from bilateral model"
     assert mid_lnls == lnls, "Did not extract LNLs correctly from midline model"
-
+    assert midtime_lnls == lnls, "Did not extract LNLs correctly from midline time evolution model"
 
 def test_get_match_idx():
     """Test if the pattern dictionaries & pandas data are compared correctly."""
