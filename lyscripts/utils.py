@@ -370,7 +370,7 @@ def model_from_config(
     graph_params: Dict[str, Any],
     model_params: Dict[str, Any],
     modalities_params: Optional[Dict[str, Any]] = None,
-) -> Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]:
+) -> Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral, lymph.MidlineBilateraltime]:
     """Create a model instance as defined by some YAML params."""
     graph = graph_from_config(graph_params)
 
@@ -448,7 +448,7 @@ def get_lnls(model: LymphModel) -> List[str]:
         return [lnl.name for lnl in model.lnls]
     if isinstance(model, lymph.Bilateral):
         return [lnl.name for lnl in model.ipsi.lnls]
-    if isinstance(model, lymph.MidlineBilateral):
+    if isinstance(model, (lymph.MidlineBilateral, lymph.MidlineBilateraltime)):
         return [lnl.name for lnl in model.ext.ipsi.lnls]
 
     raise TypeError(f"Model cannot be of type {type(model)}")
