@@ -1,3 +1,10 @@
+<a name="0.6.6"></a>
+## [0.6.6] - 2022-12-01
+
+### Bug Fixes
+- pull another function out of a `rich` context, this time in the `join` command. Related to [#33].
+
+
 <a name="0.6.5"></a>
 ## [0.6.5] - 2022-12-01
 
@@ -223,7 +230,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.5...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.6...HEAD
+[0.6.6]: https://github.com/rmnldwg/lyscripts/compare/0.6.5...0.6.6
 [0.6.5]: https://github.com/rmnldwg/lyscripts/compare/0.6.4...0.6.5
 [0.6.4]: https://github.com/rmnldwg/lyscripts/compare/0.6.3...0.6.4
 [0.6.3]: https://github.com/rmnldwg/lyscripts/compare/0.6.2...0.6.3
