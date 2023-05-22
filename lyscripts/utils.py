@@ -458,6 +458,7 @@ def flatten(
     nested: dict,
     prev_key: tuple = (),
     result: Optional[dict] = None,
+    max_depth: Optional[int] = None,
 ) -> dict:
     """
     Flatten a `nested` dictionary recursivel by extending the `prev_key` tuple.
@@ -470,9 +471,13 @@ def flatten(
     if result is None:
         result = {}
 
-    for key,val in nested.items():
-        if isinstance(val, dict):
-            flatten(val, (*prev_key, key), result)
+    for key, val in nested.items():
+        is_dict = isinstance(val, dict)
+        current_depth = len((*prev_key, key))
+        has_reached_max_depth = max_depth is not None and current_depth >= max_depth
+
+        if is_dict and not has_reached_max_depth:
+            flatten(val, (*prev_key, key), result, max_depth=max_depth)
         else:
             result[(*prev_key, key)] = val
 
