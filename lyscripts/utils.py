@@ -457,25 +457,49 @@ def get_lnls(model: LymphModel) -> List[str]:
 def flatten(
     nested: dict,
     prev_key: tuple = (),
-    flattened: Optional[dict] = None,
+    result: Optional[dict] = None,
 ) -> dict:
     """
-    Flatten a `nested` dictionary recursivel by extending the `prev_key` tuple. For
-    example:
+    Flatten a `nested` dictionary recursivel by extending the `prev_key` tuple.
+
+    For example:
     >>> nested = {"hi": {"there": "buddy"}, "how": {"are": "you?"}}
     >>> flatten(nested)
     {('hi', 'there'): 'buddy', ('how', 'are'): 'you?'}
     """
-    if flattened is None:
-        flattened = {}
+    if result is None:
+        result = {}
 
     for key,val in nested.items():
         if isinstance(val, dict):
-            flatten(val, (*prev_key, key), flattened)
+            flatten(val, (*prev_key, key), result)
         else:
-            flattened[(*prev_key, key)] = val
+            result[(*prev_key, key)] = val
 
-    return flattened
+    return result
+
+
+def unflatten(flat: dict) -> dict:
+    """
+    Take a flat dictionary with tuples of keys and create nested dict from it.
+
+    Like so:
+    >>> unflatten({('a', 'b', 'c'): 1})
+    {'a': {'b': {'c': 1}}}
+    >>> flat = {('hi', 'there'): 'buddy', ('how', 'are'): 'you?'}
+    >>> unflatten(flat)
+    {'hi': {'there': 'buddy'}, 'how': {'are': 'you?'}}
+    """
+    result = {}
+
+    for keys, value in flat.items():
+        current = result
+        for key in keys[:-1]:
+            current = current.setdefault(key, {})
+
+        current[keys[-1]] = value
+
+    return result
 
 
 def get_modalities_subset(
@@ -483,8 +507,9 @@ def get_modalities_subset(
     selection: List[str],
 ) -> Dict[str, List[float]]:
     """
-    Of the `defined_modalities` return only those mentioned in the `selection`. For
-    instance:
+    Of the `defined_modalities` return only those mentioned in the `selection`.
+
+    For instance:
     >>> modalities = {"CT": [0.76, 0.81], "MRI": [0.63, 0.86]}
     >>> get_modalities_subset(modalities, ["CT"])
     {'CT': [0.76, 0.81]}
