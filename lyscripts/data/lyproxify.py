@@ -15,7 +15,13 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import raise_if_args_none, report, report_state
+from lyscripts.utils import (
+    delete_private_keys,
+    flatten,
+    raise_if_args_none,
+    report,
+    report_state,
+)
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -98,6 +104,35 @@ def clean_header(
     return table
 
 
+def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int:
+    """
+    Get the depth at which the column mapping instructions are nested.
+
+    Example:
+    >>> nested_column_map = {"patient": {"age": {"func": int}}}
+    >>> get_instruction_depth(nested_column_map)
+    2
+    >>> flat_column_map = flatten(nested_column_map, max_depth=2)
+    >>> get_instruction_depth(flat_column_map)
+    1
+    >>> nested_column_map = {"patient": {"__doc__": "some patient info", "age": 61}}
+    >>> get_instruction_depth(nested_column_map)
+    Traceback (most recent call last):
+        ...
+    ValueError: Leaf of column map must be a dictionary with 'func' or 'default' key.
+    """
+    for _, value in nested_column_map.items():
+        if isinstance(value, dict):
+            if "func" in value or "default" in value:
+                return 1
+
+            return 1 + get_instruction_depth(value)
+
+        raise ValueError(
+            "Leaf of column map must be a dictionary with 'func' or 'default' key."
+        )
+
+
 @report_state(
     status_msg="Transform raw data to LyProX style table...",
     success_msg="Transformed raw data to LyProX style table.",
@@ -143,6 +178,11 @@ def transform_to_lyprox(
 
     [LyProX]: https://lyprox.org
     """
+    column_map = delete_private_keys(column_map)
+
+    if instruction_depth := get_instruction_depth(column_map) > 1:
+        column_map = flatten(column_map, max_depth=instruction_depth)
+
     multi_idx = pd.MultiIndex.from_tuples(column_map.keys())
     processed = pd.DataFrame(columns=multi_idx)
 
@@ -288,14 +328,14 @@ def main(args: argparse.Namespace):
         spec.loader.exec_module(mapping)
         report.success(f"Imported mapping instructions from {args.mapping}")
 
-    reduced = exclude_patients(trimmed, mapping.exclude)
+    reduced = exclude_patients(trimmed, mapping.EXCLUDE)
 
     if args.add_index:
         with report.status("Add index column to data..."):
             reduced.insert(0, ("patient", "#", "id"), list(range(len(reduced))))
             report.success("Added index column to data.")
 
-    processed = transform_to_lyprox(reduced, mapping.column_map)
+    processed = transform_to_lyprox(reduced, mapping.COLUMN_MAP)
 
     if ("tumor", "1", "side") in processed.columns:
         processed = leftright_to_ipsicontra(processed)

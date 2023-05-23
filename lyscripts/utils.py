@@ -484,14 +484,16 @@ def delete_private_keys(nested: dict) -> dict:
     >>> delete_private_keys({"patient": {"__doc__": "some patient info", "age": 61}})
     {'patient': {'age': 61}}
     """
-    if isinstance(nested, dict):
-        return {
-            key: delete_private_keys(value)
-            for key, value in nested.items()
-            if not key.startswith("_")
-        }
+    cleaned = {}
 
-    return nested
+    if isinstance(nested, dict):
+        for key, value in nested.items():
+            if not (isinstance(key, str) and key.startswith("_")):
+                cleaned[key] = delete_private_keys(value)
+    else:
+        cleaned = nested
+
+    return cleaned
 
 
 def flatten(
