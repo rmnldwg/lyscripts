@@ -457,29 +457,29 @@ def get_lnls(model: LymphModel) -> List[str]:
 def flatten(
     nested: dict,
     prev_key: tuple = (),
-    result: Optional[dict] = None,
     max_depth: Optional[int] = None,
 ) -> dict:
     """
-    Flatten a `nested` dictionary recursivel by extending the `prev_key` tuple.
+    Flatten a `nested` dictionary by creating key tuples for each value at `max_depth`.
 
     For example:
-    >>> nested = {"hi": {"there": "buddy"}, "how": {"are": "you?"}}
+    >>> nested = {"tumor": {"1": {"t_stage": 1, "size": 12.3}}}
     >>> flatten(nested)
-    {('hi', 'there'): 'buddy', ('how', 'are'): 'you?'}
+    {('tumor', '1', 't_stage'): 1, ('tumor', '1', 'size'): 12.3}
+    >>> mapping = {"patient": {"#": {"age": {"func": int, "columns": ["age"]}}}}
+    >>> flatten(mapping, max_depth=3)
+    {('patient', '#', 'age'): {'func': <class 'int'>, 'columns': ['age']}}
     """
-    if result is None:
-        result = {}
+    result = {}
 
-    for key, val in nested.items():
-        is_dict = isinstance(val, dict)
-        current_depth = len((*prev_key, key))
-        has_reached_max_depth = max_depth is not None and current_depth >= max_depth
+    for key, value in nested.items():
+        is_dict = isinstance(value, dict)
+        has_reached_max_depth = max_depth is not None and len(prev_key) >= max_depth - 1
 
         if is_dict and not has_reached_max_depth:
-            flatten(val, (*prev_key, key), result, max_depth=max_depth)
+            result.update(flatten(value, (*prev_key, key), max_depth))
         else:
-            result[(*prev_key, key)] = val
+            result[(*prev_key, key)] = value
 
     return result
 
@@ -489,11 +489,12 @@ def unflatten(flat: dict) -> dict:
     Take a flat dictionary with tuples of keys and create nested dict from it.
 
     Like so:
-    >>> unflatten({('a', 'b', 'c'): 1})
-    {'a': {'b': {'c': 1}}}
-    >>> flat = {('hi', 'there'): 'buddy', ('how', 'are'): 'you?'}
+    >>> flat = {('tumor', '1', 't_stage'): 1, ('tumor', '1', 'size'): 12.3}
     >>> unflatten(flat)
-    {'hi': {'there': 'buddy'}, 'how': {'are': 'you?'}}
+    {'tumor': {'1': {'t_stage': 1, 'size': 12.3}}}
+    >>> mapping = {('patient', '#', 'age'): {'func': int, 'columns': ['age']}}
+    >>> unflatten(mapping)
+    {'patient': {'#': {'age': {'func': <class 'int'>, 'columns': ['age']}}}}
     """
     result = {}
 
