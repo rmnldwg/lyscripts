@@ -1,3 +1,15 @@
+<a name="0.6.7"></a>
+## [0.6.7] - 2023-05-23
+
+### Bug Fixes
+- make flatten/unflatten funcs more consistent
+- add `max_depth` option for `flatten` function
+- bump isort version to avoid error
+
+### Features
+- add `unflatten` function
+
+
 <a name="0.6.6"></a>
 ## [0.6.6] - 2022-12-01
 
@@ -230,7 +242,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.6...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.7...HEAD
+[0.6.7]: https://github.com/rmnldwg/lyscripts/compare/0.6.6...0.6.7
 [0.6.6]: https://github.com/rmnldwg/lyscripts/compare/0.6.5...0.6.6
 [0.6.5]: https://github.com/rmnldwg/lyscripts/compare/0.6.4...0.6.5
 [0.6.4]: https://github.com/rmnldwg/lyscripts/compare/0.6.3...0.6.4
