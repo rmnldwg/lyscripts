@@ -454,6 +454,46 @@ def get_lnls(model: LymphModel) -> List[str]:
     raise TypeError(f"Model cannot be of type {type(model)}")
 
 
+def get_dict_depth(nested: dict) -> int:
+    """
+    Get the depth of a nested dictionary.
+
+    For example:
+    >>> get_dict_depth({"a": {"b": 1}})
+    2
+    >>> varying_depth = {"a": {"b": 1}, "c": {"d": {"e": 2}}}
+    >>> get_dict_depth(varying_depth)
+    3
+    """
+    if isinstance(nested, dict):
+        max_depth = None
+        for _, value in nested.items():
+            value_depth = get_dict_depth(value)
+            max_depth = max(max_depth or value_depth, value_depth)
+
+        return 1 + (max_depth or 0)
+
+    return 0
+
+
+def delete_private_keys(nested: dict) -> dict:
+    """
+    Delete private keys from a nested dictionary.
+
+    A 'private' key is a key whose name starts with an underscore. For example:
+    >>> delete_private_keys({"patient": {"__doc__": "some patient info", "age": 61}})
+    {'patient': {'age': 61}}
+    """
+    if isinstance(nested, dict):
+        return {
+            key: delete_private_keys(value)
+            for key, value in nested.items()
+            if not key.startswith("_")
+        }
+
+    return nested
+
+
 def flatten(
     nested: dict,
     prev_key: tuple = (),
