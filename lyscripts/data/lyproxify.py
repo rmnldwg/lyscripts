@@ -112,13 +112,14 @@ def transform_to_lyprox(
     column_map: Dict[Tuple, Dict[str, Any]]
 ) -> pd.DataFrame:
     """
-    Transform any `raw` data frame into a table that can be uploaded directly to
-    [LyProX](https://lyprox.org). To do so, it uses instructions in the `colum_map`
-    dictionary, that needs to have a particular structure:
+    Transform `raw` data frame into table that can be uploaded directly to [LyProX].
+
+    To do so, it uses instructions in the `colum_map` dictionary, that needs to have
+    a particular structure:
 
     For each column in the final 'lyproxified' `pd.DataFrame`, one entry must exist in
     the `column_map` dctionary. E.g., for the column corresponding to a patient's age,
-    the dictionary should contain a key-value pari of this shape:
+    the dictionary should contain a key-value pair of this shape:
 
     ```python
     column_map = {
@@ -129,6 +130,18 @@ def transform_to_lyprox(
         },
     }
     ```
+
+    In this example, the function `compute_age_from_raw` is called with the values of
+    the columns `birthday` and `date of diagnosis` as positional arguments, and the
+    keyword argument `randomize` is set to `False`. The function then returns the
+    patient's age, which is subsequently stored in the column `("patient", "#", "age")`.
+
+    Note that the `column_map` dictionary must have either a `default` key or `func`
+    along with `columns` and `kwargs`, depending on the function definition. If the
+    function does not take any arguments, `columns` can be omitted. If it also does
+    not take any keyword arguments, `kwargs` can be omitted, too.
+
+    [LyProX]: https://lyprox.org
     """
     multi_idx = pd.MultiIndex.from_tuples(column_map.keys())
     processed = pd.DataFrame(columns=multi_idx)
@@ -137,10 +150,10 @@ def transform_to_lyprox(
         if instruction != "":
             if "default" in instruction:
                 processed[multi_idx_col] = [instruction["default"]] * len(raw)
-            else:
+            elif "func" in instruction:
                 cols = instruction.get("columns", [])
                 kwargs = instruction.get("kwargs", {})
-                func = instruction.get("func", lambda x, *_a, **_kw: x)
+                func = instruction["func"]
 
                 try:
                     processed[multi_idx_col] = [
@@ -150,6 +163,11 @@ def transform_to_lyprox(
                     raise ParsingError(
                         f"Exception encountered while parsing column {multi_idx_col}"
                     ) from exc
+            else:
+                raise ParsingError(
+                    f"Column {multi_idx_col} has neither a `default` value nor `func` "
+                    "describing how to fill this column."
+                )
     return processed
 
 
