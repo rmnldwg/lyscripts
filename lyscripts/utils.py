@@ -483,6 +483,8 @@ def delete_private_keys(nested: dict) -> dict:
     A 'private' key is a key whose name starts with an underscore. For example:
     >>> delete_private_keys({"patient": {"__doc__": "some patient info", "age": 61}})
     {'patient': {'age': 61}}
+    >>> delete_private_keys({"patient": {"age": 61}})
+    {'patient': {'age': 61}}
     """
     cleaned = {}
 
@@ -511,6 +513,8 @@ def flatten(
     >>> mapping = {"patient": {"#": {"age": {"func": int, "columns": ["age"]}}}}
     >>> flatten(mapping, max_depth=3)
     {('patient', '#', 'age'): {'func': <class 'int'>, 'columns': ['age']}}
+
+    Note that flattening an already flat dictionary will yield some weird results.
     """
     result = {}
 

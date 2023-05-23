@@ -1,10 +1,11 @@
 """
-Consumes raw data and transforms it into a CSV of the format that
-LyProX can understand.
+Consumes raw data and transforms it into a CSV of the format that [LyProX] understands.
 
 To do so, it needs a dictionary that defines a mapping from raw columns to the LyProX
 style data format. See the documentation of the `transform_to_lyprox` function for
 more information.
+
+[LyProX]: https://lyprox.org
 """
 import argparse
 import importlib.util
@@ -108,6 +109,8 @@ def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int
     """
     Get the depth at which the column mapping instructions are nested.
 
+    Instructions are a dictionary that contains either a 'func' or 'default' key.
+
     Example:
     >>> nested_column_map = {"patient": {"age": {"func": int}}}
     >>> get_instruction_depth(nested_column_map)
@@ -131,6 +134,43 @@ def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int
         raise ValueError(
             "Leaf of column map must be a dictionary with 'func' or 'default' key."
         )
+
+
+def generate_markdown_docs(
+    nested_column_map: Dict[Tuple, Dict[str, Any]],
+    depth: int = 0,
+) -> str:
+    """
+    Generate a markdown nested, ordered list as documentation for the column map.
+
+    A key in the doctionary is supposed to be documented, when its value is a dictionary
+    containing a `"__doc__"` key.
+
+    Example:
+    >>> nested_column_map = {
+    ...     "patient": {
+    ...         "__doc__": "some patient info",
+    ...         "age": {
+    ...             "__doc__": "age of the patient",
+    ...             "func": int,
+    ...             "columns": ["age"],
+    ...         },
+    ...     },
+    ... }
+    >>> generate_markdown_docs(nested_column_map)
+    '1. **`patient`**: some patient info\\n   1. **`age`**: age of the patient\\n'
+    """
+    md_docs = ""
+    i = 1
+    for key, value in nested_column_map.items():
+        if isinstance(value, dict):
+            if "__doc__" in value:
+                md_docs += f"{'   ' * depth}{i}. **`{key}`**: {value['__doc__']}\n"
+                i += 1
+
+            md_docs += generate_markdown_docs(value, depth + 1)
+
+    return md_docs
 
 
 @report_state(
@@ -219,6 +259,8 @@ def transform_to_lyprox(
 @raise_if_args_none(message="Missing data table", level="warning")
 def leftright_to_ipsicontra(data: pd.DataFrame):
     """
+    Change absolute side reporting to tumor-relative.
+
     Transform reporting of LNL involvement by absolute side (right & left) to a
     reporting relative to the tumor (ipsi- & contralateral). The table `data` should
     already be in the format LyProX requires, except for the side-reporting of LNL
