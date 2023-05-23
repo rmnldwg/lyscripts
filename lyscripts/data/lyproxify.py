@@ -220,7 +220,7 @@ def transform_to_lyprox(
     """
     column_map = delete_private_keys(column_map)
 
-    if instruction_depth := get_instruction_depth(column_map) > 1:
+    if (instruction_depth := get_instruction_depth(column_map)) > 1:
         column_map = flatten(column_map, max_depth=instruction_depth)
 
     multi_idx = pd.MultiIndex.from_tuples(column_map.keys())
