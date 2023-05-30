@@ -1,10 +1,11 @@
 """
-Consumes raw data and transforms it into a CSV of the format that
-LyProX can understand.
+Consumes raw data and transforms it into a CSV of the format that [LyProX] understands.
 
 To do so, it needs a dictionary that defines a mapping from raw columns to the LyProX
 style data format. See the documentation of the `transform_to_lyprox` function for
 more information.
+
+[LyProX]: https://lyprox.org
 """
 import argparse
 import importlib.util
@@ -15,7 +16,13 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import raise_if_args_none, report, report_state
+from lyscripts.utils import (
+    delete_private_keys,
+    flatten,
+    raise_if_args_none,
+    report,
+    report_state,
+)
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -98,6 +105,74 @@ def clean_header(
     return table
 
 
+def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int:
+    """
+    Get the depth at which the column mapping instructions are nested.
+
+    Instructions are a dictionary that contains either a 'func' or 'default' key.
+
+    Example:
+    >>> nested_column_map = {"patient": {"age": {"func": int}}}
+    >>> get_instruction_depth(nested_column_map)
+    2
+    >>> flat_column_map = flatten(nested_column_map, max_depth=2)
+    >>> get_instruction_depth(flat_column_map)
+    1
+    >>> nested_column_map = {"patient": {"__doc__": "some patient info", "age": 61}}
+    >>> get_instruction_depth(nested_column_map)
+    Traceback (most recent call last):
+        ...
+    ValueError: Leaf of column map must be a dictionary with 'func' or 'default' key.
+    """
+    for _, value in nested_column_map.items():
+        if isinstance(value, dict):
+            if "func" in value or "default" in value:
+                return 1
+
+            return 1 + get_instruction_depth(value)
+
+        raise ValueError(
+            "Leaf of column map must be a dictionary with 'func' or 'default' key."
+        )
+
+
+def generate_markdown_docs(
+    nested_column_map: Dict[Tuple, Dict[str, Any]],
+    depth: int = 0,
+) -> str:
+    """
+    Generate a markdown nested, ordered list as documentation for the column map.
+
+    A key in the doctionary is supposed to be documented, when its value is a dictionary
+    containing a `"__doc__"` key.
+
+    Example:
+    >>> nested_column_map = {
+    ...     "patient": {
+    ...         "__doc__": "some patient info",
+    ...         "age": {
+    ...             "__doc__": "age of the patient",
+    ...             "func": int,
+    ...             "columns": ["age"],
+    ...         },
+    ...     },
+    ... }
+    >>> generate_markdown_docs(nested_column_map)
+    '1. **`patient`**: some patient info\\n   1. **`age`**: age of the patient\\n'
+    """
+    md_docs = ""
+    i = 1
+    for key, value in nested_column_map.items():
+        if isinstance(value, dict):
+            if "__doc__" in value:
+                md_docs += f"{'   ' * depth}{i}. **`{key}`**: {value['__doc__']}\n"
+                i += 1
+
+            md_docs += generate_markdown_docs(value, depth + 1)
+
+    return md_docs
+
+
 @report_state(
     status_msg="Transform raw data to LyProX style table...",
     success_msg="Transformed raw data to LyProX style table.",
@@ -112,13 +187,14 @@ def transform_to_lyprox(
     column_map: Dict[Tuple, Dict[str, Any]]
 ) -> pd.DataFrame:
     """
-    Transform any `raw` data frame into a table that can be uploaded directly to
-    [LyProX](https://lyprox.org). To do so, it uses instructions in the `colum_map`
-    dictionary, that needs to have a particular structure:
+    Transform `raw` data frame into table that can be uploaded directly to [LyProX].
+
+    To do so, it uses instructions in the `colum_map` dictionary, that needs to have
+    a particular structure:
 
     For each column in the final 'lyproxified' `pd.DataFrame`, one entry must exist in
     the `column_map` dctionary. E.g., for the column corresponding to a patient's age,
-    the dictionary should contain a key-value pari of this shape:
+    the dictionary should contain a key-value pair of this shape:
 
     ```python
     column_map = {
@@ -129,7 +205,24 @@ def transform_to_lyprox(
         },
     }
     ```
+
+    In this example, the function `compute_age_from_raw` is called with the values of
+    the columns `birthday` and `date of diagnosis` as positional arguments, and the
+    keyword argument `randomize` is set to `False`. The function then returns the
+    patient's age, which is subsequently stored in the column `("patient", "#", "age")`.
+
+    Note that the `column_map` dictionary must have either a `default` key or `func`
+    along with `columns` and `kwargs`, depending on the function definition. If the
+    function does not take any arguments, `columns` can be omitted. If it also does
+    not take any keyword arguments, `kwargs` can be omitted, too.
+
+    [LyProX]: https://lyprox.org
     """
+    column_map = delete_private_keys(column_map)
+
+    if (instruction_depth := get_instruction_depth(column_map)) > 1:
+        column_map = flatten(column_map, max_depth=instruction_depth)
+
     multi_idx = pd.MultiIndex.from_tuples(column_map.keys())
     processed = pd.DataFrame(columns=multi_idx)
 
@@ -137,10 +230,10 @@ def transform_to_lyprox(
         if instruction != "":
             if "default" in instruction:
                 processed[multi_idx_col] = [instruction["default"]] * len(raw)
-            else:
+            elif "func" in instruction:
                 cols = instruction.get("columns", [])
                 kwargs = instruction.get("kwargs", {})
-                func = instruction.get("func", lambda x, *_a, **_kw: x)
+                func = instruction["func"]
 
                 try:
                     processed[multi_idx_col] = [
@@ -150,6 +243,11 @@ def transform_to_lyprox(
                     raise ParsingError(
                         f"Exception encountered while parsing column {multi_idx_col}"
                     ) from exc
+            else:
+                raise ParsingError(
+                    f"Column {multi_idx_col} has neither a `default` value nor `func` "
+                    "describing how to fill this column."
+                )
     return processed
 
 
@@ -161,6 +259,8 @@ def transform_to_lyprox(
 @raise_if_args_none(message="Missing data table", level="warning")
 def leftright_to_ipsicontra(data: pd.DataFrame):
     """
+    Change absolute side reporting to tumor-relative.
+
     Transform reporting of LNL involvement by absolute side (right & left) to a
     reporting relative to the tumor (ipsi- & contralateral). The table `data` should
     already be in the format LyProX requires, except for the side-reporting of LNL
@@ -270,14 +370,14 @@ def main(args: argparse.Namespace):
         spec.loader.exec_module(mapping)
         report.success(f"Imported mapping instructions from {args.mapping}")
 
-    reduced = exclude_patients(trimmed, mapping.exclude)
+    reduced = exclude_patients(trimmed, mapping.EXCLUDE)
 
     if args.add_index:
         with report.status("Add index column to data..."):
             reduced.insert(0, ("patient", "#", "id"), list(range(len(reduced))))
             report.success("Added index column to data.")
 
-    processed = transform_to_lyprox(reduced, mapping.column_map)
+    processed = transform_to_lyprox(reduced, mapping.COLUMN_MAP)
 
     if ("tumor", "1", "side") in processed.columns:
         processed = leftright_to_ipsicontra(processed)
