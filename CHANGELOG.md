@@ -1,3 +1,18 @@
+<a name="0.6.8"></a>
+## [0.6.8] - 2023-05-30
+
+### Bug Fixes
+- flattening error in `lyproxify`
+- more robust lyproxify working again
+
+### Documentation
+- add detail to docstring of `lyproxify` func
+
+### Features
+- add func to generate md docs from column map
+- add two new dict modifying functions
+
+
 <a name="0.6.7"></a>
 ## [0.6.7] - 2023-05-23
 
@@ -242,7 +257,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.7...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.8...HEAD
+[0.6.8]: https://github.com/rmnldwg/lyscripts/compare/0.6.7...0.6.8
 [0.6.7]: https://github.com/rmnldwg/lyscripts/compare/0.6.6...0.6.7
 [0.6.6]: https://github.com/rmnldwg/lyscripts/compare/0.6.5...0.6.6
 [0.6.5]: https://github.com/rmnldwg/lyscripts/compare/0.6.4...0.6.5
