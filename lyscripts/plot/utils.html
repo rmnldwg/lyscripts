@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="pdoc 13.1.1"/>
+    <meta name="generator" content="pdoc 14.0.0"/>
     <title>lyscripts.plot.utils API documentation</title>
             <link rel="icon" href="https://raw.githubusercontent.com/rmnldwg/lyscripts/main/favicon.png"/>
 
@@ -54,10 +54,28 @@
             <h2>API Documentation</h2>
                 <ul class="memberlist">
             <li>
+                    <a class="variable" href="#COLORS">COLORS</a>
+            </li>
+            <li>
+                    <a class="variable" href="#COLOR_CYCLE">COLOR_CYCLE</a>
+            </li>
+            <li>
+                    <a class="variable" href="#CM_PER_INCH">CM_PER_INCH</a>
+            </li>
+            <li>
                     <a class="class" href="#Histogram">Histogram</a>
                             <ul class="memberlist">
                         <li>
                                 <a class="function" href="#Histogram.__init__">Histogram</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Histogram.values">values</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Histogram.scale">scale</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Histogram.kwargs">kwargs</a>
                         </li>
                         <li>
                                 <a class="function" href="#Histogram.from_hdf5">from_hdf5</a>
@@ -78,7 +96,22 @@
                                 <a class="function" href="#Posterior.__init__">Posterior</a>
                         </li>
                         <li>
+                                <a class="variable" href="#Posterior.num_success">num_success</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Posterior.num_total">num_total</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Posterior.scale">scale</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Posterior.kwargs">kwargs</a>
+                        </li>
+                        <li>
                                 <a class="function" href="#Posterior.from_hdf5">from_hdf5</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Posterior.num_fail">num_fail</a>
                         </li>
                         <li>
                                 <a class="function" href="#Posterior.pdf">pdf</a>
@@ -440,6 +473,42 @@
 
 
             </section>
+                <section id="COLORS">
+                    <div class="attr variable">
+            <span class="name">COLORS</span>        =
+<span class="default_value">{&#39;blue&#39;: &#39;#005ea8&#39;, &#39;orange&#39;: &#39;#f17900&#39;, &#39;green&#39;: &#39;#00afa5&#39;, &#39;red&#39;: &#39;#ae0060&#39;, &#39;gray&#39;: &#39;#c5d5db&#39;}</span>
+
+        
+    </div>
+    <a class="headerlink" href="#COLORS"></a>
+    
+    
+
+                </section>
+                <section id="COLOR_CYCLE">
+                    <div class="attr variable">
+            <span class="name">COLOR_CYCLE</span>        =
+<span class="default_value">&lt;itertools.cycle object&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#COLOR_CYCLE"></a>
+    
+    
+
+                </section>
+                <section id="CM_PER_INCH">
+                    <div class="attr variable">
+            <span class="name">CM_PER_INCH</span>        =
+<span class="default_value">2.54</span>
+
+        
+    </div>
+    <a class="headerlink" href="#CM_PER_INCH"></a>
+    
+    
+
+                </section>
                 <section id="Histogram">
                             <input id="Histogram-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr class">
@@ -494,6 +563,40 @@
         
     </div>
     <a class="headerlink" href="#Histogram.__init__"></a>
+    
+    
+
+                            </div>
+                            <div id="Histogram.values" class="classattr">
+                                <div class="attr variable">
+            <span class="name">values</span><span class="annotation">: numpy.ndarray</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Histogram.values"></a>
+    
+    
+
+                            </div>
+                            <div id="Histogram.scale" class="classattr">
+                                <div class="attr variable">
+            <span class="name">scale</span><span class="annotation">: float</span>        =
+<span class="default_value">100.0</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Histogram.scale"></a>
+    
+    
+
+                            </div>
+                            <div id="Histogram.kwargs" class="classattr">
+                                <div class="attr variable">
+            <span class="name">kwargs</span><span class="annotation">: Dict[str, Any]</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Histogram.kwargs"></a>
     
     
 
@@ -657,6 +760,51 @@
     
 
                             </div>
+                            <div id="Posterior.num_success" class="classattr">
+                                <div class="attr variable">
+            <span class="name">num_success</span><span class="annotation">: int</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Posterior.num_success"></a>
+    
+    
+
+                            </div>
+                            <div id="Posterior.num_total" class="classattr">
+                                <div class="attr variable">
+            <span class="name">num_total</span><span class="annotation">: int</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Posterior.num_total"></a>
+    
+    
+
+                            </div>
+                            <div id="Posterior.scale" class="classattr">
+                                <div class="attr variable">
+            <span class="name">scale</span><span class="annotation">: float</span>        =
+<span class="default_value">100.0</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Posterior.scale"></a>
+    
+    
+
+                            </div>
+                            <div id="Posterior.kwargs" class="classattr">
+                                <div class="attr variable">
+            <span class="name">kwargs</span><span class="annotation">: Dict[str, Any]</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Posterior.kwargs"></a>
+    
+    
+
+                            </div>
                             <div id="Posterior.from_hdf5" class="classattr">
                                         <input id="Posterior.from_hdf5-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -690,6 +838,17 @@
             <div class="docstring"><p>Initialize data container for Beta posteriors from HDF5 file.</p>
 </div>
 
+
+                            </div>
+                            <div id="Posterior.num_fail" class="classattr">
+                                <div class="attr variable">
+            <span class="name">num_fail</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Posterior.num_fail"></a>
+    
+    
 
                             </div>
                             <div id="Posterior.pdf" class="classattr">

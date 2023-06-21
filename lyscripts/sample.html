@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="pdoc 13.1.1"/>
+    <meta name="generator" content="pdoc 14.0.0"/>
     <title>lyscripts.sample API documentation</title>
             <link rel="icon" href="https://raw.githubusercontent.com/rmnldwg/lyscripts/main/favicon.png"/>
 
@@ -73,6 +73,12 @@
             </li>
             <li>
                     <a class="function" href="#run_mcmc_with_burnin">run_mcmc_with_burnin</a>
+            </li>
+            <li>
+                    <a class="variable" href="#MODEL">MODEL</a>
+            </li>
+            <li>
+                    <a class="variable" href="#INV_TEMP">INV_TEMP</a>
             </li>
             <li>
                     <a class="function" href="#log_prob_fn">log_prob_fn</a>
@@ -998,12 +1004,28 @@ numpy array with the coordinates of the last draw.</p>
                                 <h5>Inherited Members</h5>
                                 <dl>
                                     <div><dt>emcee.ensemble.EnsembleSampler</dt>
-                                <dd id="ConvenienceSampler.random_state" class="variable">random_state</dd>
+                                <dd id="ConvenienceSampler.pool" class="variable">pool</dd>
+                <dd id="ConvenienceSampler.vectorize" class="variable">vectorize</dd>
+                <dd id="ConvenienceSampler.blobs_dtype" class="variable">blobs_dtype</dd>
+                <dd id="ConvenienceSampler.ndim" class="variable">ndim</dd>
+                <dd id="ConvenienceSampler.nwalkers" class="variable">nwalkers</dd>
+                <dd id="ConvenienceSampler.backend" class="variable">backend</dd>
+                <dd id="ConvenienceSampler.log_prob_fn" class="variable">log_prob_fn</dd>
+                <dd id="ConvenienceSampler.params_are_named" class="variable">params_are_named</dd>
+                <dd id="ConvenienceSampler.random_state" class="variable">random_state</dd>
+                <dd id="ConvenienceSampler.iteration" class="variable">iteration</dd>
                 <dd id="ConvenienceSampler.reset" class="function">reset</dd>
                 <dd id="ConvenienceSampler.sample" class="function">sample</dd>
                 <dd id="ConvenienceSampler.run_mcmc" class="function">run_mcmc</dd>
                 <dd id="ConvenienceSampler.compute_log_prob" class="function">compute_log_prob</dd>
                 <dd id="ConvenienceSampler.acceptance_fraction" class="variable">acceptance_fraction</dd>
+                <dd id="ConvenienceSampler.chain" class="variable">chain</dd>
+                <dd id="ConvenienceSampler.flatchain" class="variable">flatchain</dd>
+                <dd id="ConvenienceSampler.lnprobability" class="variable">lnprobability</dd>
+                <dd id="ConvenienceSampler.flatlnprobability" class="variable">flatlnprobability</dd>
+                <dd id="ConvenienceSampler.blobs" class="variable">blobs</dd>
+                <dd id="ConvenienceSampler.flatblobs" class="variable">flatblobs</dd>
+                <dd id="ConvenienceSampler.acor" class="variable">acor</dd>
                 <dd id="ConvenienceSampler.get_chain" class="function">get_chain</dd>
                 <dd id="ConvenienceSampler.get_blobs" class="function">get_blobs</dd>
                 <dd id="ConvenienceSampler.get_log_prob" class="function">get_log_prob</dd>
@@ -1143,6 +1165,30 @@ does not seem to work here.</p>
 <p>Returns a dictionary with some information about the burnin phase.</p>
 </div>
 
+
+                </section>
+                <section id="MODEL">
+                    <div class="attr variable">
+            <span class="name">MODEL</span>        =
+<span class="default_value">None</span>
+
+        
+    </div>
+    <a class="headerlink" href="#MODEL"></a>
+    
+    
+
+                </section>
+                <section id="INV_TEMP">
+                    <div class="attr variable">
+            <span class="name">INV_TEMP</span>        =
+<span class="default_value">1.0</span>
+
+        
+    </div>
+    <a class="headerlink" href="#INV_TEMP"></a>
+    
+    
 
                 </section>
                 <section id="log_prob_fn">

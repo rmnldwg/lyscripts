@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="pdoc 13.1.1"/>
+    <meta name="generator" content="pdoc 14.0.0"/>
     <title>lyscripts.utils API documentation</title>
             <link rel="icon" href="https://raw.githubusercontent.com/rmnldwg/lyscripts/main/favicon.png"/>
 
@@ -59,8 +59,26 @@
                         <li>
                                 <a class="function" href="#LyScriptsWarning.__init__">LyScriptsWarning</a>
                         </li>
+                        <li>
+                                <a class="variable" href="#LyScriptsWarning.level">level</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#LyScriptsWarning.message">message</a>
+                        </li>
                 </ul>
 
+            </li>
+            <li>
+                    <a class="variable" href="#CROSS">CROSS</a>
+            </li>
+            <li>
+                    <a class="variable" href="#CIRCL">CIRCL</a>
+            </li>
+            <li>
+                    <a class="variable" href="#WARN">WARN</a>
+            </li>
+            <li>
+                    <a class="variable" href="#CHECK">CHECK</a>
             </li>
             <li>
                     <a class="function" href="#is_streamlit_running">is_streamlit_running</a>
@@ -93,6 +111,9 @@
 
             </li>
             <li>
+                    <a class="variable" href="#report">report</a>
+            </li>
+            <li>
                     <a class="class" href="#CustomProgress">CustomProgress</a>
                             <ul class="memberlist">
                         <li>
@@ -100,6 +121,9 @@
                         </li>
                 </ul>
 
+            </li>
+            <li>
+                    <a class="variable" href="#report_progress">report_progress</a>
             </li>
             <li>
                     <a class="function" href="#report_state">report_state</a>
@@ -133,6 +157,9 @@
             </li>
             <li>
                     <a class="function" href="#model_from_config">model_from_config</a>
+            </li>
+            <li>
+                    <a class="variable" href="#LymphModel">LymphModel</a>
             </li>
             <li>
                     <a class="function" href="#create_model_from_config">create_model_from_config</a>
@@ -906,9 +933,31 @@ the <code><a href="#report_state">report_state</a></code> decorator.</p>
 </span></pre></div>
 
 
-            <div class="docstring"><p>Extract the <code>level</code> of the message (can be "info", "warning" or "error").</p>
+            <div class="docstring"><p>Extract the <code><a href="#LyScriptsWarning.level">level</a></code> of the message (can be "info", "warning" or "error").</p>
 </div>
 
+
+                            </div>
+                            <div id="LyScriptsWarning.level" class="classattr">
+                                <div class="attr variable">
+            <span class="name">level</span>
+
+        
+    </div>
+    <a class="headerlink" href="#LyScriptsWarning.level"></a>
+    
+    
+
+                            </div>
+                            <div id="LyScriptsWarning.message" class="classattr">
+                                <div class="attr variable">
+            <span class="name">message</span>
+
+        
+    </div>
+    <a class="headerlink" href="#LyScriptsWarning.message"></a>
+    
+    
 
                             </div>
                             <div class="inherited">
@@ -916,10 +965,59 @@ the <code><a href="#report_state">report_state</a></code> decorator.</p>
                                 <dl>
                                     <div><dt>builtins.BaseException</dt>
                                 <dd id="LyScriptsWarning.with_traceback" class="function">with_traceback</dd>
+                <dd id="LyScriptsWarning.args" class="variable">args</dd>
 
             </div>
                                 </dl>
                             </div>
+                </section>
+                <section id="CROSS">
+                    <div class="attr variable">
+            <span class="name">CROSS</span>        =
+<span class="default_value">&#39;[bold red]✗[/bold red]&#39;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#CROSS"></a>
+    
+    
+
+                </section>
+                <section id="CIRCL">
+                    <div class="attr variable">
+            <span class="name">CIRCL</span>        =
+<span class="default_value">&#39;[bold blue]∘[/bold blue]&#39;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#CIRCL"></a>
+    
+    
+
+                </section>
+                <section id="WARN">
+                    <div class="attr variable">
+            <span class="name">WARN</span>        =
+<span class="default_value">&#39;[bold yellow]Δ[/bold yellow]&#39;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#WARN"></a>
+    
+    
+
+                </section>
+                <section id="CHECK">
+                    <div class="attr variable">
+            <span class="name">CHECK</span>        =
+<span class="default_value">&#39;[bold green]✓[/bold green]&#39;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#CHECK"></a>
+    
+    
+
                 </section>
                 <section id="is_streamlit_running">
                             <input id="is_streamlit_running-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
@@ -1191,6 +1289,20 @@ application, the output is redirected to the appropriate <code>streamlit</code> 
                                 <dl>
                                     <div><dt>rich.console.Console</dt>
                                 <dd id="LyScriptsReport.__init__" class="function">Console</dd>
+                <dd id="LyScriptsReport.is_jupyter" class="variable">is_jupyter</dd>
+                <dd id="LyScriptsReport.tab_size" class="variable">tab_size</dd>
+                <dd id="LyScriptsReport.record" class="variable">record</dd>
+                <dd id="LyScriptsReport.legacy_windows" class="variable">legacy_windows</dd>
+                <dd id="LyScriptsReport.soft_wrap" class="variable">soft_wrap</dd>
+                <dd id="LyScriptsReport.quiet" class="variable">quiet</dd>
+                <dd id="LyScriptsReport.stderr" class="variable">stderr</dd>
+                <dd id="LyScriptsReport.highlighter" class="variable">highlighter</dd>
+                <dd id="LyScriptsReport.safe_box" class="variable">safe_box</dd>
+                <dd id="LyScriptsReport.get_datetime" class="variable">get_datetime</dd>
+                <dd id="LyScriptsReport.get_time" class="variable">get_time</dd>
+                <dd id="LyScriptsReport.style" class="variable">style</dd>
+                <dd id="LyScriptsReport.no_color" class="variable">no_color</dd>
+                <dd id="LyScriptsReport.is_interactive" class="variable">is_interactive</dd>
                 <dd id="LyScriptsReport.file" class="variable">file</dd>
                 <dd id="LyScriptsReport.set_live" class="function">set_live</dd>
                 <dd id="LyScriptsReport.clear_live" class="function">clear_live</dd>
@@ -1244,6 +1356,18 @@ application, the output is redirected to the appropriate <code>streamlit</code> 
             </div>
                                 </dl>
                             </div>
+                </section>
+                <section id="report">
+                    <div class="attr variable">
+            <span class="name">report</span>        =
+<span class="default_value">&lt;console width=80 None&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#report"></a>
+    
+    
+
                 </section>
                 <section id="CustomProgress">
                             <input id="CustomProgress-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
@@ -1303,7 +1427,16 @@ application, the output is redirected to the appropriate <code>streamlit</code> 
                                 <h5>Inherited Members</h5>
                                 <dl>
                                     <div><dt>rich.progress.Progress</dt>
-                                <dd id="CustomProgress.get_default_columns" class="function">get_default_columns</dd>
+                                <dd id="CustomProgress.columns" class="variable">columns</dd>
+                <dd id="CustomProgress.speed_estimate_period" class="variable">speed_estimate_period</dd>
+                <dd id="CustomProgress.disable" class="variable">disable</dd>
+                <dd id="CustomProgress.expand" class="variable">expand</dd>
+                <dd id="CustomProgress.live" class="variable">live</dd>
+                <dd id="CustomProgress.get_time" class="variable">get_time</dd>
+                <dd id="CustomProgress.print" class="variable">print</dd>
+                <dd id="CustomProgress.log" class="variable">log</dd>
+                <dd id="CustomProgress.get_default_columns" class="function">get_default_columns</dd>
+                <dd id="CustomProgress.console" class="variable">console</dd>
                 <dd id="CustomProgress.tasks" class="variable">tasks</dd>
                 <dd id="CustomProgress.task_ids" class="variable">task_ids</dd>
                 <dd id="CustomProgress.finished" class="variable">finished</dd>
@@ -1327,6 +1460,18 @@ application, the output is redirected to the appropriate <code>streamlit</code> 
             </div>
                                 </dl>
                             </div>
+                </section>
+                <section id="report_progress">
+                    <div class="attr variable">
+            <span class="name">report_progress</span>        =
+<span class="default_value">&lt;<a href="#CustomProgress">lyscripts.utils.CustomProgress</a> object&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#report_progress"></a>
+    
+    
+
                 </section>
                 <section id="report_state">
                             <input id="report_state-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
@@ -1792,6 +1937,18 @@ tuples as keys in a dictionary.</p>
             <div class="docstring"><p>Create a model instance as defined by some YAML params.</p>
 </div>
 
+
+                </section>
+                <section id="LymphModel">
+                    <div class="attr variable">
+            <span class="name">LymphModel</span>        =
+<span class="default_value">typing.Union[lymph.unilateral.Unilateral, lymph.bilateral.Bilateral, lymph.midline.MidlineBilateral]</span>
+
+        
+    </div>
+    <a class="headerlink" href="#LymphModel"></a>
+    
+    
 
                 </section>
                 <section id="create_model_from_config">
