@@ -139,6 +139,7 @@ def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int
 def generate_markdown_docs(
     nested_column_map: Dict[Tuple, Dict[str, Any]],
     depth: int = 0,
+    indent_len: int = 4,
 ) -> str:
     """
     Generate a markdown nested, ordered list as documentation for the column map.
@@ -158,17 +159,18 @@ def generate_markdown_docs(
     ...     },
     ... }
     >>> generate_markdown_docs(nested_column_map)
-    '1. **`patient`**: some patient info\\n   1. **`age`**: age of the patient\\n'
+    '1. **`patient:`** some patient info\\n    1. **`age:`** age of the patient\\n'
     """
     md_docs = ""
+    indent = " " * indent_len * depth
     i = 1
     for key, value in nested_column_map.items():
         if isinstance(value, dict):
             if "__doc__" in value:
-                md_docs += f"{'   ' * depth}{i}. **`{key}`**: {value['__doc__']}\n"
+                md_docs += f"{indent}{i}. **`{key}:`** {value['__doc__']}\n"
                 i += 1
 
-            md_docs += generate_markdown_docs(value, depth + 1)
+            md_docs += generate_markdown_docs(value, depth + 1, indent_len)
 
     return md_docs
 
