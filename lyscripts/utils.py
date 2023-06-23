@@ -6,10 +6,6 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
-import functools
-import logging
-import sys
-from functools import wraps
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
 
@@ -29,6 +25,12 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from scipy.special import factorial
+
+from lyscripts.decorators import (
+    check_input_file_exists,
+    log_state,
+    provide_file,
+)
 
 try:
     import streamlit
@@ -142,259 +144,6 @@ class CustomProgress(Progress):
 report_progress = CustomProgress()
 
 
-def extract_logger(*args, **kwargs) -> logging.Logger:
-    """Extract a logger from the arguments if present.
-
-    The function will first search if the function is in fact a method of a class that
-    has any attributes that are instances of `logging.Logger`. If not, it will search
-    the arguments and keyword arguments for instances of `logging.Logger` and return
-    the first one it finds. If none is found, it will return the logger of this module.
-    """
-    first_arg = next(iter(args), None)
-    if hasattr(first_arg, "__dict__"):
-        attr_loggers = []
-        for attr in first_arg.__dict__.values():
-            if isinstance(attr, logging.Logger):
-                attr_loggers.append(attr)
-
-    args_loggers = [arg for arg in args if isinstance(arg, logging.Logger)]
-    kwargs_loggers = [arg for arg in kwargs.values() if isinstance(arg, logging.Logger)]
-
-    found_loggers = [*attr_loggers, *args_loggers, *kwargs_loggers]
-    logger = next(iter(found_loggers), None)
-
-    if logger is None:
-        logger = logging.getLogger(__name__)
-
-    return logger
-
-
-def assemble_signature(*args, **kwargs) -> str:
-    """Assemble the signature of the function call."""
-    args_str = ", ".join(str(arg) for arg in args)
-    kwargs_str = ", ".join(f"{key}={value}" for key, value in kwargs.items())
-    signature = ", ".join([args_str, kwargs_str])
-    return signature
-
-
-def log_state(
-    direct_func: Callable = None,
-    status_msg: str = None,
-    success_msg: str = None,
-    logger: logging.Logger = None,
-) -> Callable:
-    """Provide a decorator that logs the state of the function execution.
-
-    This function can either be used directly as a decorator or be called with the
-    desired `status_msg` and `success_msg` to return a decorator that can be then in
-    turn be used to decorate a function.
-    """
-    # pylint: disable=logging-fstring-interpolation
-    def log_decorator(func: Callable):
-        """The decorator wrapping the decorated function."""
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            """The wrapper around the decorated function."""
-            if logger is None:
-                logger = extract_logger(*args, **kwargs)
-
-            signature = assemble_signature(*args, **kwargs)
-            logger.debug(f"Executing {func.__name__}({signature}).")
-
-            if status_msg is not None:
-                logger.info(status_msg)
-
-            try:
-                result = func(*args, **kwargs)
-                if success_msg is not None:
-                    logger.info(success_msg)
-                return result
-
-            except Exception as exc:
-                logger.error(f"Error in {func.__name__}({signature}).", exc_info=exc)
-                raise exc
-
-        return wrapper
-
-    if direct_func is not None:
-        return log_decorator(direct_func)
-
-    return log_decorator
-
-
-def report_state(
-    status_msg: str,
-    success_msg: str,
-    stop_on_exc: bool = False,
-    verbose: bool = True,
-) -> Callable:
-    """
-    Outermost decorator that catches and gracefully reports exceptions that occur.
-
-    During the execution of the decorated function, it will display the `status_msg`.
-    When successful, the `success_msg` will finally be printed. And if the decorated
-    function raises a `LyScriptsError`, then that exception's message will be passed on
-    to the methods of the reporting class/module.
-
-    If `stop_on_exc` is set to `True`, the program exits when catching an error. And
-    lastly, with `verbose=False`, one can turn off the reporting entirely which may
-    in turn be overrridden when calling the decorated function with `verbose=True` and
-    vice versa.
-    """
-    def assembled_decorator(func: Callable) -> Callable:
-        """The decorator that gets returned by `report_state`."""
-        default_verbosity = verbose
-
-        @wraps(func)
-        def inner(*args, **kwargs):
-            """The wrapped function."""
-            verbose = kwargs.pop("verbose", default_verbosity)
-            try:
-                report.quiet = not verbose
-            except AttributeError:
-                pass
-
-            with report.status(status_msg):
-                try:
-                    result = func(*args, **kwargs)
-                except LyScriptsWarning as ly_err:
-                    msg = getattr(ly_err, "message", repr(ly_err))
-                    level = getattr(ly_err, "level", "info")
-                    getattr(report, level)(msg)
-                except Exception as exc:
-                    report.exception(exc)
-                    if stop_on_exc:
-                        sys.exit(1)
-                else:
-                    report.success(success_msg)
-                    return result
-
-                return None
-
-        return inner
-
-    return assembled_decorator
-
-
-def raise_if_args_none(message: str, level: str = "warning") -> Callable:
-    """
-    Call to create a decorator that raises a `LyScriptsWarning` with the specified
-    `message` and `level` when one of the positional arguments to the decorated
-    function is `None`.
-
-    This should be the second decorator after `report_state`, since that outermost
-    decorator catches the raised `LyScriptsWarning` and handles it appropriately.
-    """
-    def assembled_decorator(func: Callable) -> Callable:
-        """The decorator that gets returned by `raise_if_args_none`."""
-        @wraps(func)
-        def inner(*args, **kwargs) -> Any:
-            """The wrapped function."""
-            for arg in args:
-                if arg is None:
-                    raise LyScriptsWarning(message, level)
-
-            return func(*args, **kwargs)
-
-        return inner
-
-    return assembled_decorator
-
-
-def check_input_file_exists(loading_func: Callable) -> Callable:
-    """
-    Decorator that checks if the file path provided to the `loading_func` exists and
-    throws a `FileNotFoundError` if it does not.
-
-    The purpose of this deorator is to provide a consistent error message to the
-    `report_func_state`, since some libraries throw other errors when a file is not
-    found.
-    """
-    @wraps(loading_func)
-    def inner(file_path: str, *args, **kwargs) -> Any:
-        """Wrapped loading function."""
-        file_path = Path(file_path)
-        if not file_path.is_file():
-            raise LyScriptsWarning(f"No file found at {file_path}", level="warning")
-
-        return loading_func(file_path, *args, **kwargs)
-
-    return inner
-
-
-def provide_file(is_binary: bool) -> Callable:
-    """
-    Create a decorator that can make sure a decorated function is provided with a
-    file-like object, even when it is called with the file path only.
-
-    This means, the assembled decorator checks the argument type and, if necessary,
-    opens the file to call the decorated function. The provided file is either a text
-    file of - if `is_binary` is set to `True` - a binary file.
-    """
-    def assembled_decorator(loading_func: Callable) -> Callable:
-        """
-        The assembled decorator that provides the decorated function with either a
-        test or binary file.
-        """
-        @wraps(loading_func)
-        def inner(file_or_path: Union[str, Path, TextIO, BinaryIO], *args, **kwargs):
-            """The wrapped function."""
-            if isinstance(file_or_path, (str, Path)):
-                file_path = Path(file_or_path)
-                if not file_path.is_file():
-                    raise FileNotFoundError(f"No file found at {file_path}")
-
-                if is_binary:
-                    with open(file_path, mode="rb") as bin_file:
-                        return loading_func(bin_file, *args, **kwargs)
-                else:
-                    with open(file_path, mode="r", encoding="utf-8") as txt_file:
-                        return loading_func(txt_file, *args, **kwargs)
-
-            return loading_func(file_or_path, *args, **kwargs)
-
-        return inner
-
-    return assembled_decorator
-
-
-def provide_text_file(loading_func: Callable) -> Callable:
-    """
-    Decorator that makes sure the `loading_func` is provided with a file-like object
-    regardless of whether the input is a `str`, `Path` or already file-like.
-    """
-    @wraps(loading_func)
-    def inner(file_or_path: Union[str, Path, TextIO], *args, **kwargs) -> Any:
-        """Wrapped loading function."""
-        if isinstance(file_or_path, (str, Path)):
-            file_path = Path(file_or_path)
-            if not file_path.is_file():
-                raise FileNotFoundError(f"No file found at {file_path}")
-
-            with open(file_path, mode="r", encoding="utf-8") as file:
-                return loading_func(file, *args, **kwargs)
-
-        return loading_func(file_or_path, *args, **kwargs)
-
-    return inner
-
-
-def check_output_dir_exists(saving_func: Callable) -> Callable:
-    """
-    Decorator to make sure the parent directory of the file that is supposed to be
-    saved does exist.
-    """
-    @wraps(saving_func)
-    def inner(file_path: str, *args, **kwargs) -> Any:
-        """Wrapped saving function."""
-        file_path = Path(file_path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-
-        return saving_func(file_path, *args, **kwargs)
-
-    return inner
-
-
 def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):
     """Binomial PMF"""
     if p > 1. or p < 0.:
@@ -474,13 +223,9 @@ def model_from_config(
 
 LymphModel = Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]
 
-@report_state(
-    status_msg="Create model based on YAML parameters...",
-    success_msg="Created model based on YAML parameters",
-)
-@raise_if_args_none(
-    message="No valid params provided",
-    level="warning",
+@log_state(
+    status_msg="Creating model from YAML config...",
+    success_msg="Model created from YAML config",
 )
 def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
     """Create a model instance as defined by some YAML params."""
@@ -511,10 +256,6 @@ def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
     return model
 
 
-@raise_if_args_none(
-    message="No valid model provided",
-    level="warning",
-)
 def get_lnls(model: LymphModel) -> List[str]:
     """Extract the list of LNLs from a model instance. E.g.:
     >>> graph = {
@@ -657,13 +398,9 @@ def get_modalities_subset(
     return selected_modalities
 
 
-@report_state(
-    status_msg="Read in patient data for model...",
-    success_msg="Read in patient data for model.",
-)
-@raise_if_args_none(
-    message="No patient data file(path) provided.",
-    level="warning",
+@log_state(
+    status_msg="Load patient data...",
+    success_msg="Loaded patient data.",
 )
 @provide_file(is_binary=False)
 def load_data_for_model(
@@ -680,13 +417,9 @@ def load_data_for_model(
     return pd.read_csv(file, header=header_rows)
 
 
-@report_state(
+@log_state(
     status_msg="Load YAML params...",
     success_msg="Loaded YAML params.",
-)
-@raise_if_args_none(
-    message="No YAML file(path) provided.",
-    level="warning",
 )
 @provide_file(is_binary=False)
 def load_yaml_params(file: Path) -> dict:
@@ -694,7 +427,7 @@ def load_yaml_params(file: Path) -> dict:
     return yaml.safe_load(file)
 
 
-@report_state(
+@log_state(
     status_msg="Load HDF5 samples from MCMC run...",
     success_msg="Loaded HDF5 samples from MCMC run.",
 )
@@ -708,13 +441,9 @@ def load_model_samples(file_path: Path) -> np.ndarray:
     return backend.get_chain(flat=True)
 
 
-@report_state(
+@log_state(
     status_msg="Load HDF5 samples...",
     success_msg="Loaded HDF5 samples.",
-)
-@raise_if_args_none(
-    message="No HDF5 file provided.",
-    level="warning",
 )
 @provide_file(is_binary=True)
 def load_hdf5_samples(file: BinaryIO, name: str = "mcmc/chain") -> np.ndarray:
