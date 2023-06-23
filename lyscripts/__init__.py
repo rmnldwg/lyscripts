@@ -26,7 +26,11 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
-    handlers=[RichHandler(show_time=False, markup=True)]
+    handlers=[RichHandler(
+        console=report,
+        show_time=False,
+        markup=True,
+    )]
 )
 
 

@@ -19,10 +19,14 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import get_modalities_subset, load_yaml_params, report
+from lyscripts.utils import (
+    CustomProgress,
+    get_modalities_subset,
+    load_yaml_params,
+    report,
+)
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 # pylint: disable=singleton-comparison
@@ -269,12 +273,6 @@ CONSENSUS_FUNCS = {
     "logic_or": lambda obs, *_args, **_kwargs: or_consensus(obs),
     "logic_and": lambda obs, *_args, **_kwargs: and_consensus(obs),
 }
-PROGRESS = Progress(
-    SpinnerColumn(),
-    *Progress.get_default_columns(),
-    TimeElapsedColumn(),
-    console=report,
-)
 
 
 def main(args: argparse.Namespace):
@@ -349,8 +347,8 @@ def main(args: argparse.Namespace):
         )
     )
 
-    with PROGRESS:
-        enhance_task = PROGRESS.add_task(
+    with CustomProgress(console=report) as report_progress:
+        enhance_task = report_progress.add_task(
             description="Compute consensus of modalities...",
             total=2 * len(input_table),
         )
@@ -365,7 +363,7 @@ def main(args: argparse.Namespace):
                         consensus[cons, side, lnl].iloc[p] = CONSENSUS_FUNCS[cons](
                             observations, available_mods.values()
                         )
-                PROGRESS.update(enhance_task, advance=1)
+                report_progress.update(enhance_task, advance=1)
         table_with_consensus = input_table.join(consensus)
 
     report.success(

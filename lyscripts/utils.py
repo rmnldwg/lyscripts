@@ -6,6 +6,7 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
+import logging
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
 
@@ -17,12 +18,10 @@ import yaml
 from emcee.backends import HDFBackend
 from rich.console import Console
 from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
     Progress,
+    SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
-    TimeRemainingColumn,
 )
 from scipy.special import factorial
 
@@ -62,6 +61,15 @@ CIRCL = "[bold blue]∘[/bold blue]"
 WARN = "[bold yellow]Δ[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
 
+loglevel_num_to_str = {
+    0: "NOTSET",
+    10: "DEBUG",
+    20: "INFO",
+    30: "WARNING",
+    40: "ERROR",
+    50: "CRITICAL",
+}
+
 
 def is_streamlit_running() -> bool:
     """Checks if code is running inside a `streamlit` app."""
@@ -85,6 +93,16 @@ def redirect_to_streamlit(func: Callable) -> Callable:
     return inner
 
 
+def inject_lvl_and_symbol(objects, symbol = None, width = 8):
+    level = loglevel_num_to_str[logging.root.level]
+    prefix = "[blue]" + level.ljust(width) + "[/blue]"
+    if symbol is not None:
+        objects = [prefix, symbol, *objects]
+    else:
+        objects = [prefix, *objects]
+    return objects
+
+
 class LyScriptsReport(Console):
     """
     Small extension to the `Console` class of the rich package.
@@ -98,25 +116,31 @@ class LyScriptsReport(Console):
     @redirect_to_streamlit
     def success(self, *objects, **kwargs) -> None:
         """Prefix a bold green check mark to any output."""
-        objects = [CHECK, *objects]
+        objects = inject_lvl_and_symbol(objects, symbol=CHECK)
         return super().print(*objects, **kwargs)
 
     @redirect_to_streamlit
     def info(self, *objects, **kwargs) -> None:
         """Prefix a bold yellow circle to any output."""
-        objects = [CIRCL, *objects]
+        objects = inject_lvl_and_symbol(objects, symbol=CIRCL)
+        return super().print(*objects, **kwargs)
+
+    @redirect_to_streamlit
+    def add(self, *objects, **kwargs) -> None:
+        """Prefix a bold yellow circle to any output."""
+        objects = inject_lvl_and_symbol(objects, symbol="+")
         return super().print(*objects, **kwargs)
 
     @redirect_to_streamlit
     def warning(self, *objects, **kwargs) -> None:
         """Prefix a bold yellow triangle to any output."""
-        objects = [WARN, *objects]
+        objects = inject_lvl_and_symbol(objects, symbol=WARN)
         return super().print(*objects, **kwargs)
 
     @redirect_to_streamlit
     def error(self, *objects, **kwargs) -> None:
         """Prefix a bold red cross to any output."""
-        objects = [CROSS, *objects]
+        objects = inject_lvl_and_symbol(objects, symbol=CROSS)
         return super().print(*objects, **kwargs)
 
     def exception(self, exception, **kwargs) -> None:
@@ -132,16 +156,14 @@ report = LyScriptsReport()
 class CustomProgress(Progress):
     """Small wrapper around rich's `Progress` initializing my custom columns."""
     def __init__( self, **kwargs: dict):
+        prefix = " ".join(inject_lvl_and_symbol([]))
         columns = [
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            MofNCompleteColumn(),
-            TimeRemainingColumn(),
+            TextColumn(prefix),
+            SpinnerColumn(finished_text=CHECK),
+            *Progress.get_default_columns(),
             TimeElapsedColumn(),
         ]
         super().__init__(*columns, **kwargs)
-
-report_progress = CustomProgress()
 
 
 def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):

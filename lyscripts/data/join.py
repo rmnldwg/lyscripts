@@ -78,7 +78,7 @@ def main(args: argparse.Namespace):
             [concatenated_table, input_table],
             ignore_index=True
         )
-        report.print(f"+ concatenated data from {input_path}")
+        report.add(f"concatenated data from {input_path}")
     report.success(f"Read & concatenated all {len(args.inputs)} CSV files")
 
     save_table_to_csv(args.output, concatenated_table)
