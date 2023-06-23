@@ -1,3 +1,37 @@
+<a name="0.6.9"></a>
+## [0.6.9] - 2023-06-21
+
+### Bug Fixes
+- change the indentation length in the generated markdown data documentation to 4 spaces. Fixes [#41].
+
+
+<a name="0.6.8"></a>
+## [0.6.8] - 2023-05-30
+
+### Bug Fixes
+- flattening error in `lyproxify`
+- more robust lyproxify working again
+
+### Documentation
+- add detail to docstring of `lyproxify` func
+
+### Features
+- add func to generate md docs from column map
+- add two new dict modifying functions
+
+
+<a name="0.6.7"></a>
+## [0.6.7] - 2023-05-23
+
+### Bug Fixes
+- make flatten/unflatten funcs more consistent
+- add `max_depth` option for `flatten` function
+- bump isort version to avoid error
+
+### Features
+- add `unflatten` function
+
+
 <a name="0.6.6"></a>
 ## [0.6.6] - 2022-12-01
 
@@ -230,7 +264,10 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.6...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.9...HEAD
+[0.6.9]: https://github.com/rmnldwg/lyscripts/compare/0.6.8...0.6.9
+[0.6.8]: https://github.com/rmnldwg/lyscripts/compare/0.6.7...0.6.8
+[0.6.7]: https://github.com/rmnldwg/lyscripts/compare/0.6.6...0.6.7
 [0.6.6]: https://github.com/rmnldwg/lyscripts/compare/0.6.5...0.6.6
 [0.6.5]: https://github.com/rmnldwg/lyscripts/compare/0.6.4...0.6.5
 [0.6.4]: https://github.com/rmnldwg/lyscripts/compare/0.6.3...0.6.4
@@ -262,6 +299,7 @@ returns `None` instead. Fixes [#11]
 [#30]: https://github.com/rmnldwg/lyscripts/issues/30
 [#31]: https://github.com/rmnldwg/lyscripts/issues/31
 [#33]: https://github.com/rmnldwg/lyscripts/issues/33
+[#41]: https://github.com/rmnldwg/lyscripts/issues/41
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich`]: https://rich.readthedocs.io/en/latest/

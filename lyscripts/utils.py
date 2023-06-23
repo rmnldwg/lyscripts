@@ -536,28 +536,104 @@ def get_lnls(model: LymphModel) -> List[str]:
     raise TypeError(f"Model cannot be of type {type(model)}")
 
 
+def get_dict_depth(nested: dict) -> int:
+    """
+    Get the depth of a nested dictionary.
+
+    For example:
+    >>> get_dict_depth({"a": {"b": 1}})
+    2
+    >>> varying_depth = {"a": {"b": 1}, "c": {"d": {"e": 2}}}
+    >>> get_dict_depth(varying_depth)
+    3
+    """
+    if isinstance(nested, dict):
+        max_depth = None
+        for _, value in nested.items():
+            value_depth = get_dict_depth(value)
+            max_depth = max(max_depth or value_depth, value_depth)
+
+        return 1 + (max_depth or 0)
+
+    return 0
+
+
+def delete_private_keys(nested: dict) -> dict:
+    """
+    Delete private keys from a nested dictionary.
+
+    A 'private' key is a key whose name starts with an underscore. For example:
+    >>> delete_private_keys({"patient": {"__doc__": "some patient info", "age": 61}})
+    {'patient': {'age': 61}}
+    >>> delete_private_keys({"patient": {"age": 61}})
+    {'patient': {'age': 61}}
+    """
+    cleaned = {}
+
+    if isinstance(nested, dict):
+        for key, value in nested.items():
+            if not (isinstance(key, str) and key.startswith("_")):
+                cleaned[key] = delete_private_keys(value)
+    else:
+        cleaned = nested
+
+    return cleaned
+
+
 def flatten(
     nested: dict,
     prev_key: tuple = (),
-    flattened: Optional[dict] = None,
+    max_depth: Optional[int] = None,
 ) -> dict:
     """
-    Flatten a `nested` dictionary recursivel by extending the `prev_key` tuple. For
-    example:
-    >>> nested = {"hi": {"there": "buddy"}, "how": {"are": "you?"}}
+    Flatten a `nested` dictionary by creating key tuples for each value at `max_depth`.
+
+    For example:
+    >>> nested = {"tumor": {"1": {"t_stage": 1, "size": 12.3}}}
     >>> flatten(nested)
-    {('hi', 'there'): 'buddy', ('how', 'are'): 'you?'}
+    {('tumor', '1', 't_stage'): 1, ('tumor', '1', 'size'): 12.3}
+    >>> mapping = {"patient": {"#": {"age": {"func": int, "columns": ["age"]}}}}
+    >>> flatten(mapping, max_depth=3)
+    {('patient', '#', 'age'): {'func': <class 'int'>, 'columns': ['age']}}
+
+    Note that flattening an already flat dictionary will yield some weird results.
     """
-    if flattened is None:
-        flattened = {}
+    result = {}
 
-    for key,val in nested.items():
-        if isinstance(val, dict):
-            flatten(val, (*prev_key, key), flattened)
+    for key, value in nested.items():
+        is_dict = isinstance(value, dict)
+        has_reached_max_depth = max_depth is not None and len(prev_key) >= max_depth - 1
+
+        if is_dict and not has_reached_max_depth:
+            result.update(flatten(value, (*prev_key, key), max_depth))
         else:
-            flattened[(*prev_key, key)] = val
+            result[(*prev_key, key)] = value
 
-    return flattened
+    return result
+
+
+def unflatten(flat: dict) -> dict:
+    """
+    Take a flat dictionary with tuples of keys and create nested dict from it.
+
+    Like so:
+    >>> flat = {('tumor', '1', 't_stage'): 1, ('tumor', '1', 'size'): 12.3}
+    >>> unflatten(flat)
+    {'tumor': {'1': {'t_stage': 1, 'size': 12.3}}}
+    >>> mapping = {('patient', '#', 'age'): {'func': int, 'columns': ['age']}}
+    >>> unflatten(mapping)
+    {'patient': {'#': {'age': {'func': <class 'int'>, 'columns': ['age']}}}}
+    """
+    result = {}
+
+    for keys, value in flat.items():
+        current = result
+        for key in keys[:-1]:
+            current = current.setdefault(key, {})
+
+        current[keys[-1]] = value
+
+    return result
 
 
 def get_modalities_subset(
@@ -565,8 +641,9 @@ def get_modalities_subset(
     selection: List[str],
 ) -> Dict[str, List[float]]:
     """
-    Of the `defined_modalities` return only those mentioned in the `selection`. For
-    instance:
+    Of the `defined_modalities` return only those mentioned in the `selection`.
+
+    For instance:
     >>> modalities = {"CT": [0.76, 0.81], "MRI": [0.63, 0.86]}
     >>> get_modalities_subset(modalities, ["CT"])
     {'CT': [0.76, 0.81]}
