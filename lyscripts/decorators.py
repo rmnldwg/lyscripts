@@ -18,8 +18,8 @@ def extract_logger(*args, **kwargs) -> logging.Logger:
     the first one it finds. If none is found, it will return a general logger.
     """
     first_arg = next(iter(args), None)
+    attr_loggers = []
     if hasattr(first_arg, "__dict__"):
-        attr_loggers = []
         for attr in first_arg.__dict__.values():
             if isinstance(attr, logging.Logger):
                 attr_loggers.append(attr)
@@ -62,6 +62,7 @@ def log_state(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             """The wrapper around the decorated function."""
+            nonlocal logger
             if logger is None:
                 logger = extract_logger(*args, **kwargs)
 

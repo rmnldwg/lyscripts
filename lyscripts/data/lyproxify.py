@@ -16,13 +16,8 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import (
-    delete_private_keys,
-    flatten,
-    raise_if_args_none,
-    report,
-    report_state,
-)
+from lyscripts.decorators import log_state
+from lyscripts.utils import delete_private_keys, flatten, report
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -175,14 +170,9 @@ def generate_markdown_docs(
     return md_docs
 
 
-@report_state(
+@log_state(
     status_msg="Transform raw data to LyProX style table...",
     success_msg="Transformed raw data to LyProX style table.",
-    stop_on_exc=True
-)
-@raise_if_args_none(
-    message="Must provide raw data and mapping instruction module",
-    level="warning",
 )
 def transform_to_lyprox(
     raw: pd.DataFrame,
@@ -253,12 +243,10 @@ def transform_to_lyprox(
     return processed
 
 
-@report_state(
+@log_state(
     status_msg="Transform absolute side reporting to tumor-relative...",
     success_msg="Transformed absolute side reporting to tumor-relative.",
-    stop_on_exc=True,
 )
-@raise_if_args_none(message="Missing data table", level="warning")
 def leftright_to_ipsicontra(data: pd.DataFrame):
     """
     Change absolute side reporting to tumor-relative.
@@ -288,12 +276,10 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     return data
 
 
-@report_state(
-    status_msg="Exclude patients based on provided exclusion criteria...",
-    success_msg="Excluded patients based on provided exclusion criteria.",
-    stop_on_exc=True,
+@log_state(
+    status_msg="Exclude patients based on provided criteria...",
+    success_msg="Excluded patients based on provided criteria.",
 )
-@raise_if_args_none(message="Raw data and exclusion criteria needed", level="warning")
 def exclude_patients(raw: pd.DataFrame, exclude: List[Tuple[str, Any]]):
     """
     Exclude patients in the `raw` data based on a list of what to `exclude`. This
@@ -306,7 +292,7 @@ def exclude_patients(raw: pd.DataFrame, exclude: List[Tuple[str, Any]]):
     ...     "age":        [43, 82, 18, 67],
     ...     "T-category": [ 3,  4,  2,  1],
     ... })
-    >>> exclude_patients(table, exclude, verbose=False)
+    >>> exclude_patients(table, exclude)
        age  T-category
     0   43           3
     2   18           2
