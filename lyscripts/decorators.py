@@ -75,7 +75,7 @@ def log_state(
             try:
                 result = func(*args, **kwargs)
                 if success_msg is not None:
-                    logger.info(success_msg)
+                    logger.info("[bold green]✓[/bold green] " + success_msg)
                 return result
 
             except Exception as exc:

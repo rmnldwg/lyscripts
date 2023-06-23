@@ -13,20 +13,14 @@ from lyscripts.decorators import (
 )
 
 
-@log_state(
-    status_msg="Save processed CSV file...",
-    success_msg="Saved processed CSV file.",
-)
+@log_state(success_msg="Saved processed CSV file")
 @check_output_dir_exists
 def save_table_to_csv(output_path: Path, table: pd.DataFrame):
     """Save a `pd.DataFrame` to `output_path`."""
     table.to_csv(output_path, index=None)
 
 
-@log_state(
-    status_msg="Load input CSV file...",
-    success_msg="Loaded input CSV file.",
-)
+@log_state(success_msg="Loaded input CSV file")
 @check_input_file_exists
 def load_csv_table(input_path: Path, header_row: List[int]) -> pd.DataFrame:
     """

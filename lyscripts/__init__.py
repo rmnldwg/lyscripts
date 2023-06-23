@@ -2,16 +2,17 @@
 .. include:: ../README.md
 """
 import argparse
+import logging
 import re
 
 from rich.containers import Lines
+from rich.logging import RichHandler
 from rich.text import Text
 from rich_argparse import RichHelpFormatter
 
+from lyscripts import app, data, evaluate, plot, predict, sample, temp_schedule
+from lyscripts._version import version
 from lyscripts.utils import report
-
-from . import app, data, evaluate, plot, predict, sample, temp_schedule
-from ._version import version
 
 __version__ = version
 __description__ = "Package containing scripts used in lynference pipelines"
@@ -20,6 +21,13 @@ __email__ = "roman.ludwig@usz.ch"
 __uri__ = "https://github.com/rmnldwg/lyscripts"
 
 # nopycln: file
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    handlers=[RichHandler(show_time=False, markup=True)]
+)
 
 
 class RichDefaultHelpFormatter(
