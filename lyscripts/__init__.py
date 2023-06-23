@@ -24,7 +24,6 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 
 
 logging.basicConfig(
-    level=logging.INFO,
     format="%(message)s",
     handlers=[RichHandler(
         console=report,
@@ -32,6 +31,8 @@ logging.basicConfig(
         markup=True,
     )]
 )
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class RichDefaultHelpFormatter(
@@ -60,6 +61,7 @@ class RichDefaultHelpFormatter(
 
         return text_cls("\n").join(indent + line for line in text_lines) + "\n\n"
 
+
 RichDefaultHelpFormatter.styles["argparse.syntax"] = "red"
 RichDefaultHelpFormatter.styles["argparse.formula"] = "green"
 RichDefaultHelpFormatter.highlights.append(
@@ -74,12 +76,14 @@ RichDefaultHelpFormatter.highlights.append(
     r"_(?P<italic>[^_]*)_"
 )
 
+
 def exit_cli(args: argparse.Namespace):
     """Exit the cmd line tool"""
     if args.version:
         report.print("lyscripts ", __version__)
     else:
         report.print("No command chosen. Exiting...")
+
 
 def main():
     """
@@ -96,6 +100,10 @@ def main():
         "-v", "--version", action="store_true",
         help="Display the version of lyscripts"
     )
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="Set the log level to debug"
+    )
 
     subparsers = parser.add_subparsers()
 
@@ -110,4 +118,9 @@ def main():
     temp_schedule._add_parser(subparsers, help_formatter=parser.formatter_class)
 
     args = parser.parse_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Debug mode activated")
+
     args.run_main(args)

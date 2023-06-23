@@ -6,7 +6,6 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
-import logging
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
 
@@ -61,15 +60,6 @@ CIRCL = "[bold blue]∘[/bold blue]"
 WARN = "[bold yellow]Δ[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
 
-loglevel_num_to_str = {
-    0: "NOTSET",
-    10: "DEBUG",
-    20: "INFO",
-    30: "WARNING",
-    40: "ERROR",
-    50: "CRITICAL",
-}
-
 
 def is_streamlit_running() -> bool:
     """Checks if code is running inside a `streamlit` app."""
@@ -93,8 +83,8 @@ def redirect_to_streamlit(func: Callable) -> Callable:
     return inner
 
 
-def inject_lvl_and_symbol(objects, symbol = None, width = 8):
-    level = loglevel_num_to_str[logging.root.level]
+def inject_lvl_and_symbol(objects, level = "INFO", symbol = None, width = 8):
+    """Nicely format the `objects` to be printed with a `level` and `symbol`."""
     prefix = "[blue]" + level.ljust(width) + "[/blue]"
     if symbol is not None:
         objects = [prefix, symbol, *objects]
@@ -107,7 +97,6 @@ class LyScriptsReport(Console):
     """
     Small extension to the `Console` class of the rich package.
     """
-
     @redirect_to_streamlit
     def status(self, *objects, **kwargs):
         """Re-implement `status` method to allow decoration."""
