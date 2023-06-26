@@ -75,9 +75,11 @@ def log_state(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             """The wrapper around the decorated function."""
+            found_logger, args, kwargs = extract_logger(*args, **kwargs)
+
             nonlocal logger
             if logger is None:
-                logger, args, kwargs = extract_logger(*args, **kwargs)
+                logger = found_logger
 
             signature = assemble_signature(*args, **kwargs)
             logger.debug(f"Executing {func.__name__}({signature}).")

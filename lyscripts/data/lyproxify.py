@@ -7,8 +7,10 @@ more information.
 
 [LyProX]: https://lyprox.org
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
 import importlib.util
+import logging
 import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -17,9 +19,12 @@ import pandas as pd
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
 from lyscripts.decorators import log_state
-from lyscripts.utils import delete_private_keys, flatten, report
+from lyscripts.utils import delete_private_keys, flatten
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
+
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -170,7 +175,10 @@ def generate_markdown_docs(
     return md_docs
 
 
-@log_state(success_msg="Transformed raw data to LyProX style table")
+@log_state(
+    success_msg="Transformed raw data to LyProX style table",
+    logger=logger,
+)
 def transform_to_lyprox(
     raw: pd.DataFrame,
     column_map: Dict[Tuple, Dict[str, Any]]
@@ -240,7 +248,10 @@ def transform_to_lyprox(
     return processed
 
 
-@log_state(success_msg="Transformed absolute side reporting to tumor-relative")
+@log_state(
+    success_msg="Transformed absolute side reporting to tumor-relative",
+    logger=logger,
+)
 def leftright_to_ipsicontra(data: pd.DataFrame):
     """
     Change absolute side reporting to tumor-relative.
@@ -270,7 +281,10 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     return data
 
 
-@log_state(success_msg="Excluded patients based on provided criteria")
+@log_state(
+    success_msg="Excluded patients based on provided criteria",
+    logger=logger,
+)
 def exclude_patients(raw: pd.DataFrame, exclude: List[Tuple[str, Any]]):
     """
     Exclude patients in the `raw` data based on a list of what to `exclude`. This
@@ -333,32 +347,29 @@ def main(args: argparse.Namespace):
                             enumerating the patients (default: False)
     ```
     """
-    raw: pd.DataFrame = load_csv_table(args.input, header_row=args.header_rows)
+    raw: pd.DataFrame = load_csv_table(args.input, header_row=args.header_rows, logger=logger)
     raw = clean_header(raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows))
 
-    with report.status("Trim rows and columns..."):
-        cols_to_drop = raw.columns[args.drop_cols]
-        trimmed = raw.drop(cols_to_drop, axis="columns")
-        trimmed = trimmed.drop(index=args.drop_rows)
-        trimmed = trimmed.dropna(axis="index", how="all")
-        report.success("Trimmed rows and columns.")
+    cols_to_drop = raw.columns[args.drop_cols]
+    trimmed = raw.drop(cols_to_drop, axis="columns")
+    trimmed = trimmed.drop(index=args.drop_rows)
+    trimmed = trimmed.dropna(axis="index", how="all")
+    logger.info(f"Dropped rows {args.drop_rows} and columns {cols_to_drop}.")
 
-    with report.status("Import mapping instructions..."):
-        spec = importlib.util.spec_from_file_location("map_module", args.mapping)
-        mapping = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mapping)
-        report.success(f"Imported mapping instructions from {args.mapping}")
+    spec = importlib.util.spec_from_file_location("map_module", args.mapping)
+    mapping = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mapping)
+    logger.info(f"Imported mapping instructions from {args.mapping}")
 
     reduced = exclude_patients(trimmed, mapping.EXCLUDE)
 
     if args.add_index:
-        with report.status("Add index column to data..."):
-            reduced.insert(0, ("patient", "#", "id"), list(range(len(reduced))))
-            report.success("Added index column to data.")
+        reduced.insert(0, ("patient", "#", "id"), list(range(len(reduced))))
+        logger.info("Added index column to data.")
 
     processed = transform_to_lyprox(reduced, mapping.COLUMN_MAP)
 
     if ("tumor", "1", "side") in processed.columns:
         processed = leftright_to_ipsicontra(processed)
 
-    save_table_to_csv(args.output, processed)
+    save_table_to_csv(args.output, processed, logger=logger)

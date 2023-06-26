@@ -2,7 +2,9 @@
 Transform the enhanced lyDATA CSV files into a format that can be used by the lymph
 model using this package's utilities.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 import warnings
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -10,9 +12,12 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import load_yaml_params, report
+from lyscripts.utils import load_yaml_params
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
+
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -129,15 +134,13 @@ def main(args: argparse.Namespace):
                             (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params)
+    params = load_yaml_params(args.params, logger=logger)
+    input_table = load_csv_table(args.input, header_row=[0,1,2], logger=logger)
 
-    input_table = load_csv_table(args.input, header_row=[0,1,2])
+    lymph_table = lyprox_to_lymph(input_table, class_name=params["model"]["class"])
+    logger.info("Prepared table for use with lymph model.")
 
-    with report.status("Prepare table for use with lymph model..."):
-        lymph_table = lyprox_to_lymph(input_table, class_name=params["model"]["class"])
-        report.success("Prepared table for use with lymph model.")
-
-    save_table_to_csv(args.output, lymph_table)
+    save_table_to_csv(args.output, lymph_table, logger=logger)
 
 
 if __name__ == "__main__":
