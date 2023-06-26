@@ -181,10 +181,10 @@
 </span><span id="L-13"><a href="#L-13"><span class="linenos"> 13</span></a><span class="kn">from</span> <span class="nn">matplotlib.axes._axes</span> <span class="kn">import</span> <span class="n">Axes</span> <span class="k">as</span> <span class="n">MPLAxes</span>
 </span><span id="L-14"><a href="#L-14"><span class="linenos"> 14</span></a><span class="kn">from</span> <span class="nn">matplotlib.figure</span> <span class="kn">import</span> <span class="n">Figure</span>
 </span><span id="L-15"><a href="#L-15"><span class="linenos"> 15</span></a>
-</span><span id="L-16"><a href="#L-16"><span class="linenos"> 16</span></a><span class="kn">from</span> <span class="nn">lyscripts.utils</span> <span class="kn">import</span> <span class="p">(</span>
+</span><span id="L-16"><a href="#L-16"><span class="linenos"> 16</span></a><span class="kn">from</span> <span class="nn">lyscripts.decorators</span> <span class="kn">import</span> <span class="p">(</span>
 </span><span id="L-17"><a href="#L-17"><span class="linenos"> 17</span></a>    <span class="n">check_input_file_exists</span><span class="p">,</span>
 </span><span id="L-18"><a href="#L-18"><span class="linenos"> 18</span></a>    <span class="n">check_output_dir_exists</span><span class="p">,</span>
-</span><span id="L-19"><a href="#L-19"><span class="linenos"> 19</span></a>    <span class="n">report_state</span><span class="p">,</span>
+</span><span id="L-19"><a href="#L-19"><span class="linenos"> 19</span></a>    <span class="n">log_state</span><span class="p">,</span>
 </span><span id="L-20"><a href="#L-20"><span class="linenos"> 20</span></a><span class="p">)</span>
 </span><span id="L-21"><a href="#L-21"><span class="linenos"> 21</span></a>
 </span><span id="L-22"><a href="#L-22"><span class="linenos"> 22</span></a><span class="c1"># define USZ colors</span>
@@ -446,29 +446,23 @@
 </span><span id="L-278"><a href="#L-278"><span class="linenos">278</span></a>    <span class="k">return</span> <span class="n">axes</span>
 </span><span id="L-279"><a href="#L-279"><span class="linenos">279</span></a>
 </span><span id="L-280"><a href="#L-280"><span class="linenos">280</span></a>
-</span><span id="L-281"><a href="#L-281"><span class="linenos">281</span></a><span class="nd">@report_state</span><span class="p">(</span>
-</span><span id="L-282"><a href="#L-282"><span class="linenos">282</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Load MPL stylesheet...&quot;</span><span class="p">,</span>
-</span><span id="L-283"><a href="#L-283"><span class="linenos">283</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded MPL stylesheet.&quot;</span><span class="p">,</span>
-</span><span id="L-284"><a href="#L-284"><span class="linenos">284</span></a><span class="p">)</span>
-</span><span id="L-285"><a href="#L-285"><span class="linenos">285</span></a><span class="nd">@check_input_file_exists</span>
-</span><span id="L-286"><a href="#L-286"><span class="linenos">286</span></a><span class="k">def</span> <span class="nf">use_mpl_stylesheet</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
-</span><span id="L-287"><a href="#L-287"><span class="linenos">287</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a `.mplstyle` stylesheet from `file_path`.&quot;&quot;&quot;</span>
-</span><span id="L-288"><a href="#L-288"><span class="linenos">288</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
-</span><span id="L-289"><a href="#L-289"><span class="linenos">289</span></a>
-</span><span id="L-290"><a href="#L-290"><span class="linenos">290</span></a>
-</span><span id="L-291"><a href="#L-291"><span class="linenos">291</span></a><span class="nd">@report_state</span><span class="p">(</span>
-</span><span id="L-292"><a href="#L-292"><span class="linenos">292</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Save matplotlib figure...&quot;</span><span class="p">,</span>
-</span><span id="L-293"><a href="#L-293"><span class="linenos">293</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved matplotlib figure.&quot;</span><span class="p">,</span>
-</span><span id="L-294"><a href="#L-294"><span class="linenos">294</span></a><span class="p">)</span>
-</span><span id="L-295"><a href="#L-295"><span class="linenos">295</span></a><span class="nd">@check_output_dir_exists</span>
-</span><span id="L-296"><a href="#L-296"><span class="linenos">296</span></a><span class="k">def</span> <span class="nf">save_figure</span><span class="p">(</span>
-</span><span id="L-297"><a href="#L-297"><span class="linenos">297</span></a>    <span class="n">output_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
-</span><span id="L-298"><a href="#L-298"><span class="linenos">298</span></a>    <span class="n">figure</span><span class="p">:</span> <span class="n">Figure</span><span class="p">,</span>
-</span><span id="L-299"><a href="#L-299"><span class="linenos">299</span></a>    <span class="n">formats</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
-</span><span id="L-300"><a href="#L-300"><span class="linenos">300</span></a><span class="p">):</span>
-</span><span id="L-301"><a href="#L-301"><span class="linenos">301</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a `figure` to `output_path` in every one of the provided `formats`.&quot;&quot;&quot;</span>
-</span><span id="L-302"><a href="#L-302"><span class="linenos">302</span></a>    <span class="k">for</span> <span class="n">frmt</span> <span class="ow">in</span> <span class="n">formats</span><span class="p">:</span>
-</span><span id="L-303"><a href="#L-303"><span class="linenos">303</span></a>        <span class="n">figure</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">frmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+</span><span id="L-281"><a href="#L-281"><span class="linenos">281</span></a><span class="nd">@log_state</span><span class="p">(</span><span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded MPL stylesheet&quot;</span><span class="p">)</span>
+</span><span id="L-282"><a href="#L-282"><span class="linenos">282</span></a><span class="nd">@check_input_file_exists</span>
+</span><span id="L-283"><a href="#L-283"><span class="linenos">283</span></a><span class="k">def</span> <span class="nf">use_mpl_stylesheet</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
+</span><span id="L-284"><a href="#L-284"><span class="linenos">284</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a `.mplstyle` stylesheet from `file_path`.&quot;&quot;&quot;</span>
+</span><span id="L-285"><a href="#L-285"><span class="linenos">285</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+</span><span id="L-286"><a href="#L-286"><span class="linenos">286</span></a>
+</span><span id="L-287"><a href="#L-287"><span class="linenos">287</span></a>
+</span><span id="L-288"><a href="#L-288"><span class="linenos">288</span></a><span class="nd">@log_state</span><span class="p">(</span><span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved matplotlib figure&quot;</span><span class="p">)</span>
+</span><span id="L-289"><a href="#L-289"><span class="linenos">289</span></a><span class="nd">@check_output_dir_exists</span>
+</span><span id="L-290"><a href="#L-290"><span class="linenos">290</span></a><span class="k">def</span> <span class="nf">save_figure</span><span class="p">(</span>
+</span><span id="L-291"><a href="#L-291"><span class="linenos">291</span></a>    <span class="n">output_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+</span><span id="L-292"><a href="#L-292"><span class="linenos">292</span></a>    <span class="n">figure</span><span class="p">:</span> <span class="n">Figure</span><span class="p">,</span>
+</span><span id="L-293"><a href="#L-293"><span class="linenos">293</span></a>    <span class="n">formats</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+</span><span id="L-294"><a href="#L-294"><span class="linenos">294</span></a><span class="p">):</span>
+</span><span id="L-295"><a href="#L-295"><span class="linenos">295</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a `figure` to `output_path` in every one of the provided `formats`.&quot;&quot;&quot;</span>
+</span><span id="L-296"><a href="#L-296"><span class="linenos">296</span></a>    <span class="k">for</span> <span class="n">frmt</span> <span class="ow">in</span> <span class="n">formats</span><span class="p">:</span>
+</span><span id="L-297"><a href="#L-297"><span class="linenos">297</span></a>        <span class="n">figure</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">frmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
 </span></pre></div>
 
 
@@ -1154,7 +1148,7 @@ have defined.</p>
                 <section id="use_mpl_stylesheet">
                             <input id="use_mpl_stylesheet-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
-                    <div class="decorator">@report_state(status_msg=&#39;Load MPL stylesheet...&#39;, success_msg=&#39;Loaded MPL stylesheet.&#39;)</div>
+                    <div class="decorator">@log_state(success_msg=&#39;Loaded MPL stylesheet&#39;)</div>
         <div class="decorator">@check_input_file_exists</div>
 
         <span class="def">def</span>
@@ -1164,14 +1158,11 @@ have defined.</p>
 
     </div>
     <a class="headerlink" href="#use_mpl_stylesheet"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="use_mpl_stylesheet-282"><a href="#use_mpl_stylesheet-282"><span class="linenos">282</span></a><span class="nd">@report_state</span><span class="p">(</span>
-</span><span id="use_mpl_stylesheet-283"><a href="#use_mpl_stylesheet-283"><span class="linenos">283</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Load MPL stylesheet...&quot;</span><span class="p">,</span>
-</span><span id="use_mpl_stylesheet-284"><a href="#use_mpl_stylesheet-284"><span class="linenos">284</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded MPL stylesheet.&quot;</span><span class="p">,</span>
-</span><span id="use_mpl_stylesheet-285"><a href="#use_mpl_stylesheet-285"><span class="linenos">285</span></a><span class="p">)</span>
-</span><span id="use_mpl_stylesheet-286"><a href="#use_mpl_stylesheet-286"><span class="linenos">286</span></a><span class="nd">@check_input_file_exists</span>
-</span><span id="use_mpl_stylesheet-287"><a href="#use_mpl_stylesheet-287"><span class="linenos">287</span></a><span class="k">def</span> <span class="nf">use_mpl_stylesheet</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
-</span><span id="use_mpl_stylesheet-288"><a href="#use_mpl_stylesheet-288"><span class="linenos">288</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a `.mplstyle` stylesheet from `file_path`.&quot;&quot;&quot;</span>
-</span><span id="use_mpl_stylesheet-289"><a href="#use_mpl_stylesheet-289"><span class="linenos">289</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="use_mpl_stylesheet-282"><a href="#use_mpl_stylesheet-282"><span class="linenos">282</span></a><span class="nd">@log_state</span><span class="p">(</span><span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded MPL stylesheet&quot;</span><span class="p">)</span>
+</span><span id="use_mpl_stylesheet-283"><a href="#use_mpl_stylesheet-283"><span class="linenos">283</span></a><span class="nd">@check_input_file_exists</span>
+</span><span id="use_mpl_stylesheet-284"><a href="#use_mpl_stylesheet-284"><span class="linenos">284</span></a><span class="k">def</span> <span class="nf">use_mpl_stylesheet</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
+</span><span id="use_mpl_stylesheet-285"><a href="#use_mpl_stylesheet-285"><span class="linenos">285</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a `.mplstyle` stylesheet from `file_path`.&quot;&quot;&quot;</span>
+</span><span id="use_mpl_stylesheet-286"><a href="#use_mpl_stylesheet-286"><span class="linenos">286</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -1183,7 +1174,7 @@ have defined.</p>
                 <section id="save_figure">
                             <input id="save_figure-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
-                    <div class="decorator">@report_state(status_msg=&#39;Save matplotlib figure...&#39;, success_msg=&#39;Saved matplotlib figure.&#39;)</div>
+                    <div class="decorator">@log_state(success_msg=&#39;Saved matplotlib figure&#39;)</div>
         <div class="decorator">@check_output_dir_exists</div>
 
         <span class="def">def</span>
@@ -1193,19 +1184,16 @@ have defined.</p>
 
     </div>
     <a class="headerlink" href="#save_figure"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="save_figure-292"><a href="#save_figure-292"><span class="linenos">292</span></a><span class="nd">@report_state</span><span class="p">(</span>
-</span><span id="save_figure-293"><a href="#save_figure-293"><span class="linenos">293</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Save matplotlib figure...&quot;</span><span class="p">,</span>
-</span><span id="save_figure-294"><a href="#save_figure-294"><span class="linenos">294</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved matplotlib figure.&quot;</span><span class="p">,</span>
-</span><span id="save_figure-295"><a href="#save_figure-295"><span class="linenos">295</span></a><span class="p">)</span>
-</span><span id="save_figure-296"><a href="#save_figure-296"><span class="linenos">296</span></a><span class="nd">@check_output_dir_exists</span>
-</span><span id="save_figure-297"><a href="#save_figure-297"><span class="linenos">297</span></a><span class="k">def</span> <span class="nf">save_figure</span><span class="p">(</span>
-</span><span id="save_figure-298"><a href="#save_figure-298"><span class="linenos">298</span></a>    <span class="n">output_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
-</span><span id="save_figure-299"><a href="#save_figure-299"><span class="linenos">299</span></a>    <span class="n">figure</span><span class="p">:</span> <span class="n">Figure</span><span class="p">,</span>
-</span><span id="save_figure-300"><a href="#save_figure-300"><span class="linenos">300</span></a>    <span class="n">formats</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
-</span><span id="save_figure-301"><a href="#save_figure-301"><span class="linenos">301</span></a><span class="p">):</span>
-</span><span id="save_figure-302"><a href="#save_figure-302"><span class="linenos">302</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a `figure` to `output_path` in every one of the provided `formats`.&quot;&quot;&quot;</span>
-</span><span id="save_figure-303"><a href="#save_figure-303"><span class="linenos">303</span></a>    <span class="k">for</span> <span class="n">frmt</span> <span class="ow">in</span> <span class="n">formats</span><span class="p">:</span>
-</span><span id="save_figure-304"><a href="#save_figure-304"><span class="linenos">304</span></a>        <span class="n">figure</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">frmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="save_figure-289"><a href="#save_figure-289"><span class="linenos">289</span></a><span class="nd">@log_state</span><span class="p">(</span><span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved matplotlib figure&quot;</span><span class="p">)</span>
+</span><span id="save_figure-290"><a href="#save_figure-290"><span class="linenos">290</span></a><span class="nd">@check_output_dir_exists</span>
+</span><span id="save_figure-291"><a href="#save_figure-291"><span class="linenos">291</span></a><span class="k">def</span> <span class="nf">save_figure</span><span class="p">(</span>
+</span><span id="save_figure-292"><a href="#save_figure-292"><span class="linenos">292</span></a>    <span class="n">output_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+</span><span id="save_figure-293"><a href="#save_figure-293"><span class="linenos">293</span></a>    <span class="n">figure</span><span class="p">:</span> <span class="n">Figure</span><span class="p">,</span>
+</span><span id="save_figure-294"><a href="#save_figure-294"><span class="linenos">294</span></a>    <span class="n">formats</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+</span><span id="save_figure-295"><a href="#save_figure-295"><span class="linenos">295</span></a><span class="p">):</span>
+</span><span id="save_figure-296"><a href="#save_figure-296"><span class="linenos">296</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a `figure` to `output_path` in every one of the provided `formats`.&quot;&quot;&quot;</span>
+</span><span id="save_figure-297"><a href="#save_figure-297"><span class="linenos">297</span></a>    <span class="k">for</span> <span class="n">frmt</span> <span class="ow">in</span> <span class="n">formats</span><span class="p">:</span>
+</span><span id="save_figure-298"><a href="#save_figure-298"><span class="linenos">298</span></a>        <span class="n">figure</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">frmt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
 </span></pre></div>
 
 

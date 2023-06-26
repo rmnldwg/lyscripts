@@ -90,37 +90,28 @@
 </span><span id="L-6"><a href="#L-6"><span class="linenos"> 6</span></a>
 </span><span id="L-7"><a href="#L-7"><span class="linenos"> 7</span></a><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 </span><span id="L-8"><a href="#L-8"><span class="linenos"> 8</span></a>
-</span><span id="L-9"><a href="#L-9"><span class="linenos"> 9</span></a><span class="kn">from</span> <span class="nn">lyscripts.utils</span> <span class="kn">import</span> <span class="p">(</span>
+</span><span id="L-9"><a href="#L-9"><span class="linenos"> 9</span></a><span class="kn">from</span> <span class="nn">lyscripts.decorators</span> <span class="kn">import</span> <span class="p">(</span>
 </span><span id="L-10"><a href="#L-10"><span class="linenos">10</span></a>    <span class="n">check_input_file_exists</span><span class="p">,</span>
 </span><span id="L-11"><a href="#L-11"><span class="linenos">11</span></a>    <span class="n">check_output_dir_exists</span><span class="p">,</span>
-</span><span id="L-12"><a href="#L-12"><span class="linenos">12</span></a>    <span class="n">raise_if_args_none</span><span class="p">,</span>
-</span><span id="L-13"><a href="#L-13"><span class="linenos">13</span></a>    <span class="n">report_state</span><span class="p">,</span>
-</span><span id="L-14"><a href="#L-14"><span class="linenos">14</span></a><span class="p">)</span>
+</span><span id="L-12"><a href="#L-12"><span class="linenos">12</span></a>    <span class="n">log_state</span><span class="p">,</span>
+</span><span id="L-13"><a href="#L-13"><span class="linenos">13</span></a><span class="p">)</span>
+</span><span id="L-14"><a href="#L-14"><span class="linenos">14</span></a>
 </span><span id="L-15"><a href="#L-15"><span class="linenos">15</span></a>
-</span><span id="L-16"><a href="#L-16"><span class="linenos">16</span></a>
-</span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a><span class="nd">@report_state</span><span class="p">(</span>
-</span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Save processed CSV file...&quot;</span><span class="p">,</span>
-</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved processed CSV file.&quot;</span><span class="p">,</span>
-</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a><span class="p">)</span>
-</span><span id="L-21"><a href="#L-21"><span class="linenos">21</span></a><span class="nd">@check_output_dir_exists</span>
-</span><span id="L-22"><a href="#L-22"><span class="linenos">22</span></a><span class="nd">@raise_if_args_none</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Specify table to save&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;warning&quot;</span><span class="p">)</span>
-</span><span id="L-23"><a href="#L-23"><span class="linenos">23</span></a><span class="k">def</span> <span class="nf">save_table_to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
-</span><span id="L-24"><a href="#L-24"><span class="linenos">24</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a `pd.DataFrame` to `output_path`.&quot;&quot;&quot;</span>
-</span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a>    <span class="n">table</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-</span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a>
-</span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a>
-</span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a><span class="nd">@report_state</span><span class="p">(</span>
-</span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Load input CSV file...&quot;</span><span class="p">,</span>
-</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded input CSV file.&quot;</span><span class="p">,</span>
-</span><span id="L-31"><a href="#L-31"><span class="linenos">31</span></a><span class="p">)</span>
-</span><span id="L-32"><a href="#L-32"><span class="linenos">32</span></a><span class="nd">@check_input_file_exists</span>
-</span><span id="L-33"><a href="#L-33"><span class="linenos">33</span></a><span class="nd">@raise_if_args_none</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Header rows must be specified&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;warning&quot;</span><span class="p">)</span>
-</span><span id="L-34"><a href="#L-34"><span class="linenos">34</span></a><span class="k">def</span> <span class="nf">load_csv_table</span><span class="p">(</span><span class="n">input_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">header_row</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-</span><span id="L-35"><a href="#L-35"><span class="linenos">35</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-36"><a href="#L-36"><span class="linenos">36</span></a><span class="sd">    Load a CSV table from `input_path` into a `pd.DataFrame` where the list `header`</span>
-</span><span id="L-37"><a href="#L-37"><span class="linenos">37</span></a><span class="sd">    defines which rows make up the column names.</span>
-</span><span id="L-38"><a href="#L-38"><span class="linenos">38</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-39"><a href="#L-39"><span class="linenos">39</span></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header_row</span><span class="p">)</span>
+</span><span id="L-16"><a href="#L-16"><span class="linenos">16</span></a><span class="nd">@log_state</span><span class="p">(</span><span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved processed CSV file&quot;</span><span class="p">)</span>
+</span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a><span class="nd">@check_output_dir_exists</span>
+</span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a><span class="k">def</span> <span class="nf">save_table_to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a `pd.DataFrame` to `output_path`.&quot;&quot;&quot;</span>
+</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a>    <span class="n">table</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span><span id="L-21"><a href="#L-21"><span class="linenos">21</span></a>
+</span><span id="L-22"><a href="#L-22"><span class="linenos">22</span></a>
+</span><span id="L-23"><a href="#L-23"><span class="linenos">23</span></a><span class="nd">@log_state</span><span class="p">(</span><span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded input CSV file&quot;</span><span class="p">)</span>
+</span><span id="L-24"><a href="#L-24"><span class="linenos">24</span></a><span class="nd">@check_input_file_exists</span>
+</span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a><span class="k">def</span> <span class="nf">load_csv_table</span><span class="p">(</span><span class="n">input_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">header_row</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+</span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a><span class="sd">    Load a CSV table from `input_path` into a `pd.DataFrame` where the list `header`</span>
+</span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a><span class="sd">    defines which rows make up the column names.</span>
+</span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header_row</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -128,9 +119,8 @@
                 <section id="save_table_to_csv">
                             <input id="save_table_to_csv-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
-                    <div class="decorator">@report_state(status_msg=&#39;Save processed CSV file...&#39;, success_msg=&#39;Saved processed CSV file.&#39;)</div>
+                    <div class="decorator">@log_state(success_msg=&#39;Saved processed CSV file&#39;)</div>
         <div class="decorator">@check_output_dir_exists</div>
-        <div class="decorator">@raise_if_args_none(message=&#39;Specify table to save&#39;, level=&#39;warning&#39;)</div>
 
         <span class="def">def</span>
         <span class="name">save_table_to_csv</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">output_path</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span>, </span><span class="param"><span class="n">table</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span></span><span class="return-annotation">):</span></span>
@@ -139,15 +129,11 @@
 
     </div>
     <a class="headerlink" href="#save_table_to_csv"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="save_table_to_csv-18"><a href="#save_table_to_csv-18"><span class="linenos">18</span></a><span class="nd">@report_state</span><span class="p">(</span>
-</span><span id="save_table_to_csv-19"><a href="#save_table_to_csv-19"><span class="linenos">19</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Save processed CSV file...&quot;</span><span class="p">,</span>
-</span><span id="save_table_to_csv-20"><a href="#save_table_to_csv-20"><span class="linenos">20</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved processed CSV file.&quot;</span><span class="p">,</span>
-</span><span id="save_table_to_csv-21"><a href="#save_table_to_csv-21"><span class="linenos">21</span></a><span class="p">)</span>
-</span><span id="save_table_to_csv-22"><a href="#save_table_to_csv-22"><span class="linenos">22</span></a><span class="nd">@check_output_dir_exists</span>
-</span><span id="save_table_to_csv-23"><a href="#save_table_to_csv-23"><span class="linenos">23</span></a><span class="nd">@raise_if_args_none</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Specify table to save&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;warning&quot;</span><span class="p">)</span>
-</span><span id="save_table_to_csv-24"><a href="#save_table_to_csv-24"><span class="linenos">24</span></a><span class="k">def</span> <span class="nf">save_table_to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
-</span><span id="save_table_to_csv-25"><a href="#save_table_to_csv-25"><span class="linenos">25</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a `pd.DataFrame` to `output_path`.&quot;&quot;&quot;</span>
-</span><span id="save_table_to_csv-26"><a href="#save_table_to_csv-26"><span class="linenos">26</span></a>    <span class="n">table</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="save_table_to_csv-17"><a href="#save_table_to_csv-17"><span class="linenos">17</span></a><span class="nd">@log_state</span><span class="p">(</span><span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Saved processed CSV file&quot;</span><span class="p">)</span>
+</span><span id="save_table_to_csv-18"><a href="#save_table_to_csv-18"><span class="linenos">18</span></a><span class="nd">@check_output_dir_exists</span>
+</span><span id="save_table_to_csv-19"><a href="#save_table_to_csv-19"><span class="linenos">19</span></a><span class="k">def</span> <span class="nf">save_table_to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+</span><span id="save_table_to_csv-20"><a href="#save_table_to_csv-20"><span class="linenos">20</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a `pd.DataFrame` to `output_path`.&quot;&quot;&quot;</span>
+</span><span id="save_table_to_csv-21"><a href="#save_table_to_csv-21"><span class="linenos">21</span></a>    <span class="n">table</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -159,9 +145,8 @@
                 <section id="load_csv_table">
                             <input id="load_csv_table-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
-                    <div class="decorator">@report_state(status_msg=&#39;Load input CSV file...&#39;, success_msg=&#39;Loaded input CSV file.&#39;)</div>
+                    <div class="decorator">@log_state(success_msg=&#39;Loaded input CSV file&#39;)</div>
         <div class="decorator">@check_input_file_exists</div>
-        <div class="decorator">@raise_if_args_none(message=&#39;Header rows must be specified&#39;, level=&#39;warning&#39;)</div>
 
         <span class="def">def</span>
         <span class="name">load_csv_table</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">input_path</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span>,</span><span class="param">	<span class="n">header_row</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
@@ -170,18 +155,14 @@
 
     </div>
     <a class="headerlink" href="#load_csv_table"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="load_csv_table-29"><a href="#load_csv_table-29"><span class="linenos">29</span></a><span class="nd">@report_state</span><span class="p">(</span>
-</span><span id="load_csv_table-30"><a href="#load_csv_table-30"><span class="linenos">30</span></a>    <span class="n">status_msg</span><span class="o">=</span><span class="s2">&quot;Load input CSV file...&quot;</span><span class="p">,</span>
-</span><span id="load_csv_table-31"><a href="#load_csv_table-31"><span class="linenos">31</span></a>    <span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded input CSV file.&quot;</span><span class="p">,</span>
-</span><span id="load_csv_table-32"><a href="#load_csv_table-32"><span class="linenos">32</span></a><span class="p">)</span>
-</span><span id="load_csv_table-33"><a href="#load_csv_table-33"><span class="linenos">33</span></a><span class="nd">@check_input_file_exists</span>
-</span><span id="load_csv_table-34"><a href="#load_csv_table-34"><span class="linenos">34</span></a><span class="nd">@raise_if_args_none</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Header rows must be specified&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;warning&quot;</span><span class="p">)</span>
-</span><span id="load_csv_table-35"><a href="#load_csv_table-35"><span class="linenos">35</span></a><span class="k">def</span> <span class="nf">load_csv_table</span><span class="p">(</span><span class="n">input_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">header_row</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-</span><span id="load_csv_table-36"><a href="#load_csv_table-36"><span class="linenos">36</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="load_csv_table-37"><a href="#load_csv_table-37"><span class="linenos">37</span></a><span class="sd">    Load a CSV table from `input_path` into a `pd.DataFrame` where the list `header`</span>
-</span><span id="load_csv_table-38"><a href="#load_csv_table-38"><span class="linenos">38</span></a><span class="sd">    defines which rows make up the column names.</span>
-</span><span id="load_csv_table-39"><a href="#load_csv_table-39"><span class="linenos">39</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="load_csv_table-40"><a href="#load_csv_table-40"><span class="linenos">40</span></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header_row</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="load_csv_table-24"><a href="#load_csv_table-24"><span class="linenos">24</span></a><span class="nd">@log_state</span><span class="p">(</span><span class="n">success_msg</span><span class="o">=</span><span class="s2">&quot;Loaded input CSV file&quot;</span><span class="p">)</span>
+</span><span id="load_csv_table-25"><a href="#load_csv_table-25"><span class="linenos">25</span></a><span class="nd">@check_input_file_exists</span>
+</span><span id="load_csv_table-26"><a href="#load_csv_table-26"><span class="linenos">26</span></a><span class="k">def</span> <span class="nf">load_csv_table</span><span class="p">(</span><span class="n">input_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">header_row</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+</span><span id="load_csv_table-27"><a href="#load_csv_table-27"><span class="linenos">27</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="load_csv_table-28"><a href="#load_csv_table-28"><span class="linenos">28</span></a><span class="sd">    Load a CSV table from `input_path` into a `pd.DataFrame` where the list `header`</span>
+</span><span id="load_csv_table-29"><a href="#load_csv_table-29"><span class="linenos">29</span></a><span class="sd">    defines which rows make up the column names.</span>
+</span><span id="load_csv_table-30"><a href="#load_csv_table-30"><span class="linenos">30</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="load_csv_table-31"><a href="#load_csv_table-31"><span class="linenos">31</span></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header_row</span><span class="p">)</span>
 </span></pre></div>
 
 
