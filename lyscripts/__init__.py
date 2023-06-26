@@ -2,16 +2,17 @@
 .. include:: ../README.md
 """
 import argparse
+import logging
 import re
 
 from rich.containers import Lines
+from rich.logging import RichHandler
 from rich.text import Text
 from rich_argparse import RichHelpFormatter
 
+from lyscripts import app, data, evaluate, plot, predict, sample, temp_schedule
+from lyscripts._version import version
 from lyscripts.utils import report
-
-from . import app, data, evaluate, plot, predict, sample, temp_schedule
-from ._version import version
 
 __version__ = version
 __description__ = "Package containing scripts used in lynference pipelines"
@@ -20,6 +21,10 @@ __email__ = "roman.ludwig@usz.ch"
 __uri__ = "https://github.com/rmnldwg/lyscripts"
 
 # nopycln: file
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class RichDefaultHelpFormatter(
@@ -48,6 +53,7 @@ class RichDefaultHelpFormatter(
 
         return text_cls("\n").join(indent + line for line in text_lines) + "\n\n"
 
+
 RichDefaultHelpFormatter.styles["argparse.syntax"] = "red"
 RichDefaultHelpFormatter.styles["argparse.formula"] = "green"
 RichDefaultHelpFormatter.highlights.append(
@@ -62,12 +68,14 @@ RichDefaultHelpFormatter.highlights.append(
     r"_(?P<italic>[^_]*)_"
 )
 
+
 def exit_cli(args: argparse.Namespace):
     """Exit the cmd line tool"""
     if args.version:
         report.print("lyscripts ", __version__)
     else:
         report.print("No command chosen. Exiting...")
+
 
 def main():
     """
@@ -84,6 +92,10 @@ def main():
         "-v", "--version", action="store_true",
         help="Display the version of lyscripts"
     )
+    parser.add_argument(
+        "--log-level", default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    )
 
     subparsers = parser.add_subparsers()
 
@@ -98,4 +110,14 @@ def main():
     temp_schedule._add_parser(subparsers, help_formatter=parser.formatter_class)
 
     args = parser.parse_args()
+
+    handler = RichHandler(
+        console=report,
+        show_time=False,
+        markup=True,
+    )
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(args.log_level)
+
     args.run_main(args)

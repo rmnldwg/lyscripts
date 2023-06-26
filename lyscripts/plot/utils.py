@@ -13,10 +13,10 @@ import scipy as sp
 from matplotlib.axes._axes import Axes as MPLAxes
 from matplotlib.figure import Figure
 
-from lyscripts.utils import (
+from lyscripts.decorators import (
     check_input_file_exists,
     check_output_dir_exists,
-    report_state,
+    log_state,
 )
 
 # define USZ colors
@@ -278,20 +278,14 @@ def draw(
     return axes
 
 
-@report_state(
-    status_msg="Load MPL stylesheet...",
-    success_msg="Loaded MPL stylesheet.",
-)
+@log_state(success_msg="Loaded MPL stylesheet")
 @check_input_file_exists
 def use_mpl_stylesheet(file_path: Union[str, Path]):
     """Load a `.mplstyle` stylesheet from `file_path`."""
     plt.style.use(file_path)
 
 
-@report_state(
-    status_msg="Save matplotlib figure...",
-    success_msg="Saved matplotlib figure.",
-)
+@log_state(success_msg="Saved matplotlib figure")
 @check_output_dir_exists
 def save_figure(
     output_path: Union[str, Path],

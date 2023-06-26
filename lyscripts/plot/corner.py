@@ -5,7 +5,9 @@ A corner plot is a combination of 1D and 2D marginals of probability distributio
 The library I use for this is built on `matplotlib` and is called
 [`corner`](https://github.com/dfm/corner.py).
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 from pathlib import Path
 from typing import List, Union
 
@@ -14,7 +16,9 @@ import emcee
 import lymph
 
 from lyscripts.plot.utils import save_figure
-from lyscripts.utils import load_yaml_params, model_from_config, report
+from lyscripts.utils import load_yaml_params, model_from_config
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -134,30 +138,28 @@ def main(args: argparse.Namespace):
         -p, --params PARAMS   Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params)
+    params = load_yaml_params(args.params, logger=logger)
 
-    with report.status("Open model as emcee backend..."):
-        backend = emcee.backends.HDFBackend(args.model, read_only=True)
-        report.success(f"Opened model as emcee backend from {args.model}")
+    backend = emcee.backends.HDFBackend(args.model, read_only=True)
+    logger.info(f"Opened model as emcee backend from {args.model}")
 
-    with report.status("Plot corner plot..."):
-        model = model_from_config(
-            graph_params=params["graph"],
-            model_params=params["model"],
-        )
-        labels = get_param_labels(model)
-        labels = [label.replace("->", "➜") for label in labels]
+    model = model_from_config(
+        graph_params=params["graph"],
+        model_params=params["model"],
+    )
+    labels = get_param_labels(model)
+    labels = [label.replace("->", "➜") for label in labels]
 
-        chain = backend.get_chain(flat=True)
-        if len(labels) != chain.shape[1]:
-            raise RuntimeError(f"length labels: {len(labels)}, shape chain: {chain.shape}")
-        fig = corner.corner(
-            chain,
-            labels=labels,
-            show_titles=True,
-        )
+    chain = backend.get_chain(flat=True)
+    if len(labels) != chain.shape[1]:
+        raise RuntimeError(f"length labels: {len(labels)}, shape chain: {chain.shape}")
+    fig = corner.corner(
+        chain,
+        labels=labels,
+        show_titles=True,
+    )
 
-    save_figure(args.output, fig, formats=["png", "svg"])
+    save_figure(args.output, fig, formats=["png", "svg"], logger=logger)
 
 
 if __name__ == "__main__":

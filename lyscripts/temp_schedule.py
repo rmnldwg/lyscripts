@@ -11,14 +11,16 @@ This can be achieved by using a power sequence: Generate $n$ linearly spaced poi
 the interval $[0, 1]$ and then transform each point by computing $\\beta_i^k$ where
 $k$ could e.g. be 5.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 from pathlib import Path
 from typing import Callable, List, Union
 
 import numpy as np
 import yaml
 
-from lyscripts.utils import report
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -67,6 +69,7 @@ def tolist(func: Callable) -> Callable:
         return res
     return inner
 
+
 @tolist
 def geometric_schedule(n: int, *_a) -> np.ndarray:
     """Create a geometric sequence of `n` numbers from 0. to 1."""
@@ -75,10 +78,12 @@ def geometric_schedule(n: int, *_a) -> np.ndarray:
     geom_seq = shifted_seq / 9.
     return geom_seq
 
+
 @tolist
 def linear_schedule(n: int, *_a) -> np.ndarray:
     """Create a linear sequence of `n` numbers from 0. to 1."""
     return np.linspace(0., 1., n)
+
 
 @tolist
 def power_schedule(n: int, power: float, *_a) -> np.ndarray:
@@ -127,12 +132,11 @@ def main(args: argparse.Namespace):
                                         power (default: 4)
     ```
     """
-    with report.status(f"Create {args.method} sequence of length {args.num}..."):
-        func = SCHEDULES[args.method]
-        schedule = func(args.num, args.pow)
-        yaml_output = yaml.dump({"temp_schedule": schedule})
-        report.success(f"Created {args.method} sequence of length {args.num}")
-        report.print(yaml_output)
+    func = SCHEDULES[args.method]
+    schedule = func(args.num, args.pow)
+    yaml_output = yaml.dump({"temp_schedule": schedule})
+    logger.info(f"Created {args.method} sequence of length {args.num}")
+    logger.debug(yaml_output)
 
 
 if __name__ == "__main__":

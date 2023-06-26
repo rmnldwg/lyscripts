@@ -6,7 +6,9 @@ The structure of these scenarios can is similar to how scenarios are defined for
 `lyscripts.predict.prevalences` script. Examples can be seen in an actual `params.yaml`
 file over in the [`lynference`](https://github.com/rmnldwg/lynference) repository.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 from pathlib import Path
 from typing import Dict, Generator, List, Optional
 
@@ -15,6 +17,7 @@ import lymph
 import numpy as np
 from rich.progress import track
 
+from lyscripts.decorators import log_state
 from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
@@ -24,6 +27,8 @@ from lyscripts.utils import (
     load_yaml_params,
     report,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -40,6 +45,7 @@ def _add_parser(
         formatter_class=help_formatter,
     )
     _add_arguments(parser)
+
 
 def _add_arguments(parser: argparse.ArgumentParser):
     """
@@ -66,6 +72,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
+@log_state(logger=logger)
 def predicted_risk(
     involvement: Dict[str, Dict[str, bool]],
     model: LymphModel,
@@ -158,9 +165,9 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
-    samples = load_hdf5_samples(args.model)
+    params = load_yaml_params(args.params, logger=logger)
+    model = create_model_from_config(params, logger=logger)
+    samples = load_hdf5_samples(args.model, logger=logger)
 
     args.output.parent.mkdir(exist_ok=True)
     num_risks = len(params["risks"])
@@ -188,7 +195,7 @@ def main(args: argparse.Namespace):
                     risks_h5dset.attrs[key] = val
                 except TypeError:
                     pass
-        report.success(
+        logger.info(
             f"Computed risks of {num_risks} scenarios stored at {args.output}"
         )
 

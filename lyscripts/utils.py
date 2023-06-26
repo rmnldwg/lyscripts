@@ -6,8 +6,6 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
-import sys
-from functools import wraps
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
 
@@ -19,14 +17,18 @@ import yaml
 from emcee.backends import HDFBackend
 from rich.console import Console
 from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
     Progress,
+    SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
-    TimeRemainingColumn,
 )
 from scipy.special import factorial
+
+from lyscripts.decorators import (
+    check_input_file_exists,
+    log_state,
+    provide_file,
+)
 
 try:
     import streamlit
@@ -81,11 +83,20 @@ def redirect_to_streamlit(func: Callable) -> Callable:
     return inner
 
 
+def inject_lvl_and_symbol(objects, level = "INFO", symbol = None, width = 8):
+    """Nicely format the `objects` to be printed with a `level` and `symbol`."""
+    prefix = "[blue]" + level.ljust(width) + "[/blue]"
+    if symbol is not None:
+        objects = [prefix, symbol, *objects]
+    else:
+        objects = [prefix, *objects]
+    return objects
+
+
 class LyScriptsReport(Console):
     """
     Small extension to the `Console` class of the rich package.
     """
-
     @redirect_to_streamlit
     def status(self, *objects, **kwargs):
         """Re-implement `status` method to allow decoration."""
@@ -94,25 +105,31 @@ class LyScriptsReport(Console):
     @redirect_to_streamlit
     def success(self, *objects, **kwargs) -> None:
         """Prefix a bold green check mark to any output."""
-        objects = [CHECK, *objects]
+        objects = inject_lvl_and_symbol(objects, symbol=CHECK)
         return super().print(*objects, **kwargs)
 
     @redirect_to_streamlit
     def info(self, *objects, **kwargs) -> None:
         """Prefix a bold yellow circle to any output."""
-        objects = [CIRCL, *objects]
+        objects = inject_lvl_and_symbol(objects, symbol=CIRCL)
+        return super().print(*objects, **kwargs)
+
+    @redirect_to_streamlit
+    def add(self, *objects, **kwargs) -> None:
+        """Prefix a bold yellow circle to any output."""
+        objects = inject_lvl_and_symbol(objects, symbol="+")
         return super().print(*objects, **kwargs)
 
     @redirect_to_streamlit
     def warning(self, *objects, **kwargs) -> None:
         """Prefix a bold yellow triangle to any output."""
-        objects = [WARN, *objects]
+        objects = inject_lvl_and_symbol(objects, symbol=WARN)
         return super().print(*objects, **kwargs)
 
     @redirect_to_streamlit
     def error(self, *objects, **kwargs) -> None:
         """Prefix a bold red cross to any output."""
-        objects = [CROSS, *objects]
+        objects = inject_lvl_and_symbol(objects, symbol=CROSS)
         return super().print(*objects, **kwargs)
 
     def exception(self, exception, **kwargs) -> None:
@@ -128,189 +145,14 @@ report = LyScriptsReport()
 class CustomProgress(Progress):
     """Small wrapper around rich's `Progress` initializing my custom columns."""
     def __init__( self, **kwargs: dict):
+        prefix = " ".join(inject_lvl_and_symbol([]))
         columns = [
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            MofNCompleteColumn(),
-            TimeRemainingColumn(),
+            TextColumn(prefix),
+            SpinnerColumn(finished_text=CHECK),
+            *Progress.get_default_columns(),
             TimeElapsedColumn(),
         ]
         super().__init__(*columns, **kwargs)
-
-report_progress = CustomProgress()
-
-
-def report_state(
-    status_msg: str,
-    success_msg: str,
-    stop_on_exc: bool = False,
-    verbose: bool = True,
-) -> Callable:
-    """
-    Outermost decorator that catches and gracefully reports exceptions that occur.
-
-    During the execution of the decorated function, it will display the `status_msg`.
-    When successful, the `success_msg` will finally be printed. And if the decorated
-    function raises a `LyScriptsError`, then that exception's message will be passed on
-    to the methods of the reporting class/module.
-
-    If `stop_on_exc` is set to `True`, the program exits when catching an error. And
-    lastly, with `verbose=False`, one can turn off the reporting entirely which may
-    in turn be overrridden when calling the decorated function with `verbose=True` and
-    vice versa.
-    """
-    def assembled_decorator(func: Callable) -> Callable:
-        """The decorator that gets returned by `report_state`."""
-        default_verbosity = verbose
-
-        @wraps(func)
-        def inner(*args, **kwargs):
-            """The wrapped function."""
-            verbose = kwargs.pop("verbose", default_verbosity)
-            try:
-                report.quiet = not verbose
-            except AttributeError:
-                pass
-
-            with report.status(status_msg):
-                try:
-                    result = func(*args, **kwargs)
-                except LyScriptsWarning as ly_err:
-                    msg = getattr(ly_err, "message", repr(ly_err))
-                    level = getattr(ly_err, "level", "info")
-                    getattr(report, level)(msg)
-                except Exception as exc:
-                    report.exception(exc)
-                    if stop_on_exc:
-                        sys.exit(1)
-                else:
-                    report.success(success_msg)
-                    return result
-
-                return None
-
-        return inner
-
-    return assembled_decorator
-
-
-def raise_if_args_none(message: str, level: str = "warning") -> Callable:
-    """
-    Call to create a decorator that raises a `LyScriptsWarning` with the specified
-    `message` and `level` when one of the positional arguments to the decorated
-    function is `None`.
-
-    This should be the second decorator after `report_state`, since that outermost
-    decorator catches the raised `LyScriptsWarning` and handles it appropriately.
-    """
-    def assembled_decorator(func: Callable) -> Callable:
-        """The decorator that gets returned by `raise_if_args_none`."""
-        @wraps(func)
-        def inner(*args, **kwargs) -> Any:
-            """The wrapped function."""
-            for arg in args:
-                if arg is None:
-                    raise LyScriptsWarning(message, level)
-
-            return func(*args, **kwargs)
-
-        return inner
-
-    return assembled_decorator
-
-
-def check_input_file_exists(loading_func: Callable) -> Callable:
-    """
-    Decorator that checks if the file path provided to the `loading_func` exists and
-    throws a `FileNotFoundError` if it does not.
-
-    The purpose of this deorator is to provide a consistent error message to the
-    `report_func_state`, since some libraries throw other errors when a file is not
-    found.
-    """
-    @wraps(loading_func)
-    def inner(file_path: str, *args, **kwargs) -> Any:
-        """Wrapped loading function."""
-        file_path = Path(file_path)
-        if not file_path.is_file():
-            raise LyScriptsWarning(f"No file found at {file_path}", level="warning")
-
-        return loading_func(file_path, *args, **kwargs)
-
-    return inner
-
-
-def provide_file(is_binary: bool) -> Callable:
-    """
-    Create a decorator that can make sure a decorated function is provided with a
-    file-like object, even when it is called with the file path only.
-
-    This means, the assembled decorator checks the argument type and, if necessary,
-    opens the file to call the decorated function. The provided file is either a text
-    file of - if `is_binary` is set to `True` - a binary file.
-    """
-    def assembled_decorator(loading_func: Callable) -> Callable:
-        """
-        The assembled decorator that provides the decorated function with either a
-        test or binary file.
-        """
-        @wraps(loading_func)
-        def inner(file_or_path: Union[str, Path, TextIO, BinaryIO], *args, **kwargs):
-            """The wrapped function."""
-            if isinstance(file_or_path, (str, Path)):
-                file_path = Path(file_or_path)
-                if not file_path.is_file():
-                    raise FileNotFoundError(f"No file found at {file_path}")
-
-                if is_binary:
-                    with open(file_path, mode="rb") as bin_file:
-                        return loading_func(bin_file, *args, **kwargs)
-                else:
-                    with open(file_path, mode="r", encoding="utf-8") as txt_file:
-                        return loading_func(txt_file, *args, **kwargs)
-
-            return loading_func(file_or_path, *args, **kwargs)
-
-        return inner
-
-    return assembled_decorator
-
-
-def provide_text_file(loading_func: Callable) -> Callable:
-    """
-    Decorator that makes sure the `loading_func` is provided with a file-like object
-    regardless of whether the input is a `str`, `Path` or already file-like.
-    """
-    @wraps(loading_func)
-    def inner(file_or_path: Union[str, Path, TextIO], *args, **kwargs) -> Any:
-        """Wrapped loading function."""
-        if isinstance(file_or_path, (str, Path)):
-            file_path = Path(file_or_path)
-            if not file_path.is_file():
-                raise FileNotFoundError(f"No file found at {file_path}")
-
-            with open(file_path, mode="r", encoding="utf-8") as file:
-                return loading_func(file, *args, **kwargs)
-
-        return loading_func(file_or_path, *args, **kwargs)
-
-    return inner
-
-
-def check_output_dir_exists(saving_func: Callable) -> Callable:
-    """
-    Decorator to make sure the parent directory of the file that is supposed to be
-    saved does exist.
-    """
-    @wraps(saving_func)
-    def inner(file_path: str, *args, **kwargs) -> Any:
-        """Wrapped saving function."""
-        file_path = Path(file_path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-
-        return saving_func(file_path, *args, **kwargs)
-
-    return inner
 
 
 def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):
@@ -392,14 +234,8 @@ def model_from_config(
 
 LymphModel = Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]
 
-@report_state(
-    status_msg="Create model based on YAML parameters...",
-    success_msg="Created model based on YAML parameters",
-)
-@raise_if_args_none(
-    message="No valid params provided",
-    level="warning",
-)
+
+@log_state(success_msg="Model created from YAML config")
 def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
     """Create a model instance as defined by some YAML params."""
     if "graph" in params:
@@ -429,10 +265,6 @@ def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
     return model
 
 
-@raise_if_args_none(
-    message="No valid model provided",
-    level="warning",
-)
 def get_lnls(model: LymphModel) -> List[str]:
     """Extract the list of LNLs from a model instance. E.g.:
     >>> graph = {
@@ -575,14 +407,7 @@ def get_modalities_subset(
     return selected_modalities
 
 
-@report_state(
-    status_msg="Read in patient data for model...",
-    success_msg="Read in patient data for model.",
-)
-@raise_if_args_none(
-    message="No patient data file(path) provided.",
-    level="warning",
-)
+@log_state(success_msg="Loaded patient data")
 @provide_file(is_binary=False)
 def load_data_for_model(
     file: TextIO,
@@ -598,24 +423,14 @@ def load_data_for_model(
     return pd.read_csv(file, header=header_rows)
 
 
-@report_state(
-    status_msg="Load YAML params...",
-    success_msg="Loaded YAML params.",
-)
-@raise_if_args_none(
-    message="No YAML file(path) provided.",
-    level="warning",
-)
+@log_state(success_msg="Loaded YAML params")
 @provide_file(is_binary=False)
 def load_yaml_params(file: Path) -> dict:
     """Load parameters from a YAML `file`."""
     return yaml.safe_load(file)
 
 
-@report_state(
-    status_msg="Load HDF5 samples from MCMC run...",
-    success_msg="Loaded HDF5 samples from MCMC run.",
-)
+@log_state(success_msg="Loaded HDF5 samples from MCMC run")
 @check_input_file_exists
 def load_model_samples(file_path: Path) -> np.ndarray:
     """
@@ -626,14 +441,7 @@ def load_model_samples(file_path: Path) -> np.ndarray:
     return backend.get_chain(flat=True)
 
 
-@report_state(
-    status_msg="Load HDF5 samples...",
-    success_msg="Loaded HDF5 samples.",
-)
-@raise_if_args_none(
-    message="No HDF5 file provided.",
-    level="warning",
-)
+@log_state(success_msg="Loaded HDF5 samples")
 @provide_file(is_binary=True)
 def load_hdf5_samples(file: BinaryIO, name: str = "mcmc/chain") -> np.ndarray:
     """
