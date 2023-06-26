@@ -4,7 +4,9 @@ Plot how the accuracy develops over the course of a thermodynamic integration ru
 This can also be used to compare how the accuracy of different models develops during
 thermdynamic integration.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 from pathlib import Path
 
 import matplotlib
@@ -19,9 +21,10 @@ from lyscripts.plot.utils import (
     save_figure,
     use_mpl_stylesheet,
 )
-from lyscripts.utils import report
 
+logger = logging.getLogger(__name__)
 LINE_CYCLER = cycler(linestyle=["-", "--"]) * cycler(color=list(COLORS.values()))
+
 
 def _add_parser(
     subparsers: argparse._SubParsersAction,
@@ -117,66 +120,67 @@ def main(args: argparse.Namespace):
     """
     use_mpl_stylesheet(args.mplstyle)
 
-    with report.status("Load CSV file(s)..."):
-        accuracy_series = []
-        min_acc = np.inf
-        max_acc = -np.inf
-        for input in args.inputs:
-            tmp = pd.read_csv(input)
-            min_acc = np.min([min_acc, *tmp["accuracy"]])
-            max_acc = np.max([max_acc, *tmp["accuracy"]])
-            accuracy_series.append(tmp)
-            report.print(f"+ read in {input}")
-        report.success("Loaded CSV file(s)")
+    accuracy_series = []
+    min_acc = np.inf
+    max_acc = -np.inf
+    for input in args.inputs:
+        tmp = pd.read_csv(input)
+        min_acc = np.min([min_acc, *tmp["accuracy"]])
+        max_acc = np.max([max_acc, *tmp["accuracy"]])
+        accuracy_series.append(tmp)
+        logger.info(f"+ read in {input}")
+    logger.info("Loaded CSV file(s)")
 
-    with report.status("Prepare figure..."):
-        fig, ax = plt.subplots(figsize=get_size())
-        if args.title is not None:
-            fig.suptitle(args.title)
 
-        ax.set_xlabel("inverse temperature $\\beta$")
-        xticks = np.linspace(0., 1., 7)
-        xticklabels = [f"{x**args.power:.2g}" for x in xticks]
-        ax.set_xticks(ticks=xticks, labels=xticklabels)
-        ax.set_xlim(left=0., right=1.)
+    fig, ax = plt.subplots(figsize=get_size())
+    if args.title is not None:
+        fig.suptitle(args.title)
 
-        ax.set_ylabel("accuracy $\\mathcal{A}(\\beta)$")
-        ax.set_yscale("symlog")
-        ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(800))
-        ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-        ax.ticklabel_format(axis="y", style="sci", scilimits=(2,2))
-        report.success("Prepared figure")
+    ax.set_xlabel("inverse temperature $\\beta$")
+    xticks = np.linspace(0., 1., 7)
+    xticklabels = [f"{x**args.power:.2g}" for x in xticks]
+    ax.set_xticks(ticks=xticks, labels=xticklabels)
+    ax.set_xlim(left=0., right=1.)
 
-    with report.status("Plot series..."):
-        for i,series in enumerate(accuracy_series):
-            last_acc = series['accuracy'].values[-1]
-            try:
-                label = args.labels[i] + " $\\mathcal{A}(1)$ = " + f"{last_acc:g}"
-            except IndexError:
-                label = None,
-            if "stddev" in series:
-                ax.errorbar(
-                    series["β"]**(1./args.power),
-                    series["accuracy"],
-                    yerr=series["stddev"],
-                    label=label,
-                )
-            else:
-                ax.plot(
-                    series["β"]**(1./args.power),
-                    series["accuracy"],
-                    label=label,
-                )
-        if len(args.labels) > 0:
-            ax.legend()
-        report.success("Plotted series")
+    ax.set_ylabel("accuracy $\\mathcal{A}(\\beta)$")
+    ax.set_yscale("symlog")
+    ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(800))
+    ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    ax.ticklabel_format(axis="y", style="sci", scilimits=(2,2))
+    logger.info("Prepared figure")
+
+
+    for i, series in enumerate(accuracy_series):
+        last_acc = series['accuracy'].values[-1]
+        try:
+            label = args.labels[i] + " $\\mathcal{A}(1)$ = " + f"{last_acc:g}"
+        except IndexError:
+            label = None
+
+        if "stddev" in series:
+            ax.errorbar(
+                series["β"]**(1./args.power),
+                series["accuracy"],
+                yerr=series["stddev"],
+                label=label,
+            )
+        else:
+            ax.plot(
+                series["β"]**(1./args.power),
+                series["accuracy"],
+                label=label,
+            )
+
+    if len(args.labels) > 0:
+        ax.legend()
+    logger.info("Plotted series")
+
 
     if args.show:
-        with report.status("Display the plot..."):
-            plt.show()
-            report.success("Showed the plot")
+        plt.show()
+        logger.info("Showed the plot")
     else:
-        save_figure(fig, args.output, formats=["png", "svg"])
+        save_figure(fig, args.output, formats=["png", "svg"], logger=logger)
 
 
 if __name__ == "__main__":

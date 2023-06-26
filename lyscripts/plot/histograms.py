@@ -1,7 +1,9 @@
 """
 Plot computed risks and prevalences into a beautiful histogram.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -15,7 +17,8 @@ from lyscripts.plot.utils import (
     save_figure,
     use_mpl_stylesheet,
 )
-from lyscripts.utils import report
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -95,41 +98,39 @@ def main(args: argparse.Namespace):
         --mplstyle MPLSTYLE   Path to the MPL stylesheet (default: ./.mplstyle)
     ```
     """
-    use_mpl_stylesheet(args.mplstyle)
+    use_mpl_stylesheet(args.mplstyle, logger=logger)
 
-    with report.status("Add content to figure..."):
-        contents = []
-        for name in args.names:
-            color = next(COLOR_CYCLE)
-            contents.append(Histogram.from_hdf5(
+    contents = []
+    for name in args.names:
+        color = next(COLOR_CYCLE)
+        contents.append(Histogram.from_hdf5(
+            filename=args.input,
+            dataname=name,
+            kwargs={"color": color},
+        ))
+        logger.info(f"Added histogram {name} to figure")
+        try:
+            contents.append(Posterior.from_hdf5(
                 filename=args.input,
                 dataname=name,
                 kwargs={"color": color},
             ))
-            report.success(f"Added histogram {name} to figure")
-            try:
-                contents.append(Posterior.from_hdf5(
-                    filename=args.input,
-                    dataname=name,
-                    kwargs={"color": color},
-                ))
-            except KeyError:
-                report.info(f"No observation data available for dataset {name}")
-            else:
-                report.success(f"Added posterior PDF for data {name} to figure")
+        except KeyError:
+            logger.warning(f"No observation data available for dataset {name}")
+        else:
+            logger.info(f"Added posterior PDF for data {name} to figure")
 
-    with report.status("Draw figure..."):
-        fig, ax = plt.subplots(figsize=get_size())
-        draw(
-            axes=ax,
-            contents=contents,
-            hist_kwargs={"nbins": args.bins},
-            percent_lims=(5., 5.)
-        )
-        ax.legend()
-        report.success("Drawn figure")
+    fig, ax = plt.subplots(figsize=get_size())
+    draw(
+        axes=ax,
+        contents=contents,
+        hist_kwargs={"nbins": args.bins},
+        percent_lims=(5., 5.)
+    )
+    ax.legend()
+    logger.info("Drawn figure")
 
-    save_figure(fig, args.output, formats=["png", "svg"])
+    save_figure(fig, args.output, formats=["png", "svg"], logger=logger)
 
 
 if __name__ == "__main__":
