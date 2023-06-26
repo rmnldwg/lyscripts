@@ -9,7 +9,9 @@ Like `lyscripts.predict.risks`, the computation of the prevalences can be done f
 different scenarios. How to define these scenarios can be seen in the
 [`lynference`](https://github.com/rmnldwg/lynference) repository.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 from pathlib import Path
 from typing import Dict, Generator, List, Optional
 
@@ -19,6 +21,7 @@ import numpy as np
 import pandas as pd
 from rich.progress import track
 
+from lyscripts.decorators import log_state
 from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
@@ -30,6 +33,8 @@ from lyscripts.utils import (
     load_yaml_params,
     report,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -183,6 +188,7 @@ def create_patient_row(
     return with_midline_ext.append(without_midline_ext).reset_index()
 
 
+@log_state(logger=logger)
 def compute_observed_prevalence(
     pattern: Dict[str, Dict[str, bool]],
     data: pd.DataFrame,
@@ -280,6 +286,7 @@ def compute_predicted_prevalence(
     return prevalence
 
 
+@log_state(logger=logger)
 def generate_predicted_prevalences(
     pattern: Dict[str, Dict[str, bool]],
     model: LymphModel,
@@ -353,12 +360,12 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
-    samples = load_hdf5_samples(args.model)
+    params = load_yaml_params(args.params, logger=logger)
+    model = create_model_from_config(params, logger=logger)
+    samples = load_hdf5_samples(args.model, logger=logger)
 
     header_rows = [0,1] if isinstance(model, lymph.Unilateral) else [0,1,2]
-    data = load_data_for_model(args.data, header_rows)
+    data = load_data_for_model(args.data, header_rows, logger=logger)
 
     args.output.parent.mkdir(exist_ok=True)
     num_prevalences = len(params["prevalences"])
@@ -396,7 +403,7 @@ def main(args: argparse.Namespace):
             prevs_h5dset.attrs["num_match"] = num_match
             prevs_h5dset.attrs["num_total"] = num_total
 
-        report.success(
+        logger.info(
             f"Computed prevalences of {num_prevalences} scenarios stored at "
             f"{args.output}"
         )
