@@ -61,6 +61,7 @@ def log_state(
     direct_func: Callable = None,
     success_msg: str = None,
     logger: logging.Logger = None,
+    log_level: int = logging.INFO,
 ) -> Callable:
     """Provide a decorator that logs the state of the function execution.
 
@@ -84,7 +85,8 @@ def log_state(
             try:
                 result = func(*args, **kwargs)
                 if success_msg is not None:
-                    logger.info(success_msg)
+                    nonlocal log_level
+                    logger.log(log_level, success_msg)
                 return result
 
             except Exception as exc:
