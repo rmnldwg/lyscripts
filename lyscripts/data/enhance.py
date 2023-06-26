@@ -11,7 +11,9 @@ and IIb separately, this script will add the column for LNL II and fill it with 
 correct values. Conversely, if e.g. LNL II is reported to be healthy, we can assume
 the sublevels IIa and IIb would have been reported as healthy, too.
 """
+# pylint: disable=singleton-comparison,logging-fstring-interpolation
 import argparse
+import logging
 import warnings
 from functools import lru_cache
 from pathlib import Path
@@ -19,13 +21,18 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 from lyscripts.data.utils import load_csv_table, save_table_to_csv
-from lyscripts.utils import get_modalities_subset, load_yaml_params, report
+from lyscripts.decorators import log_state
+from lyscripts.utils import (
+    CustomProgress,
+    get_modalities_subset,
+    load_yaml_params,
+    report,
+)
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
-# pylint: disable=singleton-comparison
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -98,6 +105,10 @@ def get_sublvl_values(
     return data_frame[[lnl+sub for sub in sub_ids]].values
 
 
+@log_state(
+    success_msg="Inferred super-level's involvement from sub-levels",
+    logger=logger,
+)
 def infer_superlvl_from_sublvls(
     table: pd.DataFrame,
     modalities: List[str],
@@ -269,12 +280,6 @@ CONSENSUS_FUNCS = {
     "logic_or": lambda obs, *_args, **_kwargs: or_consensus(obs),
     "logic_and": lambda obs, *_args, **_kwargs: and_consensus(obs),
 }
-PROGRESS = Progress(
-    SpinnerColumn(),
-    *Progress.get_default_columns(),
-    TimeElapsedColumn(),
-    console=report,
-)
 
 
 def main(args: argparse.Namespace):
@@ -324,9 +329,9 @@ def main(args: argparse.Namespace):
                             or is common (default: ['I', 'II', 'V'])
     ```
     """
-    input_table = load_csv_table(args.input, header_row=[0,1,2])
+    input_table = load_csv_table(args.input, header_row=[0,1,2], logger=logger)
+    params = load_yaml_params(args.params, logger=logger)
 
-    params = load_yaml_params(args.params)
     modalities = get_modalities_subset(
         defined_modalities=params["modalities"],
         selection=args.modalities,
@@ -341,7 +346,6 @@ def main(args: argparse.Namespace):
     lnl_union = set().union(
         *[input_table[mod,"ipsi"].columns for mod in available_mod_keys]
     )
-
     consensus = pd.DataFrame(
         index=input_table.index,
         columns=pd.MultiIndex.from_product(
@@ -349,9 +353,9 @@ def main(args: argparse.Namespace):
         )
     )
 
-    with PROGRESS:
-        enhance_task = PROGRESS.add_task(
-            description="Compute consensus of modalities...",
+    with CustomProgress(console=report) as report_progress:
+        enhance_task = report_progress.add_task(
+            description=f"Compute {args.consensus} consensus of modalities...",
             total=2 * len(input_table),
         )
         for side in ["ipsi", "contra"]:
@@ -365,29 +369,24 @@ def main(args: argparse.Namespace):
                         consensus[cons, side, lnl].iloc[p] = CONSENSUS_FUNCS[cons](
                             observations, available_mods.values()
                         )
-                PROGRESS.update(enhance_task, advance=1)
+                report_progress.update(enhance_task, advance=1)
         table_with_consensus = input_table.join(consensus)
 
-    report.success(
-        "Computed consensus of observations according to "
-        f"the methods {args.consensus}"
+
+    data_modalities = set(
+        table_with_consensus.columns.get_level_values(0)
+    ).intersection(
+        [*modalities.keys(), *args.consensus]
     )
+    consensus_and_fixed_sublvlvs = infer_superlvl_from_sublvls(
+        table_with_consensus,
+        data_modalities,
+        lnls_with_sub=args.lnls_with_sub,
+        sublvls=args.sublvls,
+    )
+    logger.info("Fixed sub- & super level fields.")
 
-    with report.status("Fixing sub- & super level fields..."):
-        data_modalities = set(
-            table_with_consensus.columns.get_level_values(0)
-        ).intersection(
-            [*modalities.keys(), *args.consensus]
-        )
-        consensus_and_fixed_sublvlvs = infer_superlvl_from_sublvls(
-            table_with_consensus,
-            data_modalities,
-            lnls_with_sub=args.lnls_with_sub,
-            sublvls=args.sublvls,
-        )
-        report.success("Fixed sub- & super level fields.")
-
-    save_table_to_csv(args.output, consensus_and_fixed_sublvlvs)
+    save_table_to_csv(args.output, consensus_and_fixed_sublvlvs, logger=logger)
 
 
 if __name__ == "__main__":

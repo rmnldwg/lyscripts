@@ -3,8 +3,10 @@ Evaluate the performance of the trained model by computing quantities like the
 Bayesian information criterion (BIC) or (if thermodynamic integration was performed)
 the actual evidence (with error) of the model.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Tuple
 
@@ -19,8 +21,9 @@ from lyscripts.utils import (
     create_model_from_config,
     load_data_for_model,
     load_yaml_params,
-    report,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -112,6 +115,38 @@ def compute_evidence(
     return np.mean(integrals), np.std(integrals)
 
 
+def compute_ti_results(
+    metrics: dict,
+    params: dict,
+    ndim: int,
+    h5_file: Path,
+    model: Path,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Compute the results in case of a thermodynamic integration run."""
+    temp_schedule = params["sampling"]["temp_schedule"]
+    num_temps = len(temp_schedule)
+
+    if num_temps != len(h5_file["ti"]):
+        raise RuntimeError(
+            f"Parameters suggest temp schedule of length {num_temps}, "
+            f"but stored are {len(h5_file['ti'])}"
+        )
+
+    nwalker = ndim * params["sampling"]["walkers_per_dim"]
+    nsteps = params["sampling"]["nsteps"]
+    ti_log_probs = np.zeros(shape=(num_temps, nsteps * nwalker))
+
+    for i, round in enumerate(h5_file["ti"]):
+        reader = emcee.backends.HDFBackend(model, name=f"ti/{round}", read_only=True)
+        ti_log_probs[i] = reader.get_blobs(flat=True)
+
+    evidence, evidence_std = compute_evidence(temp_schedule, ti_log_probs)
+    metrics["evidence"] = evidence
+    metrics["evidence_std"] = evidence_std
+
+    return temp_schedule, ti_log_probs
+
+
 def main(args: argparse.Namespace):
     """
     To evaluate the performance of a sampling round, this program follows these steps:
@@ -154,79 +189,62 @@ def main(args: argparse.Namespace):
     """
     metrics = {}
 
-    params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
+    params = load_yaml_params(args.params, logger=logger)
+    model = create_model_from_config(params, logger=logger)
     ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
     is_uni = isinstance(model, lymph.Unilateral)
 
     data = load_data_for_model(args.data, header_rows=[0,1] if is_uni else [0,1,2])
-
     h5_file = h5py.File(args.model, mode="r")
-    # check if TI has been performed
+
+    # if TI has been performed, compute the accuracy for every step
     if "ti" in h5_file:
-        with report.status("Compute results of thermodynamic integration..."):
-            temp_schedule = params["sampling"]["temp_schedule"]
-            num_temps = len(temp_schedule)
-            if num_temps != len(h5_file["ti"]):
-                raise RuntimeError(
-                    f"Parameters suggest temp schedule of length {num_temps}, "
-                    f"but stored are {len(h5_file['ti'])}"
-                )
-            nwalker = ndim * params["sampling"]["walkers_per_dim"]
-            nsteps = params["sampling"]["nsteps"]
-            ti_log_probs = np.zeros(shape=(num_temps, nsteps * nwalker))
-            for i,round in enumerate(h5_file["ti"]):
-                reader = emcee.backends.HDFBackend(
-                    args.model,
-                    name=f"ti/{round}",
-                    read_only=True,
-                )
-                ti_log_probs[i] = reader.get_blobs(flat=True)
-
-            evidence, evidence_std = compute_evidence(temp_schedule, ti_log_probs)
-            metrics["evidence"] = evidence
-            metrics["evidence_std"] = evidence_std
-            report.success(
-                f"Computed results of thermodynamic integration with {num_temps} steps"
-            )
-
-        with report.status("Plot β vs accuracy..."):
-            args.plots.parent.mkdir(exist_ok=True)
-
-            tmp_df = pd.DataFrame(
-                np.array([
-                    temp_schedule,
-                    np.mean(ti_log_probs, axis=1),
-                    np.std(ti_log_probs, axis=1)
-                ]).T,
-                columns=["β", "accuracy", "std"],
-            )
-            tmp_df.to_csv(args.plots, index=False)
-            report.success(f"Plotted β vs accuracy at {args.plots}")
-
-    with report.status("Open samples from emcee backend..."):
-        backend = emcee.backends.HDFBackend(args.model, read_only=True, name="mcmc")
-        # use blobs, because also for TI, this is the unscaled log-prob
-        final_log_probs = backend.get_blobs()
-        report.success(f"Opened samples from emcee backend from {args.model}")
-
-    with report.status("Write out metrics..."):
-        # store metrics in JSON file
-        args.metrics.parent.mkdir(parents=True, exist_ok=True)
-        args.metrics.touch(exist_ok=True)
-
-        # further populate metrics dictionary
-        metrics["BIC"] = comp_bic(
-            final_log_probs, ndim, len(data),
+        temp_schedule, ti_log_probs = compute_ti_results(
+            metrics=metrics,
+            params=params,
+            ndim=ndim,
+            h5_file=h5_file,
+            model=args.model,
         )
-        metrics["max_llh"] = np.max(final_log_probs)
-        metrics["mean_llh"] = np.mean(final_log_probs)
+        logger.info(
+            "Computed results of thermodynamic integration with "
+            f"{len(temp_schedule)} steps"
+        )
 
-        # write out metrics again
-        with open(args.metrics, mode="w") as metrics_file:
-            json.dump(metrics, metrics_file)
+        # store inverse temperatures and log-probs in CSV file
+        args.plots.parent.mkdir(exist_ok=True)
 
-        report.success(f"Wrote out metrics to {args.metrics}")
+        beta_vs_accuracy = pd.DataFrame(
+            np.array([
+                temp_schedule,
+                np.mean(ti_log_probs, axis=1),
+                np.std(ti_log_probs, axis=1)
+            ]).T,
+            columns=["β", "accuracy", "std"],
+        )
+        beta_vs_accuracy.to_csv(args.plots, index=False)
+        logger.info(f"Plotted β vs accuracy at {args.plots}")
+
+
+    # use blobs, because also for TI, this is the unscaled log-prob
+    backend = emcee.backends.HDFBackend(args.model, read_only=True, name="mcmc")
+    final_log_probs = backend.get_blobs()
+    logger.info(f"Opened samples from emcee backend from {args.model}")
+
+    # store metrics in JSON file
+    args.metrics.parent.mkdir(parents=True, exist_ok=True)
+    args.metrics.touch(exist_ok=True)
+
+    metrics["BIC"] = comp_bic(
+        final_log_probs, ndim, len(data),
+    )
+    metrics["max_llh"] = np.max(final_log_probs)
+    metrics["mean_llh"] = np.mean(final_log_probs)
+
+    with open(args.metrics, mode="w", encoding="utf-8") as metrics_file:
+        json.dump(metrics, metrics_file)
+
+    logger.info(f"Wrote out metrics to {args.metrics}")
 
 
 if __name__ == "__main__":
