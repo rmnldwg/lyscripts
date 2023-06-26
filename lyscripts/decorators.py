@@ -24,8 +24,21 @@ def extract_logger(*args, **kwargs) -> logging.Logger:
             if isinstance(attr, logging.Logger):
                 attr_loggers.append(attr)
 
-    args_loggers = [arg for arg in args if isinstance(arg, logging.Logger)]
-    kwargs_loggers = [arg for arg in kwargs.values() if isinstance(arg, logging.Logger)]
+    return_args = []
+    args_loggers = []
+    for arg in args:
+        if isinstance(arg, logging.Logger):
+            args_loggers.append(arg)
+        else:
+            return_args.append(arg)
+
+    return_kwargs = {}
+    kwargs_loggers = []
+    for key, value in kwargs.items():
+        if isinstance(value, logging.Logger):
+            kwargs_loggers.append(value)
+        else:
+            return_kwargs[key] = value
 
     found_loggers = [*attr_loggers, *args_loggers, *kwargs_loggers]
     logger = next(iter(found_loggers), None)
@@ -33,7 +46,7 @@ def extract_logger(*args, **kwargs) -> logging.Logger:
     if logger is None:
         logger = logging.getLogger("lyscripts")
 
-    return logger
+    return logger, return_args, return_kwargs
 
 
 def assemble_signature(*args, **kwargs) -> str:
@@ -46,15 +59,14 @@ def assemble_signature(*args, **kwargs) -> str:
 
 def log_state(
     direct_func: Callable = None,
-    status_msg: str = None,
     success_msg: str = None,
     logger: logging.Logger = None,
 ) -> Callable:
     """Provide a decorator that logs the state of the function execution.
 
     This function can either be used directly as a decorator or be called with the
-    desired `status_msg` and `success_msg` to return a decorator that can be then in
-    turn be used to decorate a function.
+    desired `success_msg` to return a decorator that can be then in turn be used to
+    decorate a function.
     """
     # pylint: disable=logging-fstring-interpolation
     def log_decorator(func: Callable):
@@ -64,18 +76,15 @@ def log_state(
             """The wrapper around the decorated function."""
             nonlocal logger
             if logger is None:
-                logger = extract_logger(*args, **kwargs)
+                logger, args, kwargs = extract_logger(*args, **kwargs)
 
             signature = assemble_signature(*args, **kwargs)
             logger.debug(f"Executing {func.__name__}({signature}).")
 
-            if status_msg is not None:
-                logger.info(status_msg)
-
             try:
                 result = func(*args, **kwargs)
                 if success_msg is not None:
-                    logger.info("[bold green]✓[/bold green] " + success_msg)
+                    logger.info(success_msg)
                 return result
 
             except Exception as exc:
