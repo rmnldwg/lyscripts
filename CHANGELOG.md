@@ -1,3 +1,18 @@
+<a name="0.7.0"></a>
+## [0.7.0] - 2023-06-26
+
+### Bug Fixes
+- add modalities from params in synthetic data generation
+
+### Features
+- add extensible & versatile logging decorator
+- add `--log-level` option to top-level lyscripts command
+- add log-level to `log_state` decorator
+
+### Other
+- all commands now use the logging library for status updates/ouputs
+
+
 <a name="0.6.9"></a>
 ## [0.6.9] - 2023-06-21
 
@@ -264,7 +279,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.6.9...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.7.0...HEAD
+[0.7.0]: https://github.com/rmnldwg/lyscripts/compare/0.6.9...0.7.0
 [0.6.9]: https://github.com/rmnldwg/lyscripts/compare/0.6.8...0.6.9
 [0.6.8]: https://github.com/rmnldwg/lyscripts/compare/0.6.7...0.6.8
 [0.6.7]: https://github.com/rmnldwg/lyscripts/compare/0.6.6...0.6.7
