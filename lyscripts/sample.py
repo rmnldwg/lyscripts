@@ -9,7 +9,9 @@ predictions. This risk estimate may in turn some day guide clinicians to make mo
 objective decisions with respect to defining the *elective clinical target volume*
 (CTV-N) in radiotherapy.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 import os
 import warnings
 from multiprocessing import Pool
@@ -29,6 +31,8 @@ from lyscripts.utils import (
     model_from_config,
     report,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -120,9 +124,17 @@ class ConvenienceSampler(emcee.EnsembleSampler):
     ):
         """Initialize sampler with sane defaults."""
         moves = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
+
         if random_state is not None:
             self.random_state = random_state.get_state()
+            try:
+                logger.debug(f"Using random state {self.random_state}")
+            except AttributeError as attr_err:
+                logger.warning("Could not get random state", exc_info=attr_err)
+
+
         super().__init__(nwalkers, ndim, log_prob_fn, pool, moves, backend=backend)
+
 
     def run_sampling(
         self,
@@ -203,6 +215,13 @@ class ConvenienceSampler(emcee.EnsembleSampler):
             iterations.append(self.iteration)
             acor_times.append(np.mean(new_acor))
 
+            logger.debug(
+                f"Acceptance rate at {self.iteration}: {accept_rates[-1]:.2f}%"
+            )
+            logger.debug(
+                f"Autocorrelation time at {self.iteration}: {acor_times[-1]:.2f}"
+            )
+
             # check convergence
             is_converged = self.iteration >= min_steps
             is_converged &= np.all(new_acor * trust_threshold < self.iteration)
@@ -223,12 +242,10 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         if progress_desc is not None:
             report_progress.stop()
             if is_converged:
-                report.success(
-                    progress_desc, "converged,", accept_rate_str
-                )
+                logging.info(f"{progress_desc} converged, {accept_rate_str}")
             else:
-                report.info(
-                    progress_desc, "finished: Max. steps reached,", accept_rate_str
+                logging.info(
+                    f"{progress_desc} finished: Max. steps reached, {accept_rate_str}"
                 )
 
         return {
@@ -237,6 +254,7 @@ class ConvenienceSampler(emcee.EnsembleSampler):
             "accept_rates": accept_rates,
             "final_state": coords,
         }
+
 
 def run_mcmc_with_burnin(
     nwalkers: int,
@@ -398,45 +416,43 @@ def main(args: argparse.Namespace):
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
-    params = load_yaml_params(args.params)
+    params = load_yaml_params(args.params, logger=logger)
 
-    with report.status("Read in training data..."):
-        # Only read in two header rows when using the Unilateral model
-        is_unilateral = params["model"]["class"] == "Unilateral"
-        header = [0, 1] if is_unilateral else [0, 1, 2]
-        inference_data = pd.read_csv(args.input, header=header)
-        report.success(f"Read in training data from {args.input}")
+    # Only read in two header rows when using the Unilateral model
+    is_unilateral = params["model"]["class"] == "Unilateral"
+    header = [0, 1] if is_unilateral else [0, 1, 2]
+    inference_data = pd.read_csv(args.input, header=header)
+    logger.info(f"Read in training data from {args.input}")
 
-    with report.status("Set up model & load data..."):
-        global MODEL  # ugly, but necessary for pickling
-        MODEL = model_from_config(
-            graph_params=params["graph"],
-            model_params=params["model"],
-            modalities_params=get_modalities_subset(
-                defined_modalities=params["modalities"],
-                selection=args.modalities,
-            ),
-        )
-        MODEL.patient_data = inference_data
-        ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
-        nwalkers = ndim * params["sampling"]["walkers_per_dim"]
-        thin_by = params["sampling"]["thin_by"]
-        report.success(
-            f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
-            f"{len(inference_data)} patients"
-        )
+    global MODEL  # ugly, but necessary for pickling
+    MODEL = model_from_config(
+        graph_params=params["graph"],
+        model_params=params["model"],
+        modalities_params=get_modalities_subset(
+            defined_modalities=params["modalities"],
+            selection=args.modalities,
+        ),
+    )
+    MODEL.patient_data = inference_data
+    ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
+    nwalkers = ndim * params["sampling"]["walkers_per_dim"]
+    thin_by = params["sampling"]["thin_by"]
+    logger.info(
+        f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
+        f"{len(inference_data)} patients"
+    )
 
     if args.ti:
         global INV_TEMP
-        with report.status("Prepare thermodynamic integration..."):
-            # make sure path to output file exists
-            args.output.parent.mkdir(parents=True, exist_ok=True)
 
-            # set up sampling params
-            temp_schedule = params["sampling"]["temp_schedule"]
-            nsteps = params["sampling"]["nsteps"]
-            burnin = params["sampling"]["burnin"]
-            report.success("Prepared thermodynamic integration.")
+        # make sure path to output file exists
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+
+        # set up sampling params
+        temp_schedule = params["sampling"]["temp_schedule"]
+        nsteps = params["sampling"]["nsteps"]
+        burnin = params["sampling"]["burnin"]
+        logger.info("Prepared thermodynamic integration.")
 
         # record some information about each burnin phase
         x_axis = temp_schedule.copy()
@@ -446,7 +462,7 @@ def main(args: argparse.Namespace):
         }
         for i,inv_temp in enumerate(temp_schedule):
             INV_TEMP = inv_temp
-            report.print(f"TI round {i+1}/{len(temp_schedule)} with β = {INV_TEMP}")
+            logger.info(f"TI round {i+1}/{len(temp_schedule)} with β = {INV_TEMP}")
 
             # set up backend
             hdf5_backend = emcee.backends.HDFBackend(args.output, name=f"ti/{i+1:0>2d}")
@@ -468,17 +484,16 @@ def main(args: argparse.Namespace):
         # because that is what other scripts expect to see, e.g. for plotting risks
         h5_file = h5py.File(args.output, "r+")
         h5_file.copy(f"ti/{len(temp_schedule):0>2d}", h5_file, name="mcmc")
-        report.success("Finished thermodynamic integration.")
+        logger.info("Finished thermodynamic integration.")
 
     else:
-        with report.status("Prepare sampling params & backend..."):
-            # make sure path to output file exists
-            args.output.parent.mkdir(parents=True, exist_ok=True)
+        # make sure path to output file exists
+        args.output.parent.mkdir(parents=True, exist_ok=True)
 
-            # prepare backend
-            hdf5_backend = emcee.backends.HDFBackend(args.output, name="mcmc")
+        # prepare backend
+        hdf5_backend = emcee.backends.HDFBackend(args.output, name="mcmc")
 
-            report.success(f"Prepared sampling params & backend at {args.output}")
+        logger.info(f"Prepared sampling params & backend at {args.output}")
 
         burnin_info = run_mcmc_with_burnin(
             nwalkers, ndim, log_prob_fn,
@@ -496,19 +511,16 @@ def main(args: argparse.Namespace):
             "accept_rates": burnin_info["accept_rates"]
         }
 
-    with report.status("Store plots about burnin phases..."):
-        args.plots.mkdir(parents=True, exist_ok=True)
+    args.plots.mkdir(parents=True, exist_ok=True)
 
-        for name, y_axis in plots.items():
-            tmp_df = pd.DataFrame(
-                np.array([x_axis, y_axis]).T,
-                columns=["x", name],
-            )
-            tmp_df.to_csv(args.plots/(name + ".csv"), index=False)
-
-        report.success(
-            f"Stored {len(plots)} plots about burnin phases at {args.plots}"
+    for name, y_axis in plots.items():
+        tmp_df = pd.DataFrame(
+            np.array([x_axis, y_axis]).T,
+            columns=["x", name],
         )
+        tmp_df.to_csv(args.plots/(name + ".csv"), index=False)
+
+    logger.info(f"Stored {len(plots)} plots about burnin phases at {args.plots}")
 
 
 if __name__ == "__main__":
