@@ -1,14 +1,18 @@
 """
 Generate synthetic patient data for testing and validation purposes.
 """
+# pylint: disable=logging-fstring-interpolation
 import argparse
+import logging
 from pathlib import Path
 
 import emcee
 import numpy as np
 
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.utils import create_model_from_config, load_yaml_params, report
+from lyscripts.utils import create_model_from_config, load_yaml_params
+
+logger = logging.getLogger(__name__)
 
 
 def _add_parser(
@@ -94,56 +98,57 @@ def main(args: argparse.Namespace):
                             (default: ./models/samples.hdf5)
     ```
     """
-    params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
+    params = load_yaml_params(args.params, logger=logger)
+    model = create_model_from_config(params, logger=logger)
     ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
 
     if args.set_theta is not None:
-        with report.status("Assign given parameters to model..."):
-            if len(args.set_theta) != ndim:
-                raise ValueError(
-                    f"Model takes {ndim} parameters, but{len(args.set_theta)} were provided"
-                )
-            theta = np.array(args.set_theta)
-            model.check_and_assign(theta)
-            report.print(theta)
-            report.success("Assigned given parameters to model")
+        if len(args.set_theta) != ndim:
+            raise ValueError(
+                f"Model takes {ndim} parameters, but{len(args.set_theta)} were provided"
+            )
+        theta = np.array(args.set_theta)
+        model.check_and_assign(theta)
+        logger.debug(theta)
+        logger.info("Assigned given parameters to model")
+
     else:
-        with report.status(f"Load samples and choose their {args.load_theta} value..."):
-            backend = emcee.backends.HDFBackend(
-                args.samples,
-                read_only=True,
-                name="mcmc"
-            )
-            chain = backend.get_chain(flat=True)
-            log_probs = backend.get_blobs(flat=True)
-
-            if args.load_theta == "mean":
-                theta = np.mean(chain, axis=0)
-            elif args.load_theta == "max_llh":
-                max_llh_idx = np.argmax(log_probs)
-                theta = chain[max_llh_idx]
-            else:
-                raise ValueError("Only 'mean' and 'max_llh' are supported")
-
-            model.check_and_assign(theta)
-            report.print(theta)
-            report.success(f"Loaded samples and assigned their {args.load_theta} value")
-
-    with report.status(f"Generate synthetic data of {args.num} patients..."):
-        synthetic_data = model.generate_dataset(
-            num_patients=args.num,
-            stage_dist=params["synthetic"]["t_stages_dist"],
-            ext_prob=params["synthetic"]["midline_ext_prob"],
+        backend = emcee.backends.HDFBackend(
+            args.samples,
+            read_only=True,
+            name="mcmc"
         )
-        if len(synthetic_data) != args.num:
-            raise RuntimeError(
-                f"Length of generated data ({len(synthetic_data)}) does not match "
-                f"target length ({args.num})"
-            )
-        report.success(f"Created synthetic data of {args.num} patients.")
+        chain = backend.get_chain(flat=True)
+        log_probs = backend.get_blobs(flat=True)
 
-    save_table_to_csv(args.output, synthetic_data)
+        if args.load_theta == "mean":
+            theta = np.mean(chain, axis=0)
+        elif args.load_theta == "max_llh":
+            max_llh_idx = np.argmax(log_probs)
+            theta = chain[max_llh_idx]
+        else:
+            raise ValueError("Only 'mean' and 'max_llh' are supported")
+
+        model.check_and_assign(theta)
+        logger.debug(theta)
+        logger.info(f"Loaded samples and assigned their {args.load_theta} value")
+
+    model.modalities = params["synthetic"]["modalities"]
+    logger.debug(f"Assigned modalities for synthetic data: {model.modalities}")
+
+    synthetic_data = model.generate_dataset(
+        num_patients=args.num,
+        stage_dist=params["synthetic"]["t_stages_dist"],
+        ext_prob=params["synthetic"]["midline_ext_prob"],
+    )
+    if len(synthetic_data) != args.num:
+        logger.error(
+            f"Length of generated data ({len(synthetic_data)}) does not match "
+            f"target length ({args.num})"
+        )
+    logger.info(f"Created synthetic data of {args.num} patients.")
+
+    save_table_to_csv(args.output, synthetic_data, logger=logger)
 
 
 if __name__ == "__main__":
