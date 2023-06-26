@@ -23,16 +23,8 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 # nopycln: file
 
 
-logging.basicConfig(
-    format="%(message)s",
-    handlers=[RichHandler(
-        console=report,
-        show_time=False,
-        markup=True,
-    )]
-)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.addHandler(logging.NullHandler())
 
 
 class RichDefaultHelpFormatter(
@@ -101,8 +93,8 @@ def main():
         help="Display the version of lyscripts"
     )
     parser.add_argument(
-        "--debug", action="store_true",
-        help="Set the log level to debug"
+        "--log-level", default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     )
 
     subparsers = parser.add_subparsers()
@@ -119,8 +111,13 @@ def main():
 
     args = parser.parse_args()
 
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
-        logger.debug("Debug mode activated")
+    handler = RichHandler(
+        console=report,
+        show_time=False,
+        markup=True,
+    )
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(args.log_level)
 
     args.run_main(args)
