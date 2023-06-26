@@ -10,7 +10,7 @@
 - add log-level to `log_state` decorator
 
 ### Other
-- all commands now use the logging library for status updates/ouputs
+- all commands now use the logging library for status updates/ouputs. This fixes [#2].
 
 
 <a name="0.6.9"></a>
@@ -301,6 +301,7 @@ returns `None` instead. Fixes [#11]
 [0.5.4]: https://github.com/rmnldwg/lyscripts/compare/0.5.3...0.5.4
 [0.5.3]: https://github.com/rmnldwg/lyscripts/compare/0.5.2...0.5.3
 
+[#2]: https://github.com/rmnldwg/lyscripts/issues/2
 [#5]: https://github.com/rmnldwg/lyscripts/issues/5
 [#8]: https://github.com/rmnldwg/lyscripts/issues/8
 [#11]: https://github.com/rmnldwg/lyscripts/issues/11
