@@ -141,7 +141,10 @@ def infer_superlvl_from_sublvls(
                 # sometimes, the sublevels both report `False` (healthy) but the
                 # superlevel is involved. In this case, we want to keep the superlevel
                 # as involved.
-                is_superlvl_involved = table[mod,side,lnl] == True
+                if lnl in table[mod,side]:
+                    is_superlvl_involved = table[mod,side,lnl] == True
+                else:
+                    is_superlvl_involved = False
 
                 has_sublvl_involved = np.any(sublvl_values==True , axis=1)
                 all_sublvls_healthy = np.all(sublvl_values==False, axis=1)
