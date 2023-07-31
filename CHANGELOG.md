@@ -1,3 +1,10 @@
+<a name="0.7.2"></a>
+## [0.7.2] - 2023-07-31
+
+### Bug Fixes
+- **enhance:** fix bug introduced in [0.7.1]
+
+
 <a name="0.7.1"></a>
 ## [0.7.1] - 2023-07-31
 
@@ -289,7 +296,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.7.2...HEAD
+[0.7.2]: https://github.com/rmnldwg/lyscripts/compare/0.7.1...0.7.2
 [0.7.1]: https://github.com/rmnldwg/lyscripts/compare/0.7.0...0.7.1
 [0.7.0]: https://github.com/rmnldwg/lyscripts/compare/0.6.9...0.7.0
 [0.6.9]: https://github.com/rmnldwg/lyscripts/compare/0.6.8...0.6.9
