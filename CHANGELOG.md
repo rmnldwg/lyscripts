@@ -1,3 +1,13 @@
+<a name="0.7.1"></a>
+## [0.7.1] - 2023-07-31
+
+### Bug Fixes
+- **enhance:** negative sublevels don't overwrite superlevels anymore. Fixes [#44].
+
+### Maintenance
+- bump pre-commit hooks
+
+
 <a name="0.7.0"></a>
 ## [0.7.0] - 2023-06-26
 
@@ -280,6 +290,7 @@ returns `None` instead. Fixes [#11]
 ## [0.5.3] - 2022-08-22
 
 [Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.7.0...HEAD
+[0.7.1]: https://github.com/rmnldwg/lyscripts/compare/0.7.0...0.7.1
 [0.7.0]: https://github.com/rmnldwg/lyscripts/compare/0.6.9...0.7.0
 [0.6.9]: https://github.com/rmnldwg/lyscripts/compare/0.6.8...0.6.9
 [0.6.8]: https://github.com/rmnldwg/lyscripts/compare/0.6.7...0.6.8
@@ -317,6 +328,7 @@ returns `None` instead. Fixes [#11]
 [#31]: https://github.com/rmnldwg/lyscripts/issues/31
 [#33]: https://github.com/rmnldwg/lyscripts/issues/33
 [#41]: https://github.com/rmnldwg/lyscripts/issues/41
+[#44]: https://github.com/rmnldwg/lyscripts/issues/44
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich`]: https://rich.readthedocs.io/en/latest/
