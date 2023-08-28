@@ -106,14 +106,14 @@ def main(args: argparse.Namespace):
         contents.append(Histogram.from_hdf5(
             filename=args.input,
             dataname=name,
-            kwargs={"color": color},
+            color=color,
         ))
         logger.info(f"Added histogram {name} to figure")
         try:
             contents.append(Posterior.from_hdf5(
                 filename=args.input,
                 dataname=name,
-                kwargs={"color": color},
+                color=color,
             ))
         except KeyError:
             logger.warning(f"No observation data available for dataset {name}")
@@ -130,7 +130,7 @@ def main(args: argparse.Namespace):
     ax.legend()
     logger.info("Drawn figure")
 
-    save_figure(fig, args.output, formats=["png", "svg"], logger=logger)
+    save_figure(args.output, fig, formats=["png", "svg"], logger=logger)
 
 
 if __name__ == "__main__":
