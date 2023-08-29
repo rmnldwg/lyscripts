@@ -22,7 +22,6 @@ import emcee
 import h5py
 import numpy as np
 import pandas as pd
-from numpy.random import MT19937, RandomState, SeedSequence
 
 from lyscripts.utils import (
     CustomProgress,
@@ -120,19 +119,9 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         log_prob_fn,
         pool=None,
         backend=None,
-        random_state=None,
     ):
         """Initialize sampler with sane defaults."""
         moves = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
-
-        if random_state is not None:
-            self.random_state = random_state.get_state()
-            try:
-                logger.debug(f"Using random state {self.random_state}")
-            except AttributeError as attr_err:
-                logger.warning("Could not get random state", exc_info=attr_err)
-
-
         super().__init__(nwalkers, ndim, log_prob_fn, pool, moves, backend=backend)
 
 
@@ -268,7 +257,6 @@ def run_mcmc_with_burnin(
     thin_by: int = 1,
     npools: Optional[int] = None,
     verbose: bool = True,
-    seed: int = 42,
 ) -> Dict[str, Any]:
     """
     Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
@@ -286,9 +274,6 @@ def run_mcmc_with_burnin(
     Only every `thin_by` step will be made persistent.
 
     If `verbose` is set to `True`, the progress will be displayed.
-
-    The `seed` value is supposed to make the sampling procedure reproducible, but it
-    does not seem to work here.
 
     Returns a dictionary with some information about the burnin phase.
     """
@@ -313,11 +298,9 @@ def run_mcmc_with_burnin(
         else:
             burnin_backend = emcee.backends.Backend()
 
-        random_state = RandomState(MT19937(SeedSequence(seed)))  # does not work...
         burnin_sampler = ConvenienceSampler(
             nwalkers, ndim, log_prob_fn,
             pool=pool, backend=burnin_backend,
-            random_state=random_state,
         )
 
         if burnin is None:
@@ -332,12 +315,9 @@ def run_mcmc_with_burnin(
                 progress_desc=f"Burn-in ({created_pool._processes} cores)" if verbose else None,
             )
 
-        # persistent sampling phase
-        random_state = RandomState(MT19937(SeedSequence(seed)))  # does not work...
         sampler = ConvenienceSampler(
             nwalkers, ndim, log_prob_fn,
             pool=pool, backend=persistent_backend,
-            random_state=random_state,
         )
         sampler.run_sampling(
             min_steps=nsteps,
@@ -361,7 +341,7 @@ def log_prob_fn(theta: np.array) -> float:
     return INV_TEMP * llh, llh
 
 
-def main(args: argparse.Namespace):
+def main(args: argparse.Namespace) -> None:
     """
     First, this program reads in the parameter YAML file and the CSV training data.
     After that, it parses the loaded configuration and creates an instance of the model
@@ -442,6 +422,9 @@ def main(args: argparse.Namespace):
         f"{len(inference_data)} patients"
     )
 
+    # Not sure this is working. emcee sadly does not support numpy's new
+    # random number generator yet.
+    np.random.seed(args.seed)
     if args.ti:
         global INV_TEMP
 
@@ -475,7 +458,6 @@ def main(args: argparse.Namespace):
                 thin_by=thin_by,
                 verbose=True,
                 npools=args.pools,
-                seed=args.seed,
             )
             plots["acor_times"].append(burnin_info["acor_times"][-1])
             plots["accept_rates"].append(burnin_info["accept_rates"][-1])
@@ -503,7 +485,6 @@ def main(args: argparse.Namespace):
             thin_by=thin_by,
             verbose=True,
             npools=args.pools,
-            seed=args.seed,
         )
         x_axis = np.array(burnin_info["iterations"])
         plots = {
@@ -521,6 +502,7 @@ def main(args: argparse.Namespace):
         tmp_df.to_csv(args.plots/(name + ".csv"), index=False)
 
     logger.info(f"Stored {len(plots)} plots about burnin phases at {args.plots}")
+    return None
 
 
 if __name__ == "__main__":
