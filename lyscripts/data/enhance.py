@@ -345,15 +345,15 @@ def main(args: argparse.Namespace):
         selection=args.modalities,
     )
 
-    available_mod_keys = set(
+    available_mod_keys = sorted(set(
         input_table.columns.get_level_values(0)
     ).intersection(
         modalities.keys()
-    )
+    ))
     available_mods = {key: modalities[key] for key in available_mod_keys}
-    lnl_union = set().union(
+    lnl_union = sorted(set().union(
         *[input_table[mod,"ipsi"].columns for mod in available_mod_keys]
-    )
+    ))
     consensus = pd.DataFrame(
         index=input_table.index,
         columns=pd.MultiIndex.from_product(
@@ -381,11 +381,11 @@ def main(args: argparse.Namespace):
         table_with_consensus = input_table.join(consensus)
 
 
-    data_modalities = set(
+    data_modalities = sorted(set(
         table_with_consensus.columns.get_level_values(0)
     ).intersection(
         [*modalities.keys(), *args.consensus]
-    )
+    ))
     consensus_and_fixed_sublvlvs = infer_superlvl_from_sublvls(
         table_with_consensus,
         data_modalities,
