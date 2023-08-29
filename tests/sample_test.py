@@ -52,11 +52,6 @@ def stored_hdf5_backend() -> HDFBackend:
     return HDFBackend("./tests/test_backend.hdf5", read_only=True)
 
 
-def log_prob_fn(theta: np.ndarray, model: LymphModel) -> float:
-    """The log-probability function to sample from."""
-    return model.likelihood(given_params=theta)
-
-
 def test_sampling(
     model: LymphModel,
     data: pd.DataFrame,
@@ -69,14 +64,18 @@ def test_sampling(
     ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
     nwalker = ndim * params["sampling"]["walkers_per_dim"]
 
+    def log_prob_fn(theta: np.ndarray) -> float:
+        """The log-probability function to sample from."""
+        return model.likelihood(given_params=theta)
+
+    np.random.seed(128)
     info = run_mcmc_with_burnin(
         nwalker, ndim, log_prob_fn,
         persistent_backend=backend,
         nsteps=params["sampling"]["nsteps"],
-        burnin=0,
+        burnin=params["sampling"]["burnin"],
         keep_burnin=False,
-        npools=None,
-        seed=128,
+        npools=0,
     )
 
     actual_chain = backend.get_chain(flat=True)

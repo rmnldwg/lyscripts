@@ -57,13 +57,13 @@ inference_modalities:
 ########################################################################################
 # This defines the sampler settings and the thermodynamic integration path
 sampling:
-  walkers_per_dim: 20           # num of parallel walkers per parameter space dimension
-  burnin: 1000                  # burn-in steps to discard
-  nsteps: 100                   # do this many serious steps per sampling round
-  thin_by: 10                   # draw this many samples for one step in `nsteps`
+  walkers_per_dim: 5            # num of parallel walkers per parameter space dimension
+  burnin: 10                    # burn-in steps to discard
+  nsteps: 10                    # do this many serious steps per sampling round
+  thin_by: 1                    # draw this many samples for one step in `nsteps`
   # only used when sampling until convergence
   kwargs:
-    max_steps: 20000
-    check_interval: 100
+    max_steps: 10
+    check_interval: 20
     trust_threshold: 30.0
     rel_acor_threshold: 0.075
