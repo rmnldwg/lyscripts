@@ -1,3 +1,18 @@
+<a name="0.7.3"></a>
+## [0.7.3] - 2023-08-29
+
+### Bug Fixes
+- **data:** `enhance` command is now deterministic, fixes [#40]
+- **plot:** correct color keyword arguments & swap arguments in `save_figure` function, fixes [#45]
+- **sample:** use global numpy random state, fixes [#31]
+
+### Maintenance
+- fix upper version bound of lymph-model package
+
+### Testing
+- **sample:** add test for determinism of sampling, related to [#31]
+
+
 <a name="0.7.2"></a>
 ## [0.7.2] - 2023-07-31
 
@@ -296,7 +311,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.7.2...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.7.3...HEAD
+[0.7.3]: https://github.com/rmnldwg/lyscripts/compare/0.7.2...0.7.3
 [0.7.2]: https://github.com/rmnldwg/lyscripts/compare/0.7.1...0.7.2
 [0.7.1]: https://github.com/rmnldwg/lyscripts/compare/0.7.0...0.7.1
 [0.7.0]: https://github.com/rmnldwg/lyscripts/compare/0.6.9...0.7.0
@@ -335,8 +351,10 @@ returns `None` instead. Fixes [#11]
 [#30]: https://github.com/rmnldwg/lyscripts/issues/30
 [#31]: https://github.com/rmnldwg/lyscripts/issues/31
 [#33]: https://github.com/rmnldwg/lyscripts/issues/33
+[#40]: https://github.com/rmnldwg/lyscripts/issues/40
 [#41]: https://github.com/rmnldwg/lyscripts/issues/41
 [#44]: https://github.com/rmnldwg/lyscripts/issues/44
+[#45]: https://github.com/rmnldwg/lyscripts/issues/45
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich`]: https://rich.readthedocs.io/en/latest/

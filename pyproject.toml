@@ -32,7 +32,7 @@ dependencies = [
     "rich",
     "rich-argparse",
     "pyyaml",
-    "lymph-model",
+    "lymph-model < 1",
 ]
 dynamic = ["version"]
 
