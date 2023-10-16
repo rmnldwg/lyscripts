@@ -12,7 +12,6 @@ from typing import Tuple
 
 import emcee
 import h5py
-import lymph
 import numpy as np
 import pandas as pd
 from scipy.integrate import trapezoid
@@ -192,9 +191,8 @@ def main(args: argparse.Namespace):
     params = load_yaml_params(args.params, logger=logger)
     model = create_model_from_config(params, logger=logger)
     ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
-    is_uni = isinstance(model, lymph.Unilateral)
 
-    data = load_data_for_model(args.data, header_rows=[0,1] if is_uni else [0,1,2])
+    data = load_data_for_model(args.data, header_rows=[0,1,2])
     h5_file = h5py.File(args.model, mode="r")
 
     # if TI has been performed, compute the accuracy for every step
