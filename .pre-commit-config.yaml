@@ -15,6 +15,11 @@ repos:
   - id: isort
     files: "\\.(py)$"
     args: [--settings-path=pyproject.toml]
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.15.0
+  hooks:
+  - id: pyupgrade
+    args: [--py310-plus]
 - repo: https://github.com/compilerla/conventional-pre-commit
   rev: v2.0.0
   hooks:

@@ -2,13 +2,12 @@
 Functions and methods that are shared by the prediction submodules in
 `lyscripts.predict`.
 """
-from typing import Dict, List, Optional
 
 
 def complete_pattern(
-    pattern: Optional[Dict[str, Dict[str, bool]]],
-    lnls: List[str],
-) -> Dict[str, Dict[str, bool]]:
+    pattern: dict[str, dict[str, bool]] | None,
+    lnls: list[str],
+) -> dict[str, dict[str, bool]]:
     """
     Make sure the provided involvement `pattern` is correct. For each side of the neck,
     and for each of the `lnls` this should in the end contain `True`, `False` or `None`.
@@ -37,7 +36,7 @@ def complete_pattern(
     return pattern
 
 
-def reduce_pattern(pattern: Dict[str, Dict[str, bool]]) -> Dict[str, Dict[str, bool]]:
+def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, bool]]:
     """
     Reduce a `pattern` by removing all entries that are `None`. This way, it should
     be completely recoverable by the `complete_pattern` function but be shorter to

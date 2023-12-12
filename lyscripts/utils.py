@@ -6,8 +6,9 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
+from typing import Any, BinaryIO, TextIO
 
 import h5py
 import lymph
@@ -38,6 +39,9 @@ except ImportError:
     def get_script_run_ctx() -> bool:
         """A mock for the `get_script_run_ctx` function of `streamlit`."""
         return None
+
+
+LymphModel = lymph.models.Unilateral | lymph.models.Bilateral # | lymph.MidlineBilateral
 
 
 class LyScriptsWarning(Warning):
@@ -155,7 +159,7 @@ class CustomProgress(Progress):
         super().__init__(*columns, **kwargs)
 
 
-def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):
+def binom_pmf(k: list[int] | np.ndarray, n: int, p: float):
     """Binomial PMF"""
     if p > 1. or p < 0.:
         raise ValueError("Binomial prob must be btw. 0 and 1")
@@ -173,11 +177,7 @@ def parametric_binom_pmf(n: int) -> Callable:
 
 
 def graph_from_config(graph_params: dict):
-    """
-    Build the graph for the `lymph` model from the graph in the params file. I cannot
-    simply write the graph in the params file as I like because YAML does not support
-    tuples as keys in a dictionary.
-    """
+    """Build graph dictionary for the `lymph` models from the YAML params."""
     lymph_graph = {}
 
     if not "tumor" in graph_params and "lnl" in graph_params:
@@ -191,8 +191,8 @@ def graph_from_config(graph_params: dict):
 
 
 def add_tstage_marg(
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
-    t_stages: List[str],
+    model: LymphModel,
+    t_stages: list[str],
     first_binom_prob: float,
     max_t: int,
 ):
@@ -209,10 +209,10 @@ def add_tstage_marg(
 
 
 def model_from_config(
-    graph_params: Dict[str, Any],
-    model_params: Dict[str, Any],
-    modalities_params: Optional[Dict[str, Any]] = None,
-) -> Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]:
+    graph_params: dict[str, Any],
+    model_params: dict[str, Any],
+    modalities_params: dict[str, Any] | None = None,
+) -> LymphModel:
     """Create a model instance as defined by some YAML params."""
     graph = graph_from_config(graph_params)
 
@@ -232,11 +232,8 @@ def model_from_config(
     return model
 
 
-LymphModel = Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]
-
-
 @log_state(success_msg="Model created from YAML config")
-def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
+def create_model_from_config(params: dict[str, Any]) -> LymphModel:
     """Create a model instance as defined by some YAML params."""
     if "graph" in params:
         graph = graph_from_config(params["graph"])
@@ -265,20 +262,20 @@ def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
     return model
 
 
-def get_lnls(model: LymphModel) -> List[str]:
+def get_lnls(model: LymphModel) -> list[str]:
     """Extract the list of LNLs from a model instance. E.g.:
     >>> graph = {
     ...     ("tumor", "T"): ["II", "III"],
     ...     ("lnl", "II"): ["III"],
     ...     ("lnl", "III"): [],
     ... }
-    >>> model = lymph.Unilateral(graph)
+    >>> model = lymph.models.Unilateral(graph)
     >>> get_lnls(model)
     ['II', 'III']
     """
-    if isinstance(model, lymph.Unilateral):
+    if isinstance(model, lymph.models.Unilateral):
         return [lnl.name for lnl in model.lnls]
-    if isinstance(model, lymph.Bilateral):
+    if isinstance(model, lymph.models.Bilateral):
         return [lnl.name for lnl in model.ipsi.lnls]
     if isinstance(model, lymph.MidlineBilateral):
         return [lnl.name for lnl in model.ext.ipsi.lnls]
@@ -333,7 +330,7 @@ def delete_private_keys(nested: dict) -> dict:
 def flatten(
     nested: dict,
     prev_key: tuple = (),
-    max_depth: Optional[int] = None,
+    max_depth: int | None = None,
 ) -> dict:
     """
     Flatten a `nested` dictionary by creating key tuples for each value at `max_depth`.
@@ -387,9 +384,9 @@ def unflatten(flat: dict) -> dict:
 
 
 def get_modalities_subset(
-    defined_modalities: Dict[str, List[float]],
-    selection: List[str],
-) -> Dict[str, List[float]]:
+    defined_modalities: dict[str, list[float]],
+    selection: list[str],
+) -> dict[str, list[float]]:
     """
     Of the `defined_modalities` return only those mentioned in the `selection`.
 
@@ -411,7 +408,7 @@ def get_modalities_subset(
 @provide_file(is_binary=False)
 def load_data_for_model(
     file: TextIO,
-    header_rows: List[int],
+    header_rows: list[int],
 ) -> pd.DataFrame:
     """
     Load patient data from a CSV file stored at `file` and consider the row

@@ -7,7 +7,7 @@ import argparse
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -61,7 +61,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 def lyprox_to_lymph(
     data: pd.DataFrame,
     class_name: str = "Unilateral",
-    convert_t_stage: Optional[Dict[int, Any]] = None
+    convert_t_stage: dict[int, Any] | None = None
 ) -> pd.DataFrame:
     """
     Convert [LyProX](https://lyprox.org) `data` into `pd.DataFrame` that the

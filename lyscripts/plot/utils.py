@@ -4,7 +4,7 @@ Utility functions for the plotting commands.
 from dataclasses import dataclass, field
 from itertools import cycle
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import h5py
 import matplotlib.pyplot as plt
@@ -59,7 +59,7 @@ def _ceil_to_step(value: float, step: float) -> float:
     return _floor_to_step(value, step) + step
 
 
-def _clean_and_check(filename: Union[str, Path]) -> Path:
+def _clean_and_check(filename: str | Path) -> Path:
     """
     Check if file with `filename` exists. If not, raise error, otherwise return
     cleaned `PosixPath`.
@@ -77,7 +77,7 @@ class Histogram:
     """Class containing data for plotting a histogram."""
     values: np.ndarray
     scale: float = field(default=100.)
-    kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    kwargs: dict[str, Any] = field(default_factory=lambda: {})
 
     def __post_init__(self) -> None:
         self.values = self.scale * self.values
@@ -106,7 +106,7 @@ class Posterior:
     num_success: int
     num_total: int
     scale: float = field(default=100.)
-    kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    kwargs: dict[str, Any] = field(default_factory=lambda: {})
 
     @classmethod
     def from_hdf5(cls, filename, dataname, scale: float = 100., **kwargs) -> None:
@@ -199,9 +199,9 @@ def get_label(attrs) -> str:
 
 
 def get_xlims(
-    contents: List[Union[Histogram, Posterior]],
-    percent_lims: Tuple[float] = (10., 10.),
-) -> Tuple[float]:
+    contents: list[Histogram | Posterior],
+    percent_lims: tuple[float] = (10., 10.),
+) -> tuple[float]:
     """
     Compute the `xlims` of a plot containing histograms and probability density
     functions by considering their smallest and largest percentiles.
@@ -219,11 +219,11 @@ def get_xlims(
 
 def draw(
     axes: MPLAxes,
-    contents: List[Union[Histogram, Posterior]],
-    percent_lims: Tuple[float] = (10., 10.),
-    xlims: Optional[Tuple[float]] = None,
-    hist_kwargs: Optional[Dict[str, Any]] = None,
-    plot_kwargs: Optional[Dict[str, Any]] = None,
+    contents: list[Histogram | Posterior],
+    percent_lims: tuple[float] = (10., 10.),
+    xlims: tuple[float] | None = None,
+    hist_kwargs: dict[str, Any] | None = None,
+    plot_kwargs: dict[str, Any] | None = None,
 ) -> MPLAxes:
     """
     Draw histograms and Beta posterior from `contents` into `axes`.
@@ -280,7 +280,7 @@ def draw(
 
 @log_state(success_msg="Loaded MPL stylesheet")
 @check_input_file_exists
-def use_mpl_stylesheet(file_path: Union[str, Path]):
+def use_mpl_stylesheet(file_path: str | Path):
     """Load a `.mplstyle` stylesheet from `file_path`."""
     plt.style.use(file_path)
 
@@ -288,9 +288,9 @@ def use_mpl_stylesheet(file_path: Union[str, Path]):
 @log_state(success_msg="Saved matplotlib figure")
 @check_output_dir_exists
 def save_figure(
-    output_path: Union[str, Path],
+    output_path: str | Path,
     figure: Figure,
-    formats: Optional[List[str]],
+    formats: list[str] | None,
 ):
     """Save a `figure` to `output_path` in every one of the provided `formats`."""
     for frmt in formats:

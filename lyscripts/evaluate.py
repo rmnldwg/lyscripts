@@ -8,7 +8,6 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Tuple
 
 import emcee
 import h5py
@@ -96,7 +95,7 @@ def compute_evidence(
     temp_schedule: np.ndarray,
     log_probs: np.ndarray,
     num: int = 1000,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Compute the evidene and its standard deviation.
 
     Given a `temp_schedule` of inverse temperatures and corresponding sets of
@@ -120,7 +119,7 @@ def compute_ti_results(
     ndim: int,
     h5_file: Path,
     model: Path,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Compute the results in case of a thermodynamic integration run."""
     temp_schedule = params["sampling"]["temp_schedule"]
     num_temps = len(temp_schedule)

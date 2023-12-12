@@ -13,7 +13,7 @@ import importlib.util
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -105,7 +105,7 @@ def clean_header(
     return table
 
 
-def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int:
+def get_instruction_depth(nested_column_map: dict[tuple, dict[str, Any]]) -> int:
     """
     Get the depth at which the column mapping instructions are nested.
 
@@ -137,7 +137,7 @@ def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int
 
 
 def generate_markdown_docs(
-    nested_column_map: Dict[Tuple, Dict[str, Any]],
+    nested_column_map: dict[tuple, dict[str, Any]],
     depth: int = 0,
     indent_len: int = 4,
 ) -> str:
@@ -181,7 +181,7 @@ def generate_markdown_docs(
 )
 def transform_to_lyprox(
     raw: pd.DataFrame,
-    column_map: Dict[Tuple, Dict[str, Any]]
+    column_map: dict[tuple, dict[str, Any]]
 ) -> pd.DataFrame:
     """
     Transform `raw` data frame into table that can be uploaded directly to [LyProX].
@@ -285,7 +285,7 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     success_msg="Excluded patients based on provided criteria",
     logger=logger,
 )
-def exclude_patients(raw: pd.DataFrame, exclude: List[Tuple[str, Any]]):
+def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
     """
     Exclude patients in the `raw` data based on a list of what to `exclude`. This
     list contains tuples `(column, check)`. The `check` function will then exclude

@@ -4,9 +4,10 @@ e.g. safely opening files or logging the state of a function call.
 """
 import functools
 import logging
+from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, TextIO, Union
+from typing import Any, BinaryIO, TextIO
 
 
 def extract_logger(*args, **kwargs) -> logging.Logger:
@@ -127,7 +128,7 @@ def provide_file(is_binary: bool) -> Callable:
     def assembled_decorator(loading_func: Callable) -> Callable:
         """Assembled decorator that provides the function with a text/binary file."""
         @wraps(loading_func)
-        def inner(file_or_path: Union[str, Path, TextIO, BinaryIO], *args, **kwargs):
+        def inner(file_or_path: str | Path | TextIO | BinaryIO, *args, **kwargs):
             """The wrapped function."""
             if isinstance(file_or_path, (str, Path)):
                 file_path = Path(file_or_path)
@@ -138,7 +139,7 @@ def provide_file(is_binary: bool) -> Callable:
                     with open(file_path, mode="rb") as bin_file:
                         return loading_func(bin_file, *args, **kwargs)
                 else:
-                    with open(file_path, mode="r", encoding="utf-8") as txt_file:
+                    with open(file_path, encoding="utf-8") as txt_file:
                         return loading_func(txt_file, *args, **kwargs)
 
             return loading_func(file_or_path, *args, **kwargs)

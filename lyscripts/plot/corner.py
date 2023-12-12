@@ -9,7 +9,6 @@ The library I use for this is built on `matplotlib` and is called
 import argparse
 import logging
 from pathlib import Path
-from typing import List, Union
 
 import corner
 import emcee
@@ -59,8 +58,8 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def get_param_labels(
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
-) -> List[str]:
+    model: lymph.models.Unilateral | lymph.models.Bilateral | lymph.MidlineBilateral,
+) -> list[str]:
     """Create labels from a `model`.
 
     An example:
@@ -69,7 +68,7 @@ def get_param_labels(
     ...     ("lnl", "II"): ["III"],
     ...     ("lnl", "III"): [],
     ... }
-    >>> model = lymph.Unilateral(graph)
+    >>> model = lymph.models.Unilateral(graph)
     >>> from lyscripts.utils import add_tstage_marg
     >>> add_tstage_marg(model, ["early", "late"], 0.3, 10)
     >>> get_param_labels(model)
@@ -80,12 +79,12 @@ def get_param_labels(
         if dist.is_updateable:
             binom_labels.append(t_stage)
 
-    if isinstance(model, lymph.Unilateral):
+    if isinstance(model, lymph.models.Unilateral):
         base_labels = [f"{e.start}->{e.end}" for e in model.base_edges]
         trans_labels = [f"{e.start}->{e.end}" for e in model.trans_edges]
         return [*base_labels, *trans_labels, *binom_labels]
 
-    if isinstance(model, lymph.Bilateral):
+    if isinstance(model, lymph.models.Bilateral):
         base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ipsi.base_edges]
         base_contra_labels = [f"c {e.start}->{e.end}" for e in model.contra.base_edges]
         trans_labels = [f"{e.start}->{e.end}" for e in model.ipsi.trans_edges]

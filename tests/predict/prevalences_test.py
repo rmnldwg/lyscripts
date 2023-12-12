@@ -21,8 +21,8 @@ def test_get_lnls():
         ("lnl", "III"): [],
     }
     lnls = graph[("tumor", "primary")]
-    uni_model = lymph.Unilateral(graph)
-    bi_model = lymph.Bilateral(graph)
+    uni_model = lymph.models.Unilateral(graph)
+    bi_model = lymph.models.Bilateral(graph)
     mid_model = lymph.MidlineBilateral(graph)
 
     uni_lnls = get_lnls(uni_model)

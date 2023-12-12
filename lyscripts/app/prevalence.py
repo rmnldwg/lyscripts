@@ -9,7 +9,7 @@ import argparse
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import lymph
 import matplotlib.pyplot as plt
@@ -82,7 +82,7 @@ def launch_streamlit(*_args, discard_args_idx: int = 3, **_kwargs):
     st_main()
 
 
-def _get_lnl_pattern_label(selected: Optional[bool] = None) -> str:
+def _get_lnl_pattern_label(selected: bool | None = None) -> str:
     """Return labels for the involvement options of an LNL."""
     if selected is None:
         return "Unknown"
@@ -94,7 +94,7 @@ def _get_lnl_pattern_label(selected: Optional[bool] = None) -> str:
         raise ValueError("Selected option can only be `True`, `False` or `None`.")
 
 
-def _get_midline_ext_label(selected: Optional[bool] = None) -> str:
+def _get_midline_ext_label(selected: bool | None = None) -> str:
     """Return labels for the options of the midline extension."""
     if selected is None:
         return "Unknown"
@@ -118,7 +118,7 @@ def interactive_load(streamlit):
     )
     params = load_yaml_params(params_file)
     model = create_model_from_config(params)
-    is_unilateral = isinstance(model, lymph.Unilateral)
+    is_unilateral = isinstance(model, lymph.models.Unilateral)
 
     streamlit.write("---")
 
@@ -145,9 +145,9 @@ def interactive_load(streamlit):
 def interactive_pattern(
     streamlit,
     is_unilateral: bool,
-    lnls: List[str],
+    lnls: list[str],
     side: str
-) -> Dict[str, bool]:
+) -> dict[str, bool]:
     """
     Create a `streamlit` panel for all specified `lnls` in one `side` of a patient's
     neck to specify the lymphatic pattern of interest, which is then returned.
@@ -176,7 +176,7 @@ def interactive_additional_params(
     model: LymphModel,
     data: pd.DataFrame,
     samples: np.ndarray,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Allow the user to select T-category, midline extension and whether to invert the
     computed prevalence (meaning computing $1 - p$, when $p$ is the prevalence).
@@ -226,20 +226,20 @@ def interactive_additional_params(
     }
 
 
-def reset(session_state: Dict[str, Any]):
+def reset(session_state: dict[str, Any]):
     """Reset `streamlit` session state."""
     for key in session_state.keys():
         del session_state[key]
 
 
 def add_current_scenario(
-    session_state: Dict[str, Any],
-    pattern: Dict[str, Dict[str, bool]],
+    session_state: dict[str, Any],
+    pattern: dict[str, dict[str, bool]],
     model: LymphModel,
     samples: np.ndarray,
     data: pd.DataFrame,
-    prevs_kwargs: Optional[Dict[str, Any]] = None,
-) -> List[Union[Histogram, Posterior]]:
+    prevs_kwargs: dict[str, Any] | None = None,
+) -> list[Histogram | Posterior]:
     """
     Compute the prevalence of a `pattern` as observed in the `data` and as predicted
     by the `model` (using a set of `samples`). The results are then stored in the
@@ -293,7 +293,7 @@ def main(args: argparse.Namespace):
     container = {"ipsi": ipsi_col, "contra": contra_col}
 
     lnls = get_lnls(model)
-    is_unilateral = isinstance(model, lymph.Unilateral)
+    is_unilateral = isinstance(model, lymph.models.Unilateral)
 
     pattern = {}
     for side in ["ipsi", "contra"]:

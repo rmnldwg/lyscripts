@@ -14,9 +14,10 @@ import argparse
 import logging
 import os
 import warnings
+from collections.abc import Callable
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any
 
 import emcee
 import h5py
@@ -130,13 +131,13 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         min_steps: int = 0,
         max_steps: int = 10000,
         thin_by: int = 1,
-        initial_state: Optional[Union[emcee.State, np.ndarray]] = None,
+        initial_state: emcee.State | np.ndarray | None = None,
         check_interval: int = 100,
         trust_threshold: float = 50.,
         rel_acor_threshold: float = 0.05,
-        progress_desc: Optional[str] = None,
+        progress_desc: str | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run a round of sampling with at least `min_steps`, at most `max_steps` and
         only keep every `thin_by` step.
 
@@ -251,13 +252,13 @@ def run_mcmc_with_burnin(
     log_prob_fn: Callable,
     nsteps: int,
     persistent_backend: emcee.backends.HDFBackend,
-    sampling_kwargs: Optional[dict] = None,
-    burnin: Optional[int] = None,
+    sampling_kwargs: dict | None = None,
+    burnin: int | None = None,
     keep_burnin: bool = False,
     thin_by: int = 1,
-    npools: Optional[int] = None,
+    npools: int | None = None,
     verbose: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
     `emcee.EnsembleSampler`).

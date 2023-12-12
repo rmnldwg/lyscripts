@@ -17,7 +17,6 @@ import logging
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -93,7 +92,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 def get_sublvl_values(
     data_frame: pd.DataFrame,
     lnl: str,
-    sub_ids: List[str],
+    sub_ids: list[str],
 ):
     """
     Get the values of sublevels (e.g. 'IIa' and 'IIb') for a given LNL and a
@@ -111,9 +110,9 @@ def get_sublvl_values(
 )
 def infer_superlvl_from_sublvls(
     table: pd.DataFrame,
-    modalities: List[str],
-    lnls_with_sub: List[str],
-    sublvls: Optional[List[str]] = None,
+    modalities: list[str],
+    lnls_with_sub: list[str],
+    sublvls: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Infer the involvement state of all `lnls_with_sub`, i.e. LNLs where sub-levels were
@@ -159,8 +158,8 @@ def get_lnl_observations(
     patient: pd.Series,
     side: str,
     lnl: str,
-    modalities: List[str],
-) -> Tuple[bool]:
+    modalities: list[str],
+) -> tuple[bool]:
     """
     Collect the observations for an `lnl` from every one of the available `modalities`
     in a tuple. Do this for one `side` of the neck of a particular `patient`.
@@ -179,14 +178,14 @@ def get_lnl_observations(
 
 
 @lru_cache
-def has_all_none(obs_tuple: Tuple[np.ndarray]):
+def has_all_none(obs_tuple: tuple[np.ndarray]):
     """
     Check if all entries in the observation tuple are ``None``.
     """
     return all(obs is None for obs in obs_tuple)
 
 @lru_cache
-def or_consensus(obs_tuple: Tuple[np.ndarray]):
+def or_consensus(obs_tuple: tuple[np.ndarray]):
     """
     Compute the consensus of different diagnostic modalities by computing the
     logical OR.
@@ -197,7 +196,7 @@ def or_consensus(obs_tuple: Tuple[np.ndarray]):
     return any(obs_tuple)
 
 @lru_cache
-def and_consensus(obs_tuple: Tuple[np.ndarray]):
+def and_consensus(obs_tuple: tuple[np.ndarray]):
     """
     Compute the consensus of different diagnostic modalities by computing the
     logical AND.
@@ -211,8 +210,8 @@ def and_consensus(obs_tuple: Tuple[np.ndarray]):
 
 @lru_cache
 def maxllh_consensus(
-    obs_tuple: Tuple[np.ndarray],
-    modalities_spsn: Tuple[List[float]]
+    obs_tuple: tuple[np.ndarray],
+    modalities_spsn: tuple[list[float]]
 ):
     """
     Compute the consensus of different diagnostic modalities using their
@@ -248,8 +247,8 @@ def maxllh_consensus(
 
 @lru_cache
 def rank_consensus(
-    obs_tuple: Tuple[np.ndarray],
-    modalities_spsn: Tuple[List[float]]
+    obs_tuple: tuple[np.ndarray],
+    modalities_spsn: tuple[list[float]]
 ):
     """
     Compute the consensus of different diagnostic modalities using a ranking

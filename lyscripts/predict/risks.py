@@ -9,8 +9,8 @@ file over in the [`lynference`](https://github.com/rmnldwg/lynference) repositor
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
+from collections.abc import Generator
 from pathlib import Path
-from typing import Dict, Generator, List, Optional
 
 import h5py
 import lymph
@@ -74,13 +74,13 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 @log_state(logger=logger)
 def predicted_risk(
-    involvement: Dict[str, Dict[str, bool]],
+    involvement: dict[str, dict[str, bool]],
     model: LymphModel,
     samples: np.ndarray,
     t_stage: str,
     midline_ext: bool = False,
-    given_diagnosis: Optional[Dict[str, Dict[str, bool]]] = None,
-    given_diagnosis_spsn: Optional[List[float]] = None,
+    given_diagnosis: dict[str, dict[str, bool]] | None = None,
+    given_diagnosis_spsn: list[float] | None = None,
     invert: bool = False,
     **_kwargs,
 ) -> Generator[float, None, None]:
@@ -113,7 +113,7 @@ def predicted_risk(
     else:
         model.modalities = {"risk": [1., 1.]}
 
-    if isinstance(model, lymph.Unilateral):
+    if isinstance(model, lymph.models.Unilateral):
         given_diagnosis = {"risk": given_diagnosis["ipsi"]}
 
         for sample in samples:
@@ -125,7 +125,7 @@ def predicted_risk(
             )
             yield 1. - risk if invert else risk
 
-    elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
+    elif isinstance(model, (lymph.models.Bilateral, lymph.MidlineBilateral)):
         given_diagnosis = {"risk": given_diagnosis}
 
         for sample in samples:
