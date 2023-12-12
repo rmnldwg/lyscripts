@@ -16,9 +16,9 @@ from collections.abc import Generator
 from pathlib import Path
 
 import h5py
-import lymph
 import numpy as np
 import pandas as pd
+from lymph import models
 from rich.progress import track
 
 from lyscripts.decorators import log_state
@@ -265,7 +265,7 @@ def compute_predicted_prevalence(
     If `midline_ext` is set to `None`, the prevalence is marginalized over both cases,
     assuming the provided `midline_ext_prob`.
     """
-    if isinstance(loaded_model, lymph.MidlineBilateral):
+    if False: #isinstance(loaded_model, MidlineBilateral):
         loaded_model.check_and_assign(given_params)
         if midline_ext is None:
                 # marginalize over patients with and without midline extension
@@ -316,7 +316,7 @@ def generate_predicted_prevalences(
     else:
         model.modalities = {"prev": modality_spsn}
 
-    is_unilateral = isinstance(model, lymph.models.Unilateral)
+    is_unilateral = isinstance(model, models.Unilateral)
     patient_row = create_patient_row(
         pattern, t_stage, midline_ext, make_unilateral=is_unilateral
     )
@@ -364,7 +364,7 @@ def main(args: argparse.Namespace):
     model = create_model_from_config(params, logger=logger)
     samples = load_hdf5_samples(args.model, logger=logger)
 
-    header_rows = [0,1] if isinstance(model, lymph.models.Unilateral) else [0,1,2]
+    header_rows = [0,1] if isinstance(model, models.Unilateral) else [0,1,2]
     data = load_data_for_model(args.data, header_rows, logger=logger)
 
     args.output.parent.mkdir(exist_ok=True)

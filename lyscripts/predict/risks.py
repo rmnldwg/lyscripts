@@ -13,8 +13,8 @@ from collections.abc import Generator
 from pathlib import Path
 
 import h5py
-import lymph
 import numpy as np
+from lymph import models
 from rich.progress import track
 
 from lyscripts.decorators import log_state
@@ -88,7 +88,7 @@ def predicted_risk(
     `t_stage` using a `model` with pretrained `samples`. This probability can be
     computed for a `given_diagnosis` that was obtained using a modality with
     specificity & sensitivity provided via `given_diagnosis_spsn`. If the model is an
-    instance of `lymph.MidlineBilateral`, one can specify whether or not the primary
+    instance of `MidlineBilateral`, one can specify whether or not the primary
     tumor has a `midline_ext`.
 
     Both the `involvement` and the `given_diagnosis` should be dictionaries like this:
@@ -113,7 +113,7 @@ def predicted_risk(
     else:
         model.modalities = {"risk": [1., 1.]}
 
-    if isinstance(model, lymph.models.Unilateral):
+    if isinstance(model, models.Unilateral):
         given_diagnosis = {"risk": given_diagnosis["ipsi"]}
 
         for sample in samples:
@@ -125,7 +125,7 @@ def predicted_risk(
             )
             yield 1. - risk if invert else risk
 
-    elif isinstance(model, (lymph.models.Bilateral, lymph.MidlineBilateral)):
+    elif isinstance(model, (models.Bilateral)): #, MidlineBilateral)):
         given_diagnosis = {"risk": given_diagnosis}
 
         for sample in samples:

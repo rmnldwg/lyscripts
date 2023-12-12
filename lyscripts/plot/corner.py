@@ -12,10 +12,10 @@ from pathlib import Path
 
 import corner
 import emcee
-import lymph
+from lymph import models
 
 from lyscripts.plot.utils import save_figure
-from lyscripts.utils import load_yaml_params, model_from_config
+from lyscripts.utils import LymphModel, load_yaml_params, model_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def get_param_labels(
-    model: lymph.models.Unilateral | lymph.models.Bilateral | lymph.MidlineBilateral,
+    model: LymphModel,
 ) -> list[str]:
     """Create labels from a `model`.
 
@@ -68,7 +68,7 @@ def get_param_labels(
     ...     ("lnl", "II"): ["III"],
     ...     ("lnl", "III"): [],
     ... }
-    >>> model = lymph.models.Unilateral(graph)
+    >>> model = models.Unilateral(graph)
     >>> from lyscripts.utils import add_tstage_marg
     >>> add_tstage_marg(model, ["early", "late"], 0.3, 10)
     >>> get_param_labels(model)
@@ -79,39 +79,39 @@ def get_param_labels(
         if dist.is_updateable:
             binom_labels.append(t_stage)
 
-    if isinstance(model, lymph.models.Unilateral):
+    if isinstance(model, models.Unilateral):
         base_labels = [f"{e.start}->{e.end}" for e in model.base_edges]
         trans_labels = [f"{e.start}->{e.end}" for e in model.trans_edges]
         return [*base_labels, *trans_labels, *binom_labels]
 
-    if isinstance(model, lymph.models.Bilateral):
+    if isinstance(model, models.Bilateral):
         base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ipsi.base_edges]
         base_contra_labels = [f"c {e.start}->{e.end}" for e in model.contra.base_edges]
         trans_labels = [f"{e.start}->{e.end}" for e in model.ipsi.trans_edges]
         return [*base_ipsi_labels, *base_contra_labels, *trans_labels, *binom_labels]
 
-    if isinstance(model, lymph.MidlineBilateral):
-        base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ext.ipsi.base_edges]
-        base_contra_ext_labels = [
-            f"ce {e.start}->{e.end}" for e in model.ext.contra.base_edges
-        ]
-        base_contra_noext_labels = [
-            f"cn {e.start}->{e.end}" for e in model.noext.contra.base_edges
-        ]
-        trans_labels = [f"{e.start}->{e.end}" for e in model.ext.ipsi.trans_edges]
-        return [
-            *base_ipsi_labels,
-            *base_contra_noext_labels,
-            "mixing $\\alpha$",
-            *trans_labels,
-            *binom_labels,
-        ] if model.use_mixing else [
-            *base_ipsi_labels,
-            *base_contra_ext_labels,
-            *base_contra_noext_labels,
-            *trans_labels,
-            *binom_labels,
-        ]
+    # if isinstance(model, models.MidlineBilateral):
+    #     base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ext.ipsi.base_edges]
+    #     base_contra_ext_labels = [
+    #         f"ce {e.start}->{e.end}" for e in model.ext.contra.base_edges
+    #     ]
+    #     base_contra_noext_labels = [
+    #         f"cn {e.start}->{e.end}" for e in model.noext.contra.base_edges
+    #     ]
+    #     trans_labels = [f"{e.start}->{e.end}" for e in model.ext.ipsi.trans_edges]
+    #     return [
+    #         *base_ipsi_labels,
+    #         *base_contra_noext_labels,
+    #         "mixing $\\alpha$",
+    #         *trans_labels,
+    #         *binom_labels,
+    #     ] if model.use_mixing else [
+    #         *base_ipsi_labels,
+    #         *base_contra_ext_labels,
+    #         *base_contra_noext_labels,
+    #         *trans_labels,
+    #         *binom_labels,
+    #     ]
 
 
 def main(args: argparse.Namespace):

@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Any, BinaryIO, TextIO
 
 import h5py
-import lymph
 import numpy as np
 import pandas as pd
 import yaml
 from emcee.backends import HDFBackend
+from lymph import models
 from rich.console import Console
 from rich.progress import (
     Progress,
@@ -41,7 +41,7 @@ except ImportError:
         return None
 
 
-LymphModel = lymph.models.Unilateral | lymph.models.Bilateral # | lymph.MidlineBilateral
+LymphModel = models.Unilateral | models.Bilateral # | MidlineBilateral
 
 
 class LyScriptsWarning(Warning):
@@ -163,7 +163,7 @@ def binom_pmf(k: list[int] | np.ndarray, n: int, p: float):
     """Binomial PMF"""
     if p > 1. or p < 0.:
         raise ValueError("Binomial prob must be btw. 0 and 1")
-    q = (1. - p)
+    q = 1. - p
     binom_coeff = factorial(n) / (factorial(k) * factorial(n - k))
     return binom_coeff * p**k * q**(n - k)
 
@@ -216,7 +216,7 @@ def model_from_config(
     """Create a model instance as defined by some YAML params."""
     graph = graph_from_config(graph_params)
 
-    model_cls = getattr(lymph, model_params["class"])
+    model_cls = getattr(models, model_params["class"])
     model = model_cls(graph, **model_params["kwargs"])
 
     if modalities_params is not None:
@@ -241,7 +241,7 @@ def create_model_from_config(params: dict[str, Any]) -> LymphModel:
         raise LyScriptsWarning("No graph definition found in YAML file", level="error")
 
     if "model" in params:
-        model_cls = getattr(lymph, params["model"]["class"])
+        model_cls = getattr(models, params["model"]["class"])
         model = model_cls(graph, **params["model"]["kwargs"])
 
         add_tstage_marg(
@@ -273,12 +273,12 @@ def get_lnls(model: LymphModel) -> list[str]:
     >>> get_lnls(model)
     ['II', 'III']
     """
-    if isinstance(model, lymph.models.Unilateral):
+    if isinstance(model, models.Unilateral):
         return [lnl.name for lnl in model.lnls]
-    if isinstance(model, lymph.models.Bilateral):
+    if isinstance(model, models.Bilateral):
         return [lnl.name for lnl in model.ipsi.lnls]
-    if isinstance(model, lymph.MidlineBilateral):
-        return [lnl.name for lnl in model.ext.ipsi.lnls]
+    # if isinstance(model, MidlineBilateral):
+    #     return [lnl.name for lnl in model.ext.ipsi.lnls]
 
     raise TypeError(f"Model cannot be of type {type(model)}")
 

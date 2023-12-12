@@ -11,11 +11,11 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-import lymph
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
+from lymph import models
 
 from lyscripts.plot.utils import COLOR_CYCLE, Histogram, Posterior, draw
 from lyscripts.predict.prevalences import (
@@ -118,7 +118,7 @@ def interactive_load(streamlit):
     )
     params = load_yaml_params(params_file)
     model = create_model_from_config(params)
-    is_unilateral = isinstance(model, lymph.models.Unilateral)
+    is_unilateral = isinstance(model, models.Unilateral)
 
     streamlit.write("---")
 
@@ -293,7 +293,7 @@ def main(args: argparse.Namespace):
     container = {"ipsi": ipsi_col, "contra": contra_col}
 
     lnls = get_lnls(model)
-    is_unilateral = isinstance(model, lymph.models.Unilateral)
+    is_unilateral = isinstance(model, models.Unilateral)
 
     pattern = {}
     for side in ["ipsi", "contra"]:
