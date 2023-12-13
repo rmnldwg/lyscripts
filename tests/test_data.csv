@@ -1,4 +1,5 @@
-synth_CT,synth_CT,synth_CT,info
+synth_CT,synth_CT,synth_CT,tumor
+ipsi,ipsi,ipsi,1
 a,b,c,t_stage
 False,True,True,late
 False,True,True,early

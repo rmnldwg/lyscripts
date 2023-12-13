@@ -187,11 +187,10 @@ def main(args: argparse.Namespace):
     """
     metrics = {}
 
-    params = load_yaml_params(args.params, logger=logger)
-    model = create_model_from_config(params, logger=logger)
-    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
-
-    data = load_data_for_model(args.data, header_rows=[0,1,2])
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    ndim = len(model.get_params())
+    data = load_data_for_model(args.data)
     h5_file = h5py.File(args.model, mode="r")
 
     # if TI has been performed, compute the accuracy for every step

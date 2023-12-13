@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import pytest
 from emcee.backends import Backend, HDFBackend
-from lymph import models
 
 from lyscripts.sample import run_mcmc_with_burnin
 from lyscripts.utils import (
@@ -36,8 +35,7 @@ def model(params: dict) -> LymphModel:
 @pytest.fixture
 def data(model: LymphModel) -> pd.DataFrame:
     """Get synthetically generated data from disk."""
-    header_rows = [0,1] if isinstance(model, models.Unilateral) else [0,1,2]
-    return load_data_for_model("./tests/test_data.csv", header_rows=header_rows)
+    return load_data_for_model("./tests/test_data.csv")
 
 
 @pytest.fixture
@@ -60,13 +58,13 @@ def test_sampling(
     stored_hdf5_backend: HDFBackend,
 ):
     """Test the basic sampling function."""
-    model.patient_data = data
-    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
+    model.load_patient_data(data, mapping=lambda x: x)
+    ndim = len(model.get_params())
     nwalker = ndim * params["sampling"]["walkers_per_dim"]
 
     def log_prob_fn(theta: np.ndarray) -> float:
         """The log-probability function to sample from."""
-        return model.likelihood(given_params=theta)
+        return model.likelihood(given_param_args=theta)
 
     np.random.seed(128)
     info = run_mcmc_with_burnin(

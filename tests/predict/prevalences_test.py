@@ -5,11 +5,7 @@ import pandas as pd
 import pytest
 from lymph import models
 
-from lyscripts.predict.prevalences import (
-    does_midline_ext_match,
-    get_lnls,
-    get_match_idx,
-)
+from lyscripts.predict.prevalences import does_midline_ext_match, get_match_idx
 
 
 def test_get_lnls():
@@ -25,8 +21,8 @@ def test_get_lnls():
     bi_model = models.Bilateral(graph)
     # mid_model = models.MidlineBilateral(graph)
 
-    uni_lnls = get_lnls(uni_model)
-    bi_lnls = get_lnls(bi_model)
+    uni_lnls = list(uni_model.graph.lnls.keys())
+    bi_lnls = list(bi_model.ipsi.graph.lnls.keys())
     # mid_lnls = get_lnls(mid_model)
 
     assert uni_lnls == lnls, "Did not extract LNLs correctly from unilateral model"

@@ -6,6 +6,7 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, BinaryIO, TextIO
@@ -168,12 +169,9 @@ def binom_pmf(k: list[int] | np.ndarray, n: int, p: float):
     return binom_coeff * p**k * q**(n - k)
 
 
-def parametric_binom_pmf(n: int) -> Callable:
+def parametric_binom_pmf(support: np.ndarray, p: float = 0.5) -> Callable:
     """Return a parametric binomial PMF"""
-    def inner(t, p):
-        """Parametric binomial PMF"""
-        return binom_pmf(t, n, p)
-    return inner
+    return binom_pmf(k=support, n=support[-1], p=p)
 
 
 def graph_from_config(graph_params: dict):
@@ -205,7 +203,7 @@ def add_tstage_marg(
                 p=first_binom_prob
             )
         else:
-            model.diag_time_dists[stage] = parametric_binom_pmf(n=max_t)
+            model.diag_time_dists[stage] = parametric_binom_pmf
 
 
 def model_from_config(
@@ -242,6 +240,16 @@ def create_model_from_config(params: dict[str, Any]) -> LymphModel:
 
     if "model" in params:
         model_cls = getattr(models, params["model"]["class"])
+        if not "is_symmetric" in params["model"]["kwargs"]:
+            warnings.warn(
+                "The keywords `base_symmetric`, `trans_symmetric`, and `use_mixing` "
+                "have been deprecated. Please use `is_symmetric` instead.",
+                DeprecationWarning,
+            )
+            params["model"]["kwargs"]["is_symmetric"] = {
+                "tumor_spread": params["model"]["kwargs"].pop("base_symmetric", False),
+                "lnl_spread": params["model"]["kwargs"].pop("trans_symmetric", True),
+            }
         model = model_cls(graph, **params["model"]["kwargs"])
 
         add_tstage_marg(

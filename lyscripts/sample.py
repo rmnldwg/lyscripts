@@ -397,7 +397,7 @@ def main(args: argparse.Namespace) -> None:
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
-    params = load_yaml_params(args.params, logger=logger)
+    params = load_yaml_params(args.params)
 
     inference_data = pd.read_csv(args.input, header=[0,1,2])
     logger.info(f"Read in training data from {args.input}")
@@ -411,8 +411,8 @@ def main(args: argparse.Namespace) -> None:
             selection=args.modalities,
         ),
     )
-    MODEL.patient_data = inference_data
-    ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
+    MODEL.load_patient_data(inference_data)
+    ndim = len(MODEL.get_params())
     nwalkers = ndim * params["sampling"]["walkers_per_dim"]
     thin_by = params["sampling"]["thin_by"]
     logger.info(
