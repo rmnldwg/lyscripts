@@ -72,7 +72,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
-@log_state(logger=logger)
+@log_state(success_msg="Computed predicted risks")
 def predicted_risk(
     involvement: dict[str, dict[str, bool]],
     model: LymphModel,

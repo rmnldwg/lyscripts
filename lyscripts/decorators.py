@@ -59,9 +59,7 @@ def assemble_signature(*args, **kwargs) -> str:
 
 
 def log_state(
-    direct_func: Callable = None,
-    success_msg: str = None,
-    logger: logging.Logger = None,
+    success_msg: str | None = None,
     log_level: int = logging.INFO,
 ) -> Callable:
     """Provide a decorator that logs the state of the function execution.
@@ -76,19 +74,13 @@ def log_state(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             """The wrapper around the decorated function."""
-            found_logger, args, kwargs = extract_logger(*args, **kwargs)
-
-            nonlocal logger
-            if logger is None:
-                logger = found_logger
-
+            logger = logging.getLogger(func.__module__)
             signature = assemble_signature(*args, **kwargs)
             logger.debug(f"Executing {func.__name__}({signature}).")
 
             try:
                 result = func(*args, **kwargs)
                 if success_msg is not None:
-                    nonlocal log_level
                     logger.log(log_level, success_msg)
                 return result
 
@@ -97,9 +89,6 @@ def log_state(
                 raise exc
 
         return wrapper
-
-    if direct_func is not None:
-        return log_decorator(direct_func)
 
     return log_decorator
 

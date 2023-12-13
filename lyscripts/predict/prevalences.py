@@ -188,7 +188,7 @@ def create_patient_row(
     return with_midline_ext.append(without_midline_ext).reset_index()
 
 
-@log_state(logger=logger)
+@log_state(success_msg="Computed observed prevalence")
 def compute_observed_prevalence(
     pattern: dict[str, dict[str, bool]],
     data: pd.DataFrame,
@@ -286,7 +286,7 @@ def compute_predicted_prevalence(
     return prevalence
 
 
-@log_state(logger=logger)
+@log_state(success_msg="Computed predicted prevalence")
 def generate_predicted_prevalences(
     pattern: dict[str, dict[str, bool]],
     model: LymphModel,
