@@ -26,7 +26,6 @@ from lyscripts.predict.utils import complete_pattern, reduce_pattern
 from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
-    get_lnls,
     load_data_for_model,
     load_hdf5_samples,
     load_yaml_params,
@@ -250,7 +249,7 @@ def add_current_scenario(
     num_success, num_total = compute_observed_prevalence(
         pattern=pattern,
         data=data,
-        lnls=get_lnls(model),
+        lnls=len(model.get_params()),
         **prevs_kwargs,
     )
 
@@ -292,7 +291,7 @@ def main(args: argparse.Namespace):
     contra_col, ipsi_col = st.columns(2)
     container = {"ipsi": ipsi_col, "contra": contra_col}
 
-    lnls = get_lnls(model)
+    lnls = len(model.get_params())
     is_unilateral = isinstance(model, models.Unilateral)
 
     pattern = {}

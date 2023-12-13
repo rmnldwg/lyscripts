@@ -22,7 +22,6 @@ from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
-    get_lnls,
     load_hdf5_samples,
     load_yaml_params,
     report,
@@ -104,7 +103,7 @@ def predicted_risk(
 
     Set `verbose` to `True` for a visualization of the progress.
     """
-    lnls = get_lnls(model)
+    lnls = len(model.get_params())
     involvement = complete_pattern(involvement, lnls)
     given_diagnosis = complete_pattern(given_diagnosis, lnls)
 

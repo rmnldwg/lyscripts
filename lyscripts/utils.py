@@ -270,27 +270,6 @@ def create_model_from_config(params: dict[str, Any]) -> LymphModel:
     return model
 
 
-def get_lnls(model: LymphModel) -> list[str]:
-    """Extract the list of LNLs from a model instance. E.g.:
-    >>> graph = {
-    ...     ("tumor", "T"): ["II", "III"],
-    ...     ("lnl", "II"): ["III"],
-    ...     ("lnl", "III"): [],
-    ... }
-    >>> model = lymph.models.Unilateral(graph)
-    >>> get_lnls(model)
-    ['II', 'III']
-    """
-    if isinstance(model, models.Unilateral):
-        return [lnl.name for lnl in model.lnls]
-    if isinstance(model, models.Bilateral):
-        return [lnl.name for lnl in model.ipsi.lnls]
-    # if isinstance(model, MidlineBilateral):
-    #     return [lnl.name for lnl in model.ext.ipsi.lnls]
-
-    raise TypeError(f"Model cannot be of type {type(model)}")
-
-
 def get_dict_depth(nested: dict) -> int:
     """
     Get the depth of a nested dictionary.

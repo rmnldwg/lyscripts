@@ -3,31 +3,8 @@ Test the functions of the prevalence prediction submodule.
 """
 import pandas as pd
 import pytest
-from lymph import models
 
 from lyscripts.predict.prevalences import does_midline_ext_match, get_match_idx
-
-
-def test_get_lnls():
-    """Check if LNLs are correctly extracted from lymph model."""
-    graph = {
-        ("tumor", "primary"): ["I", "II", "III"],
-        ("lnl", "I"): ["II"],
-        ("lnl", "II"): ["III"],
-        ("lnl", "III"): [],
-    }
-    lnls = graph[("tumor", "primary")]
-    uni_model = models.Unilateral(graph)
-    bi_model = models.Bilateral(graph)
-    # mid_model = models.MidlineBilateral(graph)
-
-    uni_lnls = list(uni_model.graph.lnls.keys())
-    bi_lnls = list(bi_model.ipsi.graph.lnls.keys())
-    # mid_lnls = get_lnls(mid_model)
-
-    assert uni_lnls == lnls, "Did not extract LNLs correctly from unilateral model"
-    assert bi_lnls == lnls, "Did not extract LNLs correctly from bilateral model"
-    # assert mid_lnls == lnls, "Did not extract LNLs correctly from midline model"
 
 
 def test_get_match_idx():

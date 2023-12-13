@@ -27,7 +27,6 @@ from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
     flatten,
-    get_lnls,
     load_data_for_model,
     load_hdf5_samples,
     load_yaml_params,
@@ -308,7 +307,7 @@ def generate_predicted_prevalences(
 
     Use `invert` to compute 1 - p.
     """
-    lnls = get_lnls(model)
+    lnls = len(model.get_params())
     pattern = complete_pattern(pattern, lnls)
 
     if modality_spsn is None:
@@ -389,7 +388,7 @@ def main(args: argparse.Namespace):
             )
             num_match, num_total = compute_observed_prevalence(
                 data=data,
-                lnls=get_lnls(model),
+                lnls=len(model.get_params()),
                 **scenario,
             )
             for key,val in scenario.items():
