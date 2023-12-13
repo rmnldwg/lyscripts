@@ -17,9 +17,9 @@ from typing import Any
 
 import pandas as pd
 
-from lyscripts.data.utils import load_csv_table, save_table_to_csv
+from lyscripts.data.utils import save_table_to_csv
 from lyscripts.decorators import log_state
-from lyscripts.utils import delete_private_keys, flatten
+from lyscripts.utils import delete_private_keys, flatten, load_data_for_model
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -338,7 +338,7 @@ def main(args: argparse.Namespace):
                             enumerating the patients (default: False)
     ```
     """
-    raw: pd.DataFrame = load_csv_table(args.input, header_row=args.header_rows, logger=logger)
+    raw: pd.DataFrame = load_data_for_model(args.input)
     raw = clean_header(raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows))
 
     cols_to_drop = raw.columns[args.drop_cols]

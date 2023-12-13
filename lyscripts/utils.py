@@ -408,15 +408,11 @@ def get_modalities_subset(
 @provide_file(is_binary=False)
 def load_data_for_model(
     file: TextIO,
-    header_rows: list[int],
+    header_rows: list[int] | None = None,
 ) -> pd.DataFrame:
-    """
-    Load patient data from a CSV file stored at `file` and consider the row
-    numbers in `header_rows` as header.
-
-    This CSV file should already be preprocessed and in the format that the `lymph`
-    models understand.
-    """
+    """Load patient data from a CSV file stored at `file`."""
+    if header_rows is None:
+        header_rows = [0,1,2]
     return pd.read_csv(file, header=header_rows)
 
 

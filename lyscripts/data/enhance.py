@@ -21,11 +21,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from lyscripts.data.utils import load_csv_table, save_table_to_csv
+from lyscripts.data.utils import save_table_to_csv
 from lyscripts.decorators import log_state
 from lyscripts.utils import (
     CustomProgress,
     get_modalities_subset,
+    load_data_for_model,
     load_yaml_params,
     report,
 )
@@ -333,7 +334,7 @@ def main(args: argparse.Namespace):
                             or is common (default: ['I', 'II', 'V'])
     ```
     """
-    input_table = load_csv_table(args.input, header_row=[0,1,2], logger=logger)
+    input_table = load_data_for_model(args.input)
     params = load_yaml_params(args.params, logger=logger)
 
     modalities = get_modalities_subset(

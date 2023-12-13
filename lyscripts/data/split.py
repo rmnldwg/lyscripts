@@ -75,9 +75,7 @@ def main(args: argparse.Namespace):
     ```
     """
     params = load_yaml_params(args.params)
-
-    header = [0,1] if params["model"]["class"] == "Unilateral" else [0,1,2]
-    concatenated_df = pd.read_csv(args.input, header=header)
+    concatenated_df = pd.read_csv(args.input)
     logger.info(f"Read in concatenated CSV file from {args.input}")
 
     args.output.mkdir(exist_ok=True)

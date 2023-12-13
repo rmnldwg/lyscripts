@@ -363,9 +363,7 @@ def main(args: argparse.Namespace):
     params = load_yaml_params(args.params, logger=logger)
     model = create_model_from_config(params, logger=logger)
     samples = load_hdf5_samples(args.model, logger=logger)
-
-    header_rows = [0,1] if isinstance(model, models.Unilateral) else [0,1,2]
-    data = load_data_for_model(args.data, header_rows, logger=logger)
+    data = load_data_for_model(args.data)
 
     args.output.parent.mkdir(exist_ok=True)
     num_prevalences = len(params["prevalences"])

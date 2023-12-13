@@ -399,10 +399,7 @@ def main(args: argparse.Namespace) -> None:
     """
     params = load_yaml_params(args.params, logger=logger)
 
-    # Only read in two header rows when using the Unilateral model
-    is_unilateral = params["model"]["class"] == "Unilateral"
-    header = [0, 1] if is_unilateral else [0, 1, 2]
-    inference_data = pd.read_csv(args.input, header=header)
+    inference_data = pd.read_csv(args.input, header=[0,1,2])
     logger.info(f"Read in training data from {args.input}")
 
     global MODEL  # ugly, but necessary for pickling
