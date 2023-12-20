@@ -1,3 +1,42 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+
+<a name="1.0.0.a0"></a>
+## [1.0.0.a0] - 2023-12-20
+
+### Bug Fixes
+
+- Update imports to new lymph version
+- Remove references to `clean` command
+
+### Miscellaneous Tasks
+
+- [**breaking**] Lyprox to lymph convert not necessary anymore
+
+### Build
+
+- Bump lymph-model version to `>=1.0.0.a4`
+- Bump type hints to Python 3.10
+
+### Change
+
+- [**breaking**] `evaluate`: command does not depend on lymph model anymore
+- Simplify `log_state()` decorator
+- [**breaking**] Change model initialization in some places
+- [**breaking**] Use deorated function name for `log_state()` message
+
+### Refac
+
+- [**breaking**] Deduplicate data loading functions: `load_csv_table()` was removed and `load_data_for_model()` renamed to `load_patient_data()`
+- Change function names & remove logger from decorated function calls
+
+### Remove
+
+- [**breaking**] Delete unnecessary functions
+
+
 <a name="0.7.3"></a>
 ## [0.7.3] - 2023-08-29
 
@@ -17,14 +56,14 @@
 ## [0.7.2] - 2023-07-31
 
 ### Bug Fixes
-- **enhance:** fix bug introduced in [0.7.1]
+- `enhance`: fix bug introduced in [0.7.1]
 
 
 <a name="0.7.1"></a>
 ## [0.7.1] - 2023-07-31
 
 ### Bug Fixes
-- **enhance:** negative sublevels don't overwrite superlevels anymore. Fixes [#44].
+- `enhance`: negative sublevels don't overwrite superlevels anymore. Fixes [#44].
 
 ### Maintenance
 - bump pre-commit hooks
@@ -311,7 +350,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/0.7.3...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a0...HEAD
+[1.0.0.a0]: https://github.com/rmnldwg/lyscripts/compare/0.7.3...1.0.0.a0
 [0.7.3]: https://github.com/rmnldwg/lyscripts/compare/0.7.2...0.7.3
 [0.7.2]: https://github.com/rmnldwg/lyscripts/compare/0.7.1...0.7.2
 [0.7.1]: https://github.com/rmnldwg/lyscripts/compare/0.7.0...0.7.1
