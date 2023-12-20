@@ -79,7 +79,7 @@ def main(args: argparse.Namespace):
         -p, --params PARAMS   Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params, logger=logger)
+    params = load_yaml_params(args.params)
 
     backend = emcee.backends.HDFBackend(args.model, read_only=True)
     logger.info(f"Opened model as emcee backend from {args.model}")
@@ -99,7 +99,7 @@ def main(args: argparse.Namespace):
         show_titles=True,
     )
 
-    save_figure(args.output, fig, formats=["png", "svg"], logger=logger)
+    save_figure(args.output, fig, formats=["png", "svg"])
 
 
 if __name__ == "__main__":

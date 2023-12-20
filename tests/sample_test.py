@@ -15,7 +15,7 @@ from lyscripts.sample import run_mcmc_with_burnin
 from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
-    load_data_for_model,
+    load_patient_data,
     load_yaml_params,
 )
 
@@ -35,7 +35,7 @@ def model(params: dict) -> LymphModel:
 @pytest.fixture
 def data(model: LymphModel) -> pd.DataFrame:
     """Get synthetically generated data from disk."""
-    return load_data_for_model("./tests/test_data.csv")
+    return load_patient_data("./tests/test_data.csv")
 
 
 @pytest.fixture

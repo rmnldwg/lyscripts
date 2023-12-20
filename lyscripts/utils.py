@@ -393,7 +393,7 @@ def get_modalities_subset(
 
 @log_state()
 @provide_file(is_binary=False)
-def load_data_for_model(
+def load_patient_data(
     file: TextIO,
     header_rows: list[int] | None = None,
 ) -> pd.DataFrame:

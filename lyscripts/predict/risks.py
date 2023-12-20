@@ -164,9 +164,9 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params, logger=logger)
-    model = create_model_from_config(params, logger=logger)
-    samples = load_hdf5_samples(args.model, logger=logger)
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    samples = load_hdf5_samples(args.model)
 
     args.output.parent.mkdir(exist_ok=True)
     num_risks = len(params["risks"])

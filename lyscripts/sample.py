@@ -336,7 +336,7 @@ INV_TEMP = 1.
 
 def log_prob_fn(theta: np.array) -> float:
     """log probability function using global variables because of pickling."""
-    llh = MODEL.likelihood(given_params=theta)
+    llh = MODEL.likelihood(given_param_args=theta)
     if np.isinf(llh):
         return -np.inf, -np.inf
     return INV_TEMP * llh, llh

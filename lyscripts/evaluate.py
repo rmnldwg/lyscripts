@@ -17,7 +17,7 @@ from scipy.integrate import trapezoid
 
 from lyscripts.utils import (
     create_model_from_config,
-    load_data_for_model,
+    load_patient_data,
     load_yaml_params,
 )
 
@@ -190,7 +190,7 @@ def main(args: argparse.Namespace):
     params = load_yaml_params(args.params)
     model = create_model_from_config(params)
     ndim = len(model.get_params())
-    data = load_data_for_model(args.data)
+    data = load_patient_data(args.data)
     h5_file = h5py.File(args.model, mode="r")
 
     # if TI has been performed, compute the accuracy for every step

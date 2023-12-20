@@ -27,8 +27,8 @@ from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
     flatten,
-    load_data_for_model,
     load_hdf5_samples,
+    load_patient_data,
     load_yaml_params,
     report,
 )
@@ -278,7 +278,7 @@ def compute_predicted_prevalence(
             prevalence = loaded_model.noext.likelihood(log=False)
     else:
         prevalence = loaded_model.likelihood(
-            given_params=given_params,
+            given_param_args=given_params,
             log=False,
         )
 
@@ -359,10 +359,10 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params, logger=logger)
-    model = create_model_from_config(params, logger=logger)
-    samples = load_hdf5_samples(args.model, logger=logger)
-    data = load_data_for_model(args.data)
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    samples = load_hdf5_samples(args.model)
+    data = load_patient_data(args.data)
 
     args.output.parent.mkdir(exist_ok=True)
     num_prevalences = len(params["prevalences"])

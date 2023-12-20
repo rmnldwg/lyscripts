@@ -19,7 +19,7 @@ import pandas as pd
 
 from lyscripts.data.utils import save_table_to_csv
 from lyscripts.decorators import log_state
-from lyscripts.utils import delete_private_keys, flatten, load_data_for_model
+from lyscripts.utils import delete_private_keys, flatten, load_patient_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -338,7 +338,7 @@ def main(args: argparse.Namespace):
                             enumerating the patients (default: False)
     ```
     """
-    raw: pd.DataFrame = load_data_for_model(args.input)
+    raw: pd.DataFrame = load_patient_data(args.input)
     raw = clean_header(raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows))
 
     cols_to_drop = raw.columns[args.drop_cols]
@@ -363,4 +363,4 @@ def main(args: argparse.Namespace):
     if ("tumor", "1", "side") in processed.columns:
         processed = leftright_to_ipsicontra(processed)
 
-    save_table_to_csv(args.output, processed, logger=logger)
+    save_table_to_csv(args.output, processed)

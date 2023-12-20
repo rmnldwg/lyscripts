@@ -26,7 +26,7 @@ from lyscripts.decorators import log_state
 from lyscripts.utils import (
     CustomProgress,
     get_modalities_subset,
-    load_data_for_model,
+    load_patient_data,
     load_yaml_params,
     report,
 )
@@ -334,8 +334,8 @@ def main(args: argparse.Namespace):
                             or is common (default: ['I', 'II', 'V'])
     ```
     """
-    input_table = load_data_for_model(args.input)
-    params = load_yaml_params(args.params, logger=logger)
+    input_table = load_patient_data(args.input)
+    params = load_yaml_params(args.params)
 
     modalities = get_modalities_subset(
         defined_modalities=params["modalities"],
@@ -391,7 +391,7 @@ def main(args: argparse.Namespace):
     )
     logger.info("Fixed sub- & super level fields.")
 
-    save_table_to_csv(args.output, consensus_and_fixed_sublvlvs, logger=logger)
+    save_table_to_csv(args.output, consensus_and_fixed_sublvlvs)
 
 
 if __name__ == "__main__":

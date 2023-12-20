@@ -26,8 +26,8 @@ from lyscripts.predict.utils import complete_pattern, reduce_pattern
 from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
-    load_data_for_model,
     load_hdf5_samples,
+    load_patient_data,
     load_yaml_params,
 )
 
@@ -127,7 +127,7 @@ def interactive_load(streamlit):
         help="CSV spreadsheet containing lymphatic patterns of progression",
     )
     header_rows = [0,1] if is_unilateral else [0,1,2]
-    patient_data = load_data_for_model(data_file, header_rows=header_rows)
+    patient_data = load_patient_data(data_file, header_rows=header_rows)
 
     streamlit.write("---")
 

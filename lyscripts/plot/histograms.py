@@ -98,7 +98,7 @@ def main(args: argparse.Namespace):
         --mplstyle MPLSTYLE   Path to the MPL stylesheet (default: ./.mplstyle)
     ```
     """
-    use_mpl_stylesheet(args.mplstyle, logger=logger)
+    use_mpl_stylesheet(args.mplstyle)
 
     contents = []
     for name in args.names:
@@ -130,7 +130,7 @@ def main(args: argparse.Namespace):
     ax.legend()
     logger.info("Drawn figure")
 
-    save_figure(args.output, fig, formats=["png", "svg"], logger=logger)
+    save_figure(args.output, fig, formats=["png", "svg"])
 
 
 if __name__ == "__main__":
