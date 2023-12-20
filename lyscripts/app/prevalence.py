@@ -9,13 +9,13 @@ import argparse
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
-import lymph
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
+from lymph import models
 
 from lyscripts.plot.utils import COLOR_CYCLE, Histogram, Posterior, draw
 from lyscripts.predict.prevalences import (
@@ -26,9 +26,8 @@ from lyscripts.predict.utils import complete_pattern, reduce_pattern
 from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
-    get_lnls,
-    load_data_for_model,
     load_hdf5_samples,
+    load_patient_data,
     load_yaml_params,
 )
 
@@ -82,7 +81,7 @@ def launch_streamlit(*_args, discard_args_idx: int = 3, **_kwargs):
     st_main()
 
 
-def _get_lnl_pattern_label(selected: Optional[bool] = None) -> str:
+def _get_lnl_pattern_label(selected: bool | None = None) -> str:
     """Return labels for the involvement options of an LNL."""
     if selected is None:
         return "Unknown"
@@ -94,7 +93,7 @@ def _get_lnl_pattern_label(selected: Optional[bool] = None) -> str:
         raise ValueError("Selected option can only be `True`, `False` or `None`.")
 
 
-def _get_midline_ext_label(selected: Optional[bool] = None) -> str:
+def _get_midline_ext_label(selected: bool | None = None) -> str:
     """Return labels for the options of the midline extension."""
     if selected is None:
         return "Unknown"
@@ -118,7 +117,7 @@ def interactive_load(streamlit):
     )
     params = load_yaml_params(params_file)
     model = create_model_from_config(params)
-    is_unilateral = isinstance(model, lymph.Unilateral)
+    is_unilateral = isinstance(model, models.Unilateral)
 
     streamlit.write("---")
 
@@ -128,7 +127,7 @@ def interactive_load(streamlit):
         help="CSV spreadsheet containing lymphatic patterns of progression",
     )
     header_rows = [0,1] if is_unilateral else [0,1,2]
-    patient_data = load_data_for_model(data_file, header_rows=header_rows)
+    patient_data = load_patient_data(data_file, header_rows=header_rows)
 
     streamlit.write("---")
 
@@ -145,9 +144,9 @@ def interactive_load(streamlit):
 def interactive_pattern(
     streamlit,
     is_unilateral: bool,
-    lnls: List[str],
+    lnls: list[str],
     side: str
-) -> Dict[str, bool]:
+) -> dict[str, bool]:
     """
     Create a `streamlit` panel for all specified `lnls` in one `side` of a patient's
     neck to specify the lymphatic pattern of interest, which is then returned.
@@ -176,7 +175,7 @@ def interactive_additional_params(
     model: LymphModel,
     data: pd.DataFrame,
     samples: np.ndarray,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Allow the user to select T-category, midline extension and whether to invert the
     computed prevalence (meaning computing $1 - p$, when $p$ is the prevalence).
@@ -226,20 +225,20 @@ def interactive_additional_params(
     }
 
 
-def reset(session_state: Dict[str, Any]):
+def reset(session_state: dict[str, Any]):
     """Reset `streamlit` session state."""
     for key in session_state.keys():
         del session_state[key]
 
 
 def add_current_scenario(
-    session_state: Dict[str, Any],
-    pattern: Dict[str, Dict[str, bool]],
+    session_state: dict[str, Any],
+    pattern: dict[str, dict[str, bool]],
     model: LymphModel,
     samples: np.ndarray,
     data: pd.DataFrame,
-    prevs_kwargs: Optional[Dict[str, Any]] = None,
-) -> List[Union[Histogram, Posterior]]:
+    prevs_kwargs: dict[str, Any] | None = None,
+) -> list[Histogram | Posterior]:
     """
     Compute the prevalence of a `pattern` as observed in the `data` and as predicted
     by the `model` (using a set of `samples`). The results are then stored in the
@@ -250,7 +249,7 @@ def add_current_scenario(
     num_success, num_total = compute_observed_prevalence(
         pattern=pattern,
         data=data,
-        lnls=get_lnls(model),
+        lnls=len(model.get_params()),
         **prevs_kwargs,
     )
 
@@ -292,8 +291,8 @@ def main(args: argparse.Namespace):
     contra_col, ipsi_col = st.columns(2)
     container = {"ipsi": ipsi_col, "contra": contra_col}
 
-    lnls = get_lnls(model)
-    is_unilateral = isinstance(model, lymph.Unilateral)
+    lnls = len(model.get_params())
+    is_unilateral = isinstance(model, models.Unilateral)
 
     pattern = {}
     for side in ["ipsi", "contra"]:

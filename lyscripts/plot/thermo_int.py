@@ -180,7 +180,7 @@ def main(args: argparse.Namespace):
         plt.show()
         logger.info("Showed the plot")
     else:
-        save_figure(fig, args.output, formats=["png", "svg"], logger=logger)
+        save_figure(fig, args.output, formats=["png", "svg"])
 
 
 if __name__ == "__main__":

@@ -12,13 +12,13 @@ different scenarios. How to define these scenarios can be seen in the
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
+from collections.abc import Generator
 from pathlib import Path
-from typing import Dict, Generator, List, Optional
 
 import h5py
-import lymph
 import numpy as np
 import pandas as pd
+from lymph import models
 from rich.progress import track
 
 from lyscripts.decorators import log_state
@@ -27,9 +27,8 @@ from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
     flatten,
-    get_lnls,
-    load_data_for_model,
     load_hdf5_samples,
+    load_patient_data,
     load_yaml_params,
     report,
 )
@@ -84,9 +83,9 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def get_match_idx(
     match_idx,
-    pattern: Dict[str, Optional[bool]],
+    pattern: dict[str, bool | None],
     data: pd.DataFrame,
-    lnls: List[str],
+    lnls: list[str],
     invert: bool = False,
 ) -> pd.Series:
     """Get the indices of the rows in the `data` where the diagnose matches the
@@ -125,7 +124,7 @@ def does_t_stage_match(data: pd.DataFrame, t_stage: str) -> pd.Index:
 
 def does_midline_ext_match(
     data: pd.DataFrame,
-    midline_ext: Optional[bool] = None
+    midline_ext: bool | None = None
 ) -> pd.Index:
     """
     Return the indices of the `data` where the `midline_ext` of the patients matches.
@@ -154,9 +153,9 @@ def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
 
 
 def create_patient_row(
-    pattern: Dict[str, Dict[str, bool]],
+    pattern: dict[str, dict[str, bool]],
     t_stage: str,
-    midline_ext: Optional[bool] = None,
+    midline_ext: bool | None = None,
     make_unilateral: bool = False,
 ) -> pd.DataFrame:
     """
@@ -188,14 +187,14 @@ def create_patient_row(
     return with_midline_ext.append(without_midline_ext).reset_index()
 
 
-@log_state(logger=logger)
+@log_state()
 def compute_observed_prevalence(
-    pattern: Dict[str, Dict[str, bool]],
+    pattern: dict[str, dict[str, bool]],
     data: pd.DataFrame,
-    lnls: List[str],
+    lnls: list[str],
     t_stage: str = "early",
     modality: str = "max_llh",
-    midline_ext: Optional[bool] = None,
+    midline_ext: bool | None = None,
     invert: bool = False,
     **_kwargs,
 ):
@@ -265,7 +264,7 @@ def compute_predicted_prevalence(
     If `midline_ext` is set to `None`, the prevalence is marginalized over both cases,
     assuming the provided `midline_ext_prob`.
     """
-    if isinstance(loaded_model, lymph.MidlineBilateral):
+    if False: #isinstance(loaded_model, MidlineBilateral):
         loaded_model.check_and_assign(given_params)
         if midline_ext is None:
                 # marginalize over patients with and without midline extension
@@ -279,22 +278,22 @@ def compute_predicted_prevalence(
             prevalence = loaded_model.noext.likelihood(log=False)
     else:
         prevalence = loaded_model.likelihood(
-            given_params=given_params,
+            given_param_args=given_params,
             log=False,
         )
 
     return prevalence
 
 
-@log_state(logger=logger)
+@log_state()
 def generate_predicted_prevalences(
-    pattern: Dict[str, Dict[str, bool]],
+    pattern: dict[str, dict[str, bool]],
     model: LymphModel,
     samples: np.ndarray,
     t_stage: str = "early",
-    midline_ext: Optional[bool] = None,
+    midline_ext: bool | None = None,
     midline_ext_prob: float = 0.3,
-    modality_spsn: Optional[List[float]] = None,
+    modality_spsn: list[float] | None = None,
     invert: bool = False,
     **_kwargs,
 ) -> Generator[float, None, None]:
@@ -308,7 +307,7 @@ def generate_predicted_prevalences(
 
     Use `invert` to compute 1 - p.
     """
-    lnls = get_lnls(model)
+    lnls = len(model.get_params())
     pattern = complete_pattern(pattern, lnls)
 
     if modality_spsn is None:
@@ -316,7 +315,7 @@ def generate_predicted_prevalences(
     else:
         model.modalities = {"prev": modality_spsn}
 
-    is_unilateral = isinstance(model, lymph.Unilateral)
+    is_unilateral = isinstance(model, models.Unilateral)
     patient_row = create_patient_row(
         pattern, t_stage, midline_ext, make_unilateral=is_unilateral
     )
@@ -360,12 +359,10 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params, logger=logger)
-    model = create_model_from_config(params, logger=logger)
-    samples = load_hdf5_samples(args.model, logger=logger)
-
-    header_rows = [0,1] if isinstance(model, lymph.Unilateral) else [0,1,2]
-    data = load_data_for_model(args.data, header_rows, logger=logger)
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    samples = load_hdf5_samples(args.model)
+    data = load_patient_data(args.data)
 
     args.output.parent.mkdir(exist_ok=True)
     num_prevalences = len(params["prevalences"])
@@ -391,7 +388,7 @@ def main(args: argparse.Namespace):
             )
             num_match, num_total = compute_observed_prevalence(
                 data=data,
-                lnls=get_lnls(model),
+                lnls=len(model.get_params()),
                 **scenario,
             )
             for key,val in scenario.items():

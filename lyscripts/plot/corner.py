@@ -9,11 +9,9 @@ The library I use for this is built on `matplotlib` and is called
 import argparse
 import logging
 from pathlib import Path
-from typing import List, Union
 
 import corner
 import emcee
-import lymph
 
 from lyscripts.plot.utils import save_figure
 from lyscripts.utils import load_yaml_params, model_from_config
@@ -58,63 +56,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
-def get_param_labels(
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
-) -> List[str]:
-    """Create labels from a `model`.
-
-    An example:
-    >>> graph = {
-    ...     ("tumor", "primary"): ["II", "III"],
-    ...     ("lnl", "II"): ["III"],
-    ...     ("lnl", "III"): [],
-    ... }
-    >>> model = lymph.Unilateral(graph)
-    >>> from lyscripts.utils import add_tstage_marg
-    >>> add_tstage_marg(model, ["early", "late"], 0.3, 10)
-    >>> get_param_labels(model)
-    ['primary->II', 'primary->III', 'II->III', 'late']
-    """
-    binom_labels = []
-    for t_stage,dist in model.diag_time_dists.items():
-        if dist.is_updateable:
-            binom_labels.append(t_stage)
-
-    if isinstance(model, lymph.Unilateral):
-        base_labels = [f"{e.start}->{e.end}" for e in model.base_edges]
-        trans_labels = [f"{e.start}->{e.end}" for e in model.trans_edges]
-        return [*base_labels, *trans_labels, *binom_labels]
-
-    if isinstance(model, lymph.Bilateral):
-        base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ipsi.base_edges]
-        base_contra_labels = [f"c {e.start}->{e.end}" for e in model.contra.base_edges]
-        trans_labels = [f"{e.start}->{e.end}" for e in model.ipsi.trans_edges]
-        return [*base_ipsi_labels, *base_contra_labels, *trans_labels, *binom_labels]
-
-    if isinstance(model, lymph.MidlineBilateral):
-        base_ipsi_labels = [f"i {e.start}->{e.end}" for e in model.ext.ipsi.base_edges]
-        base_contra_ext_labels = [
-            f"ce {e.start}->{e.end}" for e in model.ext.contra.base_edges
-        ]
-        base_contra_noext_labels = [
-            f"cn {e.start}->{e.end}" for e in model.noext.contra.base_edges
-        ]
-        trans_labels = [f"{e.start}->{e.end}" for e in model.ext.ipsi.trans_edges]
-        return [
-            *base_ipsi_labels,
-            *base_contra_noext_labels,
-            "mixing $\\alpha$",
-            *trans_labels,
-            *binom_labels,
-        ] if model.use_mixing else [
-            *base_ipsi_labels,
-            *base_contra_ext_labels,
-            *base_contra_noext_labels,
-            *trans_labels,
-            *binom_labels,
-        ]
-
-
 def main(args: argparse.Namespace):
     """
     This (sub)subrogram shows the following help message when asking for it
@@ -138,7 +79,7 @@ def main(args: argparse.Namespace):
         -p, --params PARAMS   Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params, logger=logger)
+    params = load_yaml_params(args.params)
 
     backend = emcee.backends.HDFBackend(args.model, read_only=True)
     logger.info(f"Opened model as emcee backend from {args.model}")
@@ -147,8 +88,7 @@ def main(args: argparse.Namespace):
         graph_params=params["graph"],
         model_params=params["model"],
     )
-    labels = get_param_labels(model)
-    labels = [label.replace("->", "➜") for label in labels]
+    labels = list(model.get_params(as_dict=True).keys())
 
     chain = backend.get_chain(flat=True)
     if len(labels) != chain.shape[1]:
@@ -159,7 +99,7 @@ def main(args: argparse.Namespace):
         show_titles=True,
     )
 
-    save_figure(args.output, fig, formats=["png", "svg"], logger=logger)
+    save_figure(args.output, fig, formats=["png", "svg"])
 
 
 if __name__ == "__main__":

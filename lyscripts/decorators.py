@@ -4,9 +4,10 @@ e.g. safely opening files or logging the state of a function call.
 """
 import functools
 import logging
+from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, TextIO, Union
+from typing import Any, BinaryIO, TextIO
 
 
 def extract_logger(*args, **kwargs) -> logging.Logger:
@@ -57,48 +58,34 @@ def assemble_signature(*args, **kwargs) -> str:
     return signature
 
 
-def log_state(
-    direct_func: Callable = None,
-    success_msg: str = None,
-    logger: logging.Logger = None,
-    log_level: int = logging.INFO,
-) -> Callable:
+def log_state(log_level: int = logging.INFO) -> Callable:
     """Provide a decorator that logs the state of the function execution.
 
-    This function can either be used directly as a decorator or be called with the
-    desired `success_msg` to return a decorator that can be then in turn be used to
-    decorate a function.
+    The log message will simply be the function name where underscores are replaced
+    with spaces. The `log_level` can be set in the decorator call.
     """
     # pylint: disable=logging-fstring-interpolation
+    # pylint: disable=logging-not-lazy
     def log_decorator(func: Callable):
         """The decorator wrapping the decorated function."""
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             """The wrapper around the decorated function."""
-            found_logger, args, kwargs = extract_logger(*args, **kwargs)
-
-            nonlocal logger
-            if logger is None:
-                logger = found_logger
-
+            logger = logging.getLogger(func.__module__)
             signature = assemble_signature(*args, **kwargs)
             logger.debug(f"Executing {func.__name__}({signature}).")
+            log_msg_from_func = func.__name__.replace("_", " ").capitalize() + "."
 
             try:
                 result = func(*args, **kwargs)
-                if success_msg is not None:
-                    nonlocal log_level
-                    logger.log(log_level, success_msg)
+                logger.log(log_level, log_msg_from_func)
                 return result
 
             except Exception as exc:
-                logger.error(f"Error in {func.__name__}({signature}).", exc_info=exc)
+                logger.error(f"Error calling {func.__name__}().", exc_info=exc)
                 raise exc
 
         return wrapper
-
-    if direct_func is not None:
-        return log_decorator(direct_func)
 
     return log_decorator
 
@@ -127,7 +114,7 @@ def provide_file(is_binary: bool) -> Callable:
     def assembled_decorator(loading_func: Callable) -> Callable:
         """Assembled decorator that provides the function with a text/binary file."""
         @wraps(loading_func)
-        def inner(file_or_path: Union[str, Path, TextIO, BinaryIO], *args, **kwargs):
+        def inner(file_or_path: str | Path | TextIO | BinaryIO, *args, **kwargs):
             """The wrapped function."""
             if isinstance(file_or_path, (str, Path)):
                 file_path = Path(file_or_path)
@@ -138,7 +125,7 @@ def provide_file(is_binary: bool) -> Callable:
                     with open(file_path, mode="rb") as bin_file:
                         return loading_func(bin_file, *args, **kwargs)
                 else:
-                    with open(file_path, mode="r", encoding="utf-8") as txt_file:
+                    with open(file_path, encoding="utf-8") as txt_file:
                         return loading_func(txt_file, *args, **kwargs)
 
             return loading_func(file_or_path, *args, **kwargs)

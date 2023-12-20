@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from lyscripts.data.utils import load_csv_table, save_table_to_csv
+from lyscripts.data.utils import save_table_to_csv
+from lyscripts.utils import load_patient_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -76,7 +77,7 @@ def main(args: argparse.Namespace):
     """
     concatenated_table = pd.DataFrame()
     for input_path in args.inputs:
-        input_table = load_csv_table(input_path, header_row=[0,1,2], logger=logger)
+        input_table = load_patient_data(input_path)
         concatenated_table = pd.concat(
             [concatenated_table, input_table],
             ignore_index=True
@@ -84,7 +85,7 @@ def main(args: argparse.Namespace):
         logger.info(f"+ concatenated data from {input_path}")
     logger.info(f"Read & concatenated all {len(args.inputs)} CSV files")
 
-    save_table_to_csv(args.output, concatenated_table, logger=logger)
+    save_table_to_csv(args.output, concatenated_table)
 
 
 if __name__ == "__main__":

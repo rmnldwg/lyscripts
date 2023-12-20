@@ -8,18 +8,16 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Tuple
 
 import emcee
 import h5py
-import lymph
 import numpy as np
 import pandas as pd
 from scipy.integrate import trapezoid
 
 from lyscripts.utils import (
     create_model_from_config,
-    load_data_for_model,
+    load_patient_data,
     load_yaml_params,
 )
 
@@ -97,7 +95,7 @@ def compute_evidence(
     temp_schedule: np.ndarray,
     log_probs: np.ndarray,
     num: int = 1000,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Compute the evidene and its standard deviation.
 
     Given a `temp_schedule` of inverse temperatures and corresponding sets of
@@ -121,7 +119,7 @@ def compute_ti_results(
     ndim: int,
     h5_file: Path,
     model: Path,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Compute the results in case of a thermodynamic integration run."""
     temp_schedule = params["sampling"]["temp_schedule"]
     num_temps = len(temp_schedule)
@@ -189,12 +187,10 @@ def main(args: argparse.Namespace):
     """
     metrics = {}
 
-    params = load_yaml_params(args.params, logger=logger)
-    model = create_model_from_config(params, logger=logger)
-    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
-    is_uni = isinstance(model, lymph.Unilateral)
-
-    data = load_data_for_model(args.data, header_rows=[0,1] if is_uni else [0,1,2])
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    ndim = len(model.get_params())
+    data = load_patient_data(args.data)
     h5_file = h5py.File(args.model, mode="r")
 
     # if TI has been performed, compute the accuracy for every step
