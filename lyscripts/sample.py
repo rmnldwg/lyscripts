@@ -14,9 +14,10 @@ import argparse
 import logging
 import os
 import warnings
+from collections.abc import Callable
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any
 
 import emcee
 import h5py
@@ -130,13 +131,13 @@ class ConvenienceSampler(emcee.EnsembleSampler):
         min_steps: int = 0,
         max_steps: int = 10000,
         thin_by: int = 1,
-        initial_state: Optional[Union[emcee.State, np.ndarray]] = None,
+        initial_state: emcee.State | np.ndarray | None = None,
         check_interval: int = 100,
         trust_threshold: float = 50.,
         rel_acor_threshold: float = 0.05,
-        progress_desc: Optional[str] = None,
+        progress_desc: str | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run a round of sampling with at least `min_steps`, at most `max_steps` and
         only keep every `thin_by` step.
 
@@ -251,13 +252,13 @@ def run_mcmc_with_burnin(
     log_prob_fn: Callable,
     nsteps: int,
     persistent_backend: emcee.backends.HDFBackend,
-    sampling_kwargs: Optional[dict] = None,
-    burnin: Optional[int] = None,
+    sampling_kwargs: dict | None = None,
+    burnin: int | None = None,
     keep_burnin: bool = False,
     thin_by: int = 1,
-    npools: Optional[int] = None,
+    npools: int | None = None,
     verbose: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
     `emcee.EnsembleSampler`).
@@ -335,7 +336,7 @@ INV_TEMP = 1.
 
 def log_prob_fn(theta: np.array) -> float:
     """log probability function using global variables because of pickling."""
-    llh = MODEL.likelihood(given_params=theta)
+    llh = MODEL.likelihood(given_param_args=theta)
     if np.isinf(llh):
         return -np.inf, -np.inf
     return INV_TEMP * llh, llh
@@ -396,12 +397,9 @@ def main(args: argparse.Namespace) -> None:
 
     [^1]: https://doi.org/10.1007/s11571-021-09696-9
     """
-    params = load_yaml_params(args.params, logger=logger)
+    params = load_yaml_params(args.params)
 
-    # Only read in two header rows when using the Unilateral model
-    is_unilateral = params["model"]["class"] == "Unilateral"
-    header = [0, 1] if is_unilateral else [0, 1, 2]
-    inference_data = pd.read_csv(args.input, header=header)
+    inference_data = pd.read_csv(args.input, header=[0,1,2])
     logger.info(f"Read in training data from {args.input}")
 
     global MODEL  # ugly, but necessary for pickling
@@ -413,8 +411,8 @@ def main(args: argparse.Namespace) -> None:
             selection=args.modalities,
         ),
     )
-    MODEL.patient_data = inference_data
-    ndim = len(MODEL.spread_probs) + MODEL.diag_time_dists.num_parametric
+    MODEL.load_patient_data(inference_data)
+    ndim = len(MODEL.get_params())
     nwalkers = ndim * params["sampling"]["walkers_per_dim"]
     thin_by = params["sampling"]["thin_by"]
     logger.info(

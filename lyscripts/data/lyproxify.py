@@ -13,13 +13,13 @@ import importlib.util
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 
-from lyscripts.data.utils import load_csv_table, save_table_to_csv
+from lyscripts.data.utils import save_table_to_csv
 from lyscripts.decorators import log_state
-from lyscripts.utils import delete_private_keys, flatten
+from lyscripts.utils import delete_private_keys, flatten, load_patient_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -105,7 +105,7 @@ def clean_header(
     return table
 
 
-def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int:
+def get_instruction_depth(nested_column_map: dict[tuple, dict[str, Any]]) -> int:
     """
     Get the depth at which the column mapping instructions are nested.
 
@@ -137,7 +137,7 @@ def get_instruction_depth(nested_column_map: Dict[Tuple, Dict[str, Any]]) -> int
 
 
 def generate_markdown_docs(
-    nested_column_map: Dict[Tuple, Dict[str, Any]],
+    nested_column_map: dict[tuple, dict[str, Any]],
     depth: int = 0,
     indent_len: int = 4,
 ) -> str:
@@ -175,13 +175,10 @@ def generate_markdown_docs(
     return md_docs
 
 
-@log_state(
-    success_msg="Transformed raw data to LyProX style table",
-    logger=logger,
-)
+@log_state()
 def transform_to_lyprox(
     raw: pd.DataFrame,
-    column_map: Dict[Tuple, Dict[str, Any]]
+    column_map: dict[tuple, dict[str, Any]]
 ) -> pd.DataFrame:
     """
     Transform `raw` data frame into table that can be uploaded directly to [LyProX].
@@ -248,10 +245,7 @@ def transform_to_lyprox(
     return processed
 
 
-@log_state(
-    success_msg="Transformed absolute side reporting to tumor-relative",
-    logger=logger,
-)
+@log_state()
 def leftright_to_ipsicontra(data: pd.DataFrame):
     """
     Change absolute side reporting to tumor-relative.
@@ -281,11 +275,8 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     return data
 
 
-@log_state(
-    success_msg="Excluded patients based on provided criteria",
-    logger=logger,
-)
-def exclude_patients(raw: pd.DataFrame, exclude: List[Tuple[str, Any]]):
+@log_state()
+def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
     """
     Exclude patients in the `raw` data based on a list of what to `exclude`. This
     list contains tuples `(column, check)`. The `check` function will then exclude
@@ -347,7 +338,7 @@ def main(args: argparse.Namespace):
                             enumerating the patients (default: False)
     ```
     """
-    raw: pd.DataFrame = load_csv_table(args.input, header_row=args.header_rows, logger=logger)
+    raw: pd.DataFrame = load_patient_data(args.input)
     raw = clean_header(raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows))
 
     cols_to_drop = raw.columns[args.drop_cols]
@@ -372,4 +363,4 @@ def main(args: argparse.Namespace):
     if ("tumor", "1", "side") in processed.columns:
         processed = leftright_to_ipsicontra(processed)
 
-    save_table_to_csv(args.output, processed, logger=logger)
+    save_table_to_csv(args.output, processed)

@@ -98,8 +98,8 @@ def main(args: argparse.Namespace):
                             (default: ./models/samples.hdf5)
     ```
     """
-    params = load_yaml_params(args.params, logger=logger)
-    model = create_model_from_config(params, logger=logger)
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
     ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
 
     if args.set_theta is not None:
@@ -148,7 +148,7 @@ def main(args: argparse.Namespace):
         )
     logger.info(f"Created synthetic data of {args.num} patients.")
 
-    save_table_to_csv(args.output, synthetic_data, logger=logger)
+    save_table_to_csv(args.output, synthetic_data)
 
 
 if __name__ == "__main__":

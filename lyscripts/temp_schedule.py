@@ -14,8 +14,8 @@ $k$ could e.g. be 5.
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Union
 
 import numpy as np
 import yaml
@@ -62,7 +62,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def tolist(func: Callable) -> Callable:
     """Decorator to make sure the returned value is a list of floats."""
-    def inner(*args) -> Union[np.ndarray, List[float]]:
+    def inner(*args) -> np.ndarray | list[float]:
         res = func(*args)
         if isinstance(res, np.ndarray):
             return res.tolist()

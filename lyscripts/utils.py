@@ -6,15 +6,17 @@ It also contains helpers for reporting the script's progress via a slightly cust
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
+import warnings
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Dict, List, Optional, TextIO, Union
+from typing import Any, BinaryIO, TextIO
 
 import h5py
-import lymph
 import numpy as np
 import pandas as pd
 import yaml
 from emcee.backends import HDFBackend
+from lymph import models
 from rich.console import Console
 from rich.progress import (
     Progress,
@@ -38,6 +40,9 @@ except ImportError:
     def get_script_run_ctx() -> bool:
         """A mock for the `get_script_run_ctx` function of `streamlit`."""
         return None
+
+
+LymphModel = models.Unilateral | models.Bilateral # | MidlineBilateral
 
 
 class LyScriptsWarning(Warning):
@@ -155,29 +160,22 @@ class CustomProgress(Progress):
         super().__init__(*columns, **kwargs)
 
 
-def binom_pmf(k: Union[List[int], np.ndarray], n: int, p: float):
+def binom_pmf(k: list[int] | np.ndarray, n: int, p: float):
     """Binomial PMF"""
     if p > 1. or p < 0.:
         raise ValueError("Binomial prob must be btw. 0 and 1")
-    q = (1. - p)
+    q = 1. - p
     binom_coeff = factorial(n) / (factorial(k) * factorial(n - k))
     return binom_coeff * p**k * q**(n - k)
 
 
-def parametric_binom_pmf(n: int) -> Callable:
+def parametric_binom_pmf(support: np.ndarray, p: float = 0.5) -> Callable:
     """Return a parametric binomial PMF"""
-    def inner(t, p):
-        """Parametric binomial PMF"""
-        return binom_pmf(t, n, p)
-    return inner
+    return binom_pmf(k=support, n=support[-1], p=p)
 
 
 def graph_from_config(graph_params: dict):
-    """
-    Build the graph for the `lymph` model from the graph in the params file. I cannot
-    simply write the graph in the params file as I like because YAML does not support
-    tuples as keys in a dictionary.
-    """
+    """Build graph dictionary for the `lymph` models from the YAML params."""
     lymph_graph = {}
 
     if not "tumor" in graph_params and "lnl" in graph_params:
@@ -191,8 +189,8 @@ def graph_from_config(graph_params: dict):
 
 
 def add_tstage_marg(
-    model: Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral],
-    t_stages: List[str],
+    model: LymphModel,
+    t_stages: list[str],
     first_binom_prob: float,
     max_t: int,
 ):
@@ -205,18 +203,18 @@ def add_tstage_marg(
                 p=first_binom_prob
             )
         else:
-            model.diag_time_dists[stage] = parametric_binom_pmf(n=max_t)
+            model.diag_time_dists[stage] = parametric_binom_pmf
 
 
 def model_from_config(
-    graph_params: Dict[str, Any],
-    model_params: Dict[str, Any],
-    modalities_params: Optional[Dict[str, Any]] = None,
-) -> Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]:
+    graph_params: dict[str, Any],
+    model_params: dict[str, Any],
+    modalities_params: dict[str, Any] | None = None,
+) -> LymphModel:
     """Create a model instance as defined by some YAML params."""
     graph = graph_from_config(graph_params)
 
-    model_cls = getattr(lymph, model_params["class"])
+    model_cls = getattr(models, model_params["class"])
     model = model_cls(graph, **model_params["kwargs"])
 
     if modalities_params is not None:
@@ -232,11 +230,8 @@ def model_from_config(
     return model
 
 
-LymphModel = Union[lymph.Unilateral, lymph.Bilateral, lymph.MidlineBilateral]
-
-
-@log_state(success_msg="Model created from YAML config")
-def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
+@log_state()
+def create_model_from_config(params: dict[str, Any]) -> LymphModel:
     """Create a model instance as defined by some YAML params."""
     if "graph" in params:
         graph = graph_from_config(params["graph"])
@@ -244,7 +239,17 @@ def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
         raise LyScriptsWarning("No graph definition found in YAML file", level="error")
 
     if "model" in params:
-        model_cls = getattr(lymph, params["model"]["class"])
+        model_cls = getattr(models, params["model"]["class"])
+        if not "is_symmetric" in params["model"]["kwargs"]:
+            warnings.warn(
+                "The keywords `base_symmetric`, `trans_symmetric`, and `use_mixing` "
+                "have been deprecated. Please use `is_symmetric` instead.",
+                DeprecationWarning,
+            )
+            params["model"]["kwargs"]["is_symmetric"] = {
+                "tumor_spread": params["model"]["kwargs"].pop("base_symmetric", False),
+                "lnl_spread": params["model"]["kwargs"].pop("trans_symmetric", True),
+            }
         model = model_cls(graph, **params["model"]["kwargs"])
 
         add_tstage_marg(
@@ -263,27 +268,6 @@ def create_model_from_config(params: Dict[str, Any]) -> LymphModel:
         model.modalities = params["modalities"]
 
     return model
-
-
-def get_lnls(model: LymphModel) -> List[str]:
-    """Extract the list of LNLs from a model instance. E.g.:
-    >>> graph = {
-    ...     ("tumor", "T"): ["II", "III"],
-    ...     ("lnl", "II"): ["III"],
-    ...     ("lnl", "III"): [],
-    ... }
-    >>> model = lymph.Unilateral(graph)
-    >>> get_lnls(model)
-    ['II', 'III']
-    """
-    if isinstance(model, lymph.Unilateral):
-        return [lnl.name for lnl in model.lnls]
-    if isinstance(model, lymph.Bilateral):
-        return [lnl.name for lnl in model.ipsi.lnls]
-    if isinstance(model, lymph.MidlineBilateral):
-        return [lnl.name for lnl in model.ext.ipsi.lnls]
-
-    raise TypeError(f"Model cannot be of type {type(model)}")
 
 
 def get_dict_depth(nested: dict) -> int:
@@ -333,7 +317,7 @@ def delete_private_keys(nested: dict) -> dict:
 def flatten(
     nested: dict,
     prev_key: tuple = (),
-    max_depth: Optional[int] = None,
+    max_depth: int | None = None,
 ) -> dict:
     """
     Flatten a `nested` dictionary by creating key tuples for each value at `max_depth`.
@@ -387,9 +371,9 @@ def unflatten(flat: dict) -> dict:
 
 
 def get_modalities_subset(
-    defined_modalities: Dict[str, List[float]],
-    selection: List[str],
-) -> Dict[str, List[float]]:
+    defined_modalities: dict[str, list[float]],
+    selection: list[str],
+) -> dict[str, list[float]]:
     """
     Of the `defined_modalities` return only those mentioned in the `selection`.
 
@@ -407,30 +391,26 @@ def get_modalities_subset(
     return selected_modalities
 
 
-@log_state(success_msg="Loaded patient data")
+@log_state()
 @provide_file(is_binary=False)
-def load_data_for_model(
+def load_patient_data(
     file: TextIO,
-    header_rows: List[int],
+    header_rows: list[int] | None = None,
 ) -> pd.DataFrame:
-    """
-    Load patient data from a CSV file stored at `file` and consider the row
-    numbers in `header_rows` as header.
-
-    This CSV file should already be preprocessed and in the format that the `lymph`
-    models understand.
-    """
+    """Load patient data from a CSV file stored at `file`."""
+    if header_rows is None:
+        header_rows = [0,1,2]
     return pd.read_csv(file, header=header_rows)
 
 
-@log_state(success_msg="Loaded YAML params")
+@log_state()
 @provide_file(is_binary=False)
 def load_yaml_params(file: Path) -> dict:
     """Load parameters from a YAML `file`."""
     return yaml.safe_load(file)
 
 
-@log_state(success_msg="Loaded HDF5 samples from MCMC run")
+@log_state()
 @check_input_file_exists
 def load_model_samples(file_path: Path) -> np.ndarray:
     """
@@ -441,7 +421,7 @@ def load_model_samples(file_path: Path) -> np.ndarray:
     return backend.get_chain(flat=True)
 
 
-@log_state(success_msg="Loaded HDF5 samples")
+@log_state()
 @provide_file(is_binary=True)
 def load_hdf5_samples(file: BinaryIO, name: str = "mcmc/chain") -> np.ndarray:
     """

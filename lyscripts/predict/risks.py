@@ -9,12 +9,12 @@ file over in the [`lynference`](https://github.com/rmnldwg/lynference) repositor
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
+from collections.abc import Generator
 from pathlib import Path
-from typing import Dict, Generator, List, Optional
 
 import h5py
-import lymph
 import numpy as np
+from lymph import models
 from rich.progress import track
 
 from lyscripts.decorators import log_state
@@ -22,7 +22,6 @@ from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
     create_model_from_config,
-    get_lnls,
     load_hdf5_samples,
     load_yaml_params,
     report,
@@ -72,15 +71,15 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
-@log_state(logger=logger)
+@log_state()
 def predicted_risk(
-    involvement: Dict[str, Dict[str, bool]],
+    involvement: dict[str, dict[str, bool]],
     model: LymphModel,
     samples: np.ndarray,
     t_stage: str,
     midline_ext: bool = False,
-    given_diagnosis: Optional[Dict[str, Dict[str, bool]]] = None,
-    given_diagnosis_spsn: Optional[List[float]] = None,
+    given_diagnosis: dict[str, dict[str, bool]] | None = None,
+    given_diagnosis_spsn: list[float] | None = None,
     invert: bool = False,
     **_kwargs,
 ) -> Generator[float, None, None]:
@@ -88,7 +87,7 @@ def predicted_risk(
     `t_stage` using a `model` with pretrained `samples`. This probability can be
     computed for a `given_diagnosis` that was obtained using a modality with
     specificity & sensitivity provided via `given_diagnosis_spsn`. If the model is an
-    instance of `lymph.MidlineBilateral`, one can specify whether or not the primary
+    instance of `MidlineBilateral`, one can specify whether or not the primary
     tumor has a `midline_ext`.
 
     Both the `involvement` and the `given_diagnosis` should be dictionaries like this:
@@ -104,7 +103,7 @@ def predicted_risk(
 
     Set `verbose` to `True` for a visualization of the progress.
     """
-    lnls = get_lnls(model)
+    lnls = len(model.get_params())
     involvement = complete_pattern(involvement, lnls)
     given_diagnosis = complete_pattern(given_diagnosis, lnls)
 
@@ -113,7 +112,7 @@ def predicted_risk(
     else:
         model.modalities = {"risk": [1., 1.]}
 
-    if isinstance(model, lymph.Unilateral):
+    if isinstance(model, models.Unilateral):
         given_diagnosis = {"risk": given_diagnosis["ipsi"]}
 
         for sample in samples:
@@ -125,7 +124,7 @@ def predicted_risk(
             )
             yield 1. - risk if invert else risk
 
-    elif isinstance(model, (lymph.Bilateral, lymph.MidlineBilateral)):
+    elif isinstance(model, (models.Bilateral)): #, MidlineBilateral)):
         given_diagnosis = {"risk": given_diagnosis}
 
         for sample in samples:
@@ -165,9 +164,9 @@ def main(args: argparse.Namespace):
     --params PARAMS  Path to parameter file (default: ./params.yaml)
     ```
     """
-    params = load_yaml_params(args.params, logger=logger)
-    model = create_model_from_config(params, logger=logger)
-    samples = load_hdf5_samples(args.model, logger=logger)
+    params = load_yaml_params(args.params)
+    model = create_model_from_config(params)
+    samples = load_hdf5_samples(args.model)
 
     args.output.parent.mkdir(exist_ok=True)
     num_risks = len(params["risks"])
