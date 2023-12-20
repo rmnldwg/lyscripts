@@ -58,17 +58,14 @@ def assemble_signature(*args, **kwargs) -> str:
     return signature
 
 
-def log_state(
-    success_msg: str | None = None,
-    log_level: int = logging.INFO,
-) -> Callable:
+def log_state(log_level: int = logging.INFO) -> Callable:
     """Provide a decorator that logs the state of the function execution.
 
-    This function can either be used directly as a decorator or be called with the
-    desired `success_msg` to return a decorator that can be then in turn be used to
-    decorate a function.
+    The log message will simply be the function name where underscores are replaced
+    with spaces. The `log_level` can be set in the decorator call.
     """
     # pylint: disable=logging-fstring-interpolation
+    # pylint: disable=logging-not-lazy
     def log_decorator(func: Callable):
         """The decorator wrapping the decorated function."""
         @functools.wraps(func)
@@ -77,15 +74,15 @@ def log_state(
             logger = logging.getLogger(func.__module__)
             signature = assemble_signature(*args, **kwargs)
             logger.debug(f"Executing {func.__name__}({signature}).")
+            log_msg_from_func = func.__name__.replace("_", " ").capitalize() + "."
 
             try:
                 result = func(*args, **kwargs)
-                if success_msg is not None:
-                    logger.log(log_level, success_msg)
+                logger.log(log_level, log_msg_from_func)
                 return result
 
             except Exception as exc:
-                logger.error(f"Error in {func.__name__}({signature}).", exc_info=exc)
+                logger.error(f"Error calling {func.__name__}().", exc_info=exc)
                 raise exc
 
         return wrapper

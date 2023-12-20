@@ -175,7 +175,7 @@ def generate_markdown_docs(
     return md_docs
 
 
-@log_state(success_msg="Transformed raw data to LyProX style table")
+@log_state()
 def transform_to_lyprox(
     raw: pd.DataFrame,
     column_map: dict[tuple, dict[str, Any]]
@@ -245,7 +245,7 @@ def transform_to_lyprox(
     return processed
 
 
-@log_state(success_msg="Transformed absolute side reporting to tumor-relative")
+@log_state()
 def leftright_to_ipsicontra(data: pd.DataFrame):
     """
     Change absolute side reporting to tumor-relative.
@@ -275,7 +275,7 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     return data
 
 
-@log_state(success_msg="Excluded patients based on provided criteria")
+@log_state()
 def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
     """
     Exclude patients in the `raw` data based on a list of what to `exclude`. This

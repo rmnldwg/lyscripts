@@ -278,14 +278,14 @@ def draw(
     return axes
 
 
-@log_state(success_msg="Loaded MPL stylesheet")
+@log_state()
 @check_input_file_exists
 def use_mpl_stylesheet(file_path: str | Path):
     """Load a `.mplstyle` stylesheet from `file_path`."""
     plt.style.use(file_path)
 
 
-@log_state(success_msg="Saved matplotlib figure")
+@log_state()
 @check_output_dir_exists
 def save_figure(
     output_path: str | Path,

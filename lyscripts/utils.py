@@ -230,7 +230,7 @@ def model_from_config(
     return model
 
 
-@log_state(success_msg="Model created from YAML config")
+@log_state()
 def create_model_from_config(params: dict[str, Any]) -> LymphModel:
     """Create a model instance as defined by some YAML params."""
     if "graph" in params:
@@ -391,7 +391,7 @@ def get_modalities_subset(
     return selected_modalities
 
 
-@log_state(success_msg="Loaded patient data")
+@log_state()
 @provide_file(is_binary=False)
 def load_data_for_model(
     file: TextIO,
@@ -403,14 +403,14 @@ def load_data_for_model(
     return pd.read_csv(file, header=header_rows)
 
 
-@log_state(success_msg="Loaded YAML params")
+@log_state()
 @provide_file(is_binary=False)
 def load_yaml_params(file: Path) -> dict:
     """Load parameters from a YAML `file`."""
     return yaml.safe_load(file)
 
 
-@log_state(success_msg="Loaded HDF5 samples from MCMC run")
+@log_state()
 @check_input_file_exists
 def load_model_samples(file_path: Path) -> np.ndarray:
     """
@@ -421,7 +421,7 @@ def load_model_samples(file_path: Path) -> np.ndarray:
     return backend.get_chain(flat=True)
 
 
-@log_state(success_msg="Loaded HDF5 samples")
+@log_state()
 @provide_file(is_binary=True)
 def load_hdf5_samples(file: BinaryIO, name: str = "mcmc/chain") -> np.ndarray:
     """

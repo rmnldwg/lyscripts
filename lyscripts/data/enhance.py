@@ -105,7 +105,7 @@ def get_sublvl_values(
     return data_frame[[lnl+sub for sub in sub_ids]].values
 
 
-@log_state(success_msg="Inferred super-level's involvement from sub-levels")
+@log_state()
 def infer_superlvl_from_sublvls(
     table: pd.DataFrame,
     modalities: list[str],
