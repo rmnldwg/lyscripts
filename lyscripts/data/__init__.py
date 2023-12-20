@@ -31,7 +31,6 @@ def _add_parser(
         formatter_class=help_formatter,
     )
     subparsers = parser.add_subparsers()
-    clean._add_parser(subparsers, help_formatter=parser.formatter_class)
     enhance._add_parser(subparsers, help_formatter=parser.formatter_class)
     generate._add_parser(subparsers, help_formatter=parser.formatter_class)
     join._add_parser(subparsers, help_formatter=parser.formatter_class)
