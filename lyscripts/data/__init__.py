@@ -14,7 +14,7 @@ of patient data. The split data may then be used e.g. for cross-validation.
 import argparse
 from pathlib import Path
 
-from . import enhance, generate, join, lyproxify, split
+from . import enhance, filter, generate, join, lyproxify, split
 
 
 def _add_parser(
@@ -36,3 +36,4 @@ def _add_parser(
     join._add_parser(subparsers, help_formatter=parser.formatter_class)
     lyproxify._add_parser(subparsers, help_formatter=parser.formatter_class)
     split._add_parser(subparsers, help_formatter=parser.formatter_class)
+    filter._add_parser(subparsers, help_formatter=parser.formatter_class)
