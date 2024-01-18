@@ -78,7 +78,15 @@ def log_state(log_level: int = logging.INFO) -> Callable:
 
             try:
                 result = func(*args, **kwargs)
-                logger.log(log_level, log_msg_from_func)
+                logger.log(
+                    log_level,
+                    log_msg_from_func,
+                    extra={
+                        "func_filepath": f"{func.__module__.replace('.', '/')}.py",
+                        "func_name": func.__name__,
+                        "module_name": func.__module__,
+                    },
+                )
                 return result
 
             except Exception as exc:

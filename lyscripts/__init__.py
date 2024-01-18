@@ -12,7 +12,7 @@ from rich_argparse import RichHelpFormatter
 
 from lyscripts import app, data, evaluate, plot, predict, sample, temp_schedule
 from lyscripts._version import version
-from lyscripts.utils import report
+from lyscripts.utils import CustomRichHandler, report
 
 __version__ = version
 __description__ = "Package containing scripts used in lynference pipelines"
@@ -111,7 +111,7 @@ def main():
 
     args = parser.parse_args()
 
-    handler = RichHandler(
+    handler = CustomRichHandler(
         console=report,
         show_time=False,
         markup=True,

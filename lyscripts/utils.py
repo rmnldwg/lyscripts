@@ -8,6 +8,7 @@ occuring issues to the right place.
 """
 import warnings
 from collections.abc import Callable
+from logging import LogRecord
 from pathlib import Path
 from typing import Any, BinaryIO, TextIO
 
@@ -18,6 +19,7 @@ import yaml
 from emcee.backends import HDFBackend
 from lymph import models
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.progress import (
     Progress,
     SpinnerColumn,
@@ -158,6 +160,24 @@ class CustomProgress(Progress):
             TimeElapsedColumn(),
         ]
         super().__init__(*columns, **kwargs)
+
+
+class CustomRichHandler(RichHandler):
+    """Uses `func_filepath` from the `extra` dict to modify `pathname`."""
+    def emit(self, record: LogRecord) -> None:
+        """Emit a log record."""
+        if (
+            "func_filepath" in record.__dict__
+            and "func_name" in record.__dict__
+            and "module_name" in record.__dict__
+        ):
+            prefix = record.pathname.rsplit("lyscripts")[0]
+            record.pathname = f"{prefix}lyscripts/{record.func_filepath}"
+            record.filename = record.func_filepath.split("/")[-1]
+            record.funcName = record.func_name
+            record.module = record.module_name
+            record.lineno = 0
+        return super().emit(record)
 
 
 def binom_pmf(k: list[int] | np.ndarray, n: int, p: float):
