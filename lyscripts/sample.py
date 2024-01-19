@@ -15,7 +15,6 @@ import logging
 import os
 import warnings
 from collections.abc import Callable
-from multiprocessing import Pool
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +22,7 @@ import emcee
 import h5py
 import numpy as np
 import pandas as pd
+from multiprocess import Pool
 
 from lyscripts.utils import (
     CustomProgress,
