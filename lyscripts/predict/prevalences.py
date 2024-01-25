@@ -166,14 +166,8 @@ def create_patient_row(
 
     if midline_ext is not None:
         patient_row["tumor", "1", "extension"] = midline_ext
-        return patient_row
 
-    with_midline_ext = patient_row.copy()
-    with_midline_ext["tumor", "1", "extension"] = True
-    without_midline_ext = patient_row.copy()
-    without_midline_ext["tumor", "1", "extension"] = False
-
-    return with_midline_ext.append(without_midline_ext).reset_index()
+    return patient_row
 
 
 @log_state()
