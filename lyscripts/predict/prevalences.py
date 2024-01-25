@@ -18,7 +18,6 @@ from pathlib import Path
 import h5py
 import numpy as np
 import pandas as pd
-from lymph import models
 from rich.progress import track
 
 from lyscripts.decorators import log_state
@@ -152,34 +151,27 @@ def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
 def create_patient_row(
     pattern: dict[str, dict[str, bool]],
     t_stage: str,
+    modality: str = "prev",
     midline_ext: bool | None = None,
-    make_unilateral: bool = False,
 ) -> pd.DataFrame:
     """
     Create a pandas `DataFrame` representing a single patient from the specified
     involvement `pattern`, along with their `t_stage` and `midline_ext` (if provided).
     If `midline_ext` is not provided, the function creates two patient rows. One of a
-    patient _with_ and one of a patient _without_ a midline extention. And the returned
-    `patient_row` will only contain the `ipsi` part of the pattern when one tells the
-    function to `make_unilateral`.
+    patient _with_ and one of a patient _without_ a midline extention.
     """
-    if make_unilateral:
-        flat_pattern = flatten({"prev": pattern["ipsi"]})
-        patient_row = pd.DataFrame(flat_pattern, index=[0])
-        patient_row["info", "t_stage"] = t_stage
-        return patient_row
-
-    flat_pattern = flatten({"prev": pattern})
+    flat_pattern = flatten({modality: pattern})
     patient_row = pd.DataFrame(flat_pattern, index=[0])
-    patient_row["info", "tumor", "t_stage"] = t_stage
+    patient_row["tumor", "1", "t_stage"] = t_stage
+
     if midline_ext is not None:
-        patient_row["info", "tumor", "midline_extension"] = midline_ext
+        patient_row["tumor", "1", "extension"] = midline_ext
         return patient_row
 
     with_midline_ext = patient_row.copy()
-    with_midline_ext["info", "tumor", "midline_extension"] = True
+    with_midline_ext["tumor", "1", "extension"] = True
     without_midline_ext = patient_row.copy()
-    without_midline_ext["info", "tumor", "midline_extension"] = False
+    without_midline_ext["tumor", "1", "extension"] = False
 
     return with_midline_ext.append(without_midline_ext).reset_index()
 
@@ -312,11 +304,12 @@ def generate_predicted_prevalences(
     else:
         model.modalities = {"prev": modality_spsn}
 
-    is_unilateral = isinstance(model, models.Unilateral)
     patient_row = create_patient_row(
-        pattern, t_stage, midline_ext, make_unilateral=is_unilateral
+        pattern=pattern,
+        t_stage=t_stage,
+        midline_ext=midline_ext,
     )
-    model.patient_data = patient_row
+    model.load_patient_data(patient_row, mapping=lambda x: x)
 
     # compute prevalence as likelihood of diagnose `prev`, which was defined above
     for sample in samples:
