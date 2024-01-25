@@ -304,7 +304,7 @@ def generate_predicted_prevalences(
 
     Use `invert` to compute 1 - p.
     """
-    lnls = len(model.get_params())
+    lnls = list(model.graph.lnls.keys())
     pattern = complete_pattern(pattern, lnls)
 
     if modality_spsn is None:
