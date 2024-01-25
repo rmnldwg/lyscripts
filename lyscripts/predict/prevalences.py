@@ -112,14 +112,11 @@ def get_match_idx(
     return match_idx
 
 
-def does_t_stage_match(data: pd.DataFrame, t_stage: str) -> pd.Index:
+def does_t_stage_match(data: pd.DataFrame, t_stage: str | None) -> pd.Series:
     """Return the indices of the `data` where the `t_stage` of the patients matches."""
-    if data.columns.nlevels == 2:
-        return data["info", "t_stage"] == t_stage
-    elif data.columns.nlevels == 3:
-        return data["info", "tumor", "t_stage"] == t_stage
-    else:
-        raise ValueError("Data has neither 2 nor 3 header rows")
+    if t_stage is None:
+        return pd.Series([True] * len(data))
+    return data["tumor", "1", "t_stage"] == t_stage
 
 
 def does_midline_ext_match(
