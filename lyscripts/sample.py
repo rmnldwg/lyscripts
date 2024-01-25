@@ -342,6 +342,13 @@ def log_prob_fn(theta: np.array) -> float:
     return INV_TEMP * llh, llh
 
 
+def callable_from_dict(mapping: dict[str, Any]) -> Callable:
+    """Create a callable from a dictionary."""
+    def _callable(key):
+        return mapping[key]
+    return _callable
+
+
 def main(args: argparse.Namespace) -> None:
     """
     First, this program reads in the parameter YAML file and the CSV training data.
@@ -411,7 +418,14 @@ def main(args: argparse.Namespace) -> None:
             selection=args.modalities,
         ),
     )
-    MODEL.load_patient_data(inference_data)
+
+    try:
+        t_stage_mapping = callable_from_dict(params["model"]["t_stage_mapping"])
+    except KeyError:
+        logger.warning("No T-stage mapping provided. Using default early/late mapping.")
+        t_stage_mapping = None
+
+    MODEL.load_patient_data(inference_data, mapping=t_stage_mapping)
     ndim = len(MODEL.get_params())
     nwalkers = ndim * params["sampling"]["walkers_per_dim"]
     thin_by = params["sampling"]["thin_by"]
