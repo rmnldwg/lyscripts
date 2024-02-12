@@ -420,10 +420,10 @@ def main(args: argparse.Namespace) -> None:
     )
 
     try:
-        t_stage_mapping = callable_from_dict(params["model"]["t_stage_mapping"])
+        t_stage_mapping = params["model"]["t_stage_mapping"]
     except KeyError:
         logger.warning("No T-stage mapping provided. Using default early/late mapping.")
-        t_stage_mapping = None
+        t_stage_mapping = {0: "early", 1: "early", 2: "early", 3: "late", 4: "late"}
 
     MODEL.load_patient_data(inference_data, mapping=t_stage_mapping)
     ndim = len(MODEL.get_params())
