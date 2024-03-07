@@ -51,6 +51,20 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
+def load_and_join_tables(input_paths: list[Path]):
+    """Load and concatenate CSV files from the given `input_paths`."""
+    concatenated_table = pd.DataFrame()
+    for path in input_paths:
+        input_table = load_patient_data(path).convert_dtypes()
+        concatenated_table = pd.concat(
+            [concatenated_table, input_table],
+            axis="index",
+            ignore_index=True
+        )
+        logger.info(f"+ concatenated data from {path}")
+    return concatenated_table
+
+
 def main(args: argparse.Namespace):
     """
     This program simply loops over the provided CSV files, reading in and appending
@@ -75,16 +89,8 @@ def main(args: argparse.Namespace):
                             None)
     ```
     """
-    concatenated_table = pd.DataFrame()
-    for input_path in args.inputs:
-        input_table = load_patient_data(input_path)
-        concatenated_table = pd.concat(
-            [concatenated_table, input_table],
-            ignore_index=True
-        )
-        logger.info(f"+ concatenated data from {input_path}")
+    concatenated_table = load_and_join_tables(args.inputs)
     logger.info(f"Read & concatenated all {len(args.inputs)} CSV files")
-
     save_table_to_csv(args.output, concatenated_table)
 
 
