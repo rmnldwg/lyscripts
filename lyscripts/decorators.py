@@ -7,7 +7,7 @@ import logging
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import Any, BinaryIO, TextIO
+from typing import Any
 
 
 def extract_logger(*args, **kwargs) -> logging.Logger:
@@ -77,7 +77,6 @@ def log_state(log_level: int = logging.INFO) -> Callable:
             log_msg_from_func = func.__name__.replace("_", " ").capitalize() + "."
 
             try:
-                result = func(*args, **kwargs)
                 logger.log(
                     log_level,
                     log_msg_from_func,
@@ -87,7 +86,7 @@ def log_state(log_level: int = logging.INFO) -> Callable:
                         "module_name": func.__module__,
                     },
                 )
-                return result
+                return func(*args, **kwargs)
 
             except Exception as exc:
                 logger.error(f"Error calling {func.__name__}().", exc_info=exc)
@@ -110,37 +109,6 @@ def check_input_file_exists(loading_func: Callable) -> Callable:
         return loading_func(file_path, *args, **kwargs)
 
     return inner
-
-
-def provide_file(is_binary: bool) -> Callable:
-    """Make sure a decorated function is provided with a file-like object.
-
-    This means, the assembled decorator checks the argument type and, if necessary,
-    opens the file to call the decorated function. The provided file is either a text
-    file of - if `is_binary` is set to `True` - a binary file.
-    """
-    def assembled_decorator(loading_func: Callable) -> Callable:
-        """Assembled decorator that provides the function with a text/binary file."""
-        @wraps(loading_func)
-        def inner(file_or_path: str | Path | TextIO | BinaryIO, *args, **kwargs):
-            """The wrapped function."""
-            if isinstance(file_or_path, (str, Path)):
-                file_path = Path(file_or_path)
-                if not file_path.is_file():
-                    raise FileNotFoundError(f"File {file_path} does not exist.")
-
-                if is_binary:
-                    with open(file_path, mode="rb") as bin_file:
-                        return loading_func(bin_file, *args, **kwargs)
-                else:
-                    with open(file_path, encoding="utf-8") as txt_file:
-                        return loading_func(txt_file, *args, **kwargs)
-
-            return loading_func(file_or_path, *args, **kwargs)
-
-        return inner
-
-    return assembled_decorator
 
 
 def check_output_dir_exists(saving_func: Callable) -> Callable:

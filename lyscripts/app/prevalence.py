@@ -25,8 +25,8 @@ from lyscripts.predict.prevalences import (
 from lyscripts.predict.utils import complete_pattern, reduce_pattern
 from lyscripts.utils import (
     LymphModel,
-    create_model_from_config,
-    load_hdf5_samples,
+    create_model,
+    load_model_samples,
     load_patient_data,
     load_yaml_params,
 )
@@ -116,7 +116,7 @@ def interactive_load(streamlit):
         help="Parameter YAML file containing configurations w.r.t. the model etc.",
     )
     params = load_yaml_params(params_file)
-    model = create_model_from_config(params)
+    model = create_model(params)
     is_unilateral = isinstance(model, models.Unilateral)
 
     streamlit.write("---")
@@ -127,7 +127,7 @@ def interactive_load(streamlit):
         help="CSV spreadsheet containing lymphatic patterns of progression",
     )
     header_rows = [0,1] if is_unilateral else [0,1,2]
-    patient_data = load_patient_data(data_file, header_rows=header_rows)
+    patient_data = load_patient_data(data_file, header=header_rows)
 
     streamlit.write("---")
 
@@ -136,7 +136,7 @@ def interactive_load(streamlit):
         type=["hdf5", "hdf", "h5"],
         help="HDF5 file containing the samples."
     )
-    samples = load_hdf5_samples(samples_file)
+    samples = load_model_samples(samples_file)
 
     return model, patient_data, samples
 

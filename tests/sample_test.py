@@ -14,7 +14,7 @@ from emcee.backends import Backend, HDFBackend
 from lyscripts.sample import run_mcmc_with_burnin
 from lyscripts.utils import (
     LymphModel,
-    create_model_from_config,
+    create_model,
     load_patient_data,
     load_yaml_params,
 )
@@ -22,14 +22,14 @@ from lyscripts.utils import (
 
 @pytest.fixture
 def params() -> dict:
-    """Fixture providing stored `test_params.yaml` file."""
-    return load_yaml_params("./tests/test_params.yaml")
+    """Fixture providing stored `test_params_v0.yaml` file."""
+    return load_yaml_params("./tests/test_params_v0.yaml")
 
 
 @pytest.fixture
 def model(params: dict) -> LymphModel:
     """Model fixture from parameters."""
-    return create_model_from_config(params)
+    return create_model(params)
 
 
 @pytest.fixture

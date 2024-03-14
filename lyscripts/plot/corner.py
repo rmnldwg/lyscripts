@@ -14,7 +14,7 @@ import corner
 import emcee
 
 from lyscripts.plot.utils import save_figure
-from lyscripts.utils import load_yaml_params, model_from_config
+from lyscripts.utils import create_model, load_yaml_params
 
 logger = logging.getLogger(__name__)
 
@@ -84,10 +84,7 @@ def main(args: argparse.Namespace):
     backend = emcee.backends.HDFBackend(args.model, read_only=True)
     logger.info(f"Opened model as emcee backend from {args.model}")
 
-    model = model_from_config(
-        graph_params=params["graph"],
-        model_params=params["model"],
-    )
+    model = create_model(params)
     labels = list(model.get_params(as_dict=True).keys())
 
     chain = backend.get_chain(flat=True)

@@ -1,0 +1,50 @@
+version: 1
+
+########################################################################################
+# This dictionary defines which LNLs are present in the
+# graph and how they are connected. In this case, the
+# primary tumors spreads to the LNLs II, III and IV.
+# Subsequently, level II spreads to III and III to IV.
+graph:
+  tumor:
+    T: [a, b, c]
+  lnl:
+    a: [b, c]
+    b: [c]
+    c: []
+
+########################################################################################
+# Below are some parameters necessary for the model setup:
+model:
+  class: Midline
+  kwargs:
+    is_symmetric:
+      tumor_spread: false
+      lnl_spread: true
+    use_mixing: true
+    use_central: false
+    use_midext_evo: true
+  distributions:                # marginalize over diagnose times. Keys are T-stages
+    early:
+      frozen: binomial
+      max_time: 10
+      kwargs: {p: 0.3}
+    late:
+      parametric: binomial
+      max_time: 10
+  modalities: [CT, FNA]         # List of modalities, defined further down
+
+########################################################################################
+# Under this key we define the specficity and sensitivity for a range
+# of diagnostic modalities. They are taken from literature and during
+# sampling, everything that's not commented our here will be used for
+# inference.
+modalities:
+  CT: [0.76, 0.81]
+  MRI: [0.63, 0.81]
+  PET: [0.86, 0.79]
+  FNA: [0.98, 0.80]
+  diagnostic_consensus: [0.86, 0.81]
+  pathology: [1.0, 1.0]
+  pCT: [0.86, 0.81]
+  max_llh: [1.0, 1.0]

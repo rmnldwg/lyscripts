@@ -24,9 +24,9 @@ from lyscripts.decorators import log_state
 from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
-    create_model_from_config,
+    create_model,
     flatten,
-    load_hdf5_samples,
+    load_model_samples,
     load_patient_data,
     load_yaml_params,
     report,
@@ -344,8 +344,8 @@ def main(args: argparse.Namespace):
     ```
     """
     params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
-    samples = load_hdf5_samples(args.model)
+    model = create_model(params)
+    samples = load_model_samples(args.model)
     data = load_patient_data(args.data)
 
     args.output.parent.mkdir(exist_ok=True)

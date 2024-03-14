@@ -13,23 +13,19 @@ objective decisions with respect to defining the *elective clinical target volum
 import argparse
 import logging
 import os
-import warnings
-from collections.abc import Callable
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Any
 
 import emcee
-import h5py
 import numpy as np
 import pandas as pd
 
+from lyscripts.decorators import log_state
 from lyscripts.utils import (
-    CustomProgress,
-    get_modalities_subset,
+    create_model,
+    initialize_backend,
+    load_patient_data,
     load_yaml_params,
-    model_from_config,
-    report,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,14 +53,26 @@ def _add_arguments(parser: argparse.ArgumentParser):
     and run the respective main function when chosen.
     """
     parser.add_argument(
-        "input", type=Path,
+        "--input", type=Path,
         help="Path to training data files"
     )
     parser.add_argument(
-        "output", type=Path,
+        "--output", type=Path,
         help="Path to the HDF5 file to store the results in"
     )
 
+    parser.add_argument(
+        "--walkers-per-dim", type=int, default=10,
+        help="Number of walkers per dimension",
+    )
+    parser.add_argument(
+        "--burnin", type=int, nargs="?",
+        help="Number of burnin steps. If not provided, sampler runs until convergence."
+    )
+    parser.add_argument(
+        "--nsteps", type=int, default=100,
+        help="Number of MCMC steps to run"
+    )
     parser.add_argument(
         "--params", default="./params.yaml", type=Path,
         help="Path to parameter file"
@@ -83,10 +91,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Perform thermodynamic integration"
     )
     parser.add_argument(
-        "--pools", type=int, required=False,
+        "--cores", type=int, nargs="?",
         help=(
-            "Number of parallel worker pools (CPU cores) to use. If not provided, it "
-            "will use all cores. If set to zero, multiprocessing will not be used."
+            "Number of parallel workers (CPU cores/threads) to use. If not provided, "
+            "it will use all cores. If set to zero, multiprocessing will not be used."
         )
     )
     parser.add_argument(
@@ -95,240 +103,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
     )
 
     parser.set_defaults(run_main=main)
-
-
-class DummyPool:
-    """
-    Dummy class returning `None` instead of a `Pool` instance when the user chose not
-    to use multiprocessing.
-    """
-    _processes = "no parallel"
-
-    def __enter__(self):
-        return None
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        pass
-
-
-class ConvenienceSampler(emcee.EnsembleSampler):
-    """Class that adds some useful defaults to the `emcee.EnsembleSampler`."""
-    def __init__(
-        self,
-        nwalkers,
-        ndim,
-        log_prob_fn,
-        pool=None,
-        backend=None,
-    ):
-        """Initialize sampler with sane defaults."""
-        moves = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
-        super().__init__(nwalkers, ndim, log_prob_fn, pool, moves, backend=backend)
-
-
-    def run_sampling(
-        self,
-        min_steps: int = 0,
-        max_steps: int = 10000,
-        thin_by: int = 1,
-        initial_state: emcee.State | np.ndarray | None = None,
-        check_interval: int = 100,
-        trust_threshold: float = 50.,
-        rel_acor_threshold: float = 0.05,
-        progress_desc: str | None = None,
-        **kwargs,
-    ) -> dict[str, Any]:
-        """Run a round of sampling with at least `min_steps`, at most `max_steps` and
-        only keep every `thin_by` step.
-
-        Every `check_interval` iterations, convergence is checked based on
-        three criteria:
-        - did it run for at least `min_steps`?
-        - has the acor time crossed the N / `trust_threshold`?
-        - did the acor time change less than `rel_acor_threshold`?
-
-        If a `progress_desc` is provided, progress will be displayed.
-
-        Returns dictionary containing the autocorrelation times obtained during the
-        run (along with the iteration number at which they were computed) and the
-        numpy array with the coordinates of the last draw.
-        """
-        if max_steps < min_steps:
-            warnings.warn(
-                "Sampling param min_steps is larger than max_steps. Swapping."
-            )
-            tmp = max_steps
-            max_steps = min_steps
-            min_steps = tmp
-
-        if initial_state is None:
-            initial_state = np.random.uniform(
-                low=0., high=1.,
-                size=(self.nwalkers, self.ndim)
-            )
-
-        iterations = []
-        acor_times = []
-        accept_rates = []
-        old_acor = np.inf
-        is_converged = False
-
-        samples_iterator = self.sample(
-            initial_state=initial_state,
-            iterations=max_steps,
-            thin_by=thin_by,
-            **kwargs
-        )
-        # wrap the iteration over samples in a rich tracker,
-        # if verbosity is desired
-        if progress_desc is not None:
-            report_progress = CustomProgress(console=report)
-            samples_iterator = report_progress.track(
-                sequence=samples_iterator,
-                total=max_steps,
-                description=progress_desc,
-            )
-            report_progress.start()
-
-        coords = None
-        for sample in samples_iterator:
-            # after `check_interval` number of samples...
-            coords = sample.coords
-            if self.iteration < min_steps or self.iteration % check_interval:
-                continue
-
-            # ...get the acceptance rate up to this point
-            accept_rates.append(100. * np.mean(self.acceptance_fraction))
-
-            # ...compute the autocorrelation time and store it in an array.
-            new_acor = self.get_autocorr_time(tol=0)
-            iterations.append(self.iteration)
-            acor_times.append(np.mean(new_acor))
-
-            logger.debug(
-                f"Acceptance rate at {self.iteration}: {accept_rates[-1]:.2f}%"
-            )
-            logger.debug(
-                f"Autocorrelation time at {self.iteration}: {acor_times[-1]:.2f}"
-            )
-
-            # check convergence
-            is_converged = self.iteration >= min_steps
-            is_converged &= np.all(new_acor * trust_threshold < self.iteration)
-            rel_acor_diff = np.abs(old_acor - new_acor) / new_acor
-            is_converged &= np.all(rel_acor_diff < rel_acor_threshold)
-
-            # if it has converged, stop
-            if is_converged:
-                break
-
-            old_acor = new_acor
-
-        iterations.append(self.iteration)
-        acor_times.append(np.mean(self.get_autocorr_time(tol=0)))
-        accept_rates.append(100. * np.mean(self.acceptance_fraction))
-        accept_rate_str = f"acceptance rate was {accept_rates[-1]:.2f}%"
-
-        if progress_desc is not None:
-            report_progress.stop()
-            if is_converged:
-                logging.info(f"{progress_desc} converged, {accept_rate_str}")
-            else:
-                logging.info(
-                    f"{progress_desc} finished: Max. steps reached, {accept_rate_str}"
-                )
-
-        return {
-            "iterations": iterations,
-            "acor_times": acor_times,
-            "accept_rates": accept_rates,
-            "final_state": coords,
-        }
-
-
-def run_mcmc_with_burnin(
-    nwalkers: int,
-    ndim: int,
-    log_prob_fn: Callable,
-    nsteps: int,
-    persistent_backend: emcee.backends.HDFBackend,
-    sampling_kwargs: dict | None = None,
-    burnin: int | None = None,
-    keep_burnin: bool = False,
-    thin_by: int = 1,
-    npools: int | None = None,
-    verbose: bool = True,
-) -> dict[str, Any]:
-    """
-    Draw samples from the `log_prob_fn` using the `ConvenienceSampler` (subclass of
-    `emcee.EnsembleSampler`).
-
-    This function first draws `burnin` samples (that are discarded if `keep_burnin`
-    is set to `False`) and afterwards it performs a second sampling round, starting
-    where the burnin left off, of length `nsteps` that will be stored in the
-    `persistent_backend`.
-
-    When `burnin` is not given, the burnin phase will still take place and it will
-    sample until convergence using convergence criteria defined via `sampling_kwargs`,
-    after which it will draw another `nsteps` samples.
-
-    Only every `thin_by` step will be made persistent.
-
-    If `verbose` is set to `True`, the progress will be displayed.
-
-    Returns a dictionary with some information about the burnin phase.
-    """
-    if sampling_kwargs is None:
-        sampling_kwargs = {}
-
-    if npools is None:
-        created_pool = Pool(os.cpu_count())
-    elif npools == 0:
-        created_pool = DummyPool()
-    elif 0 < npools:
-        created_pool = Pool(np.minimum(npools, os.cpu_count()))
-    else:
-        raise ValueError(
-            "Number of pools must be integer larger or equal to 0 (or `None`)"
-        )
-
-    with created_pool as pool:
-        # Burnin phase
-        if keep_burnin:
-            burnin_backend = persistent_backend
-        else:
-            burnin_backend = emcee.backends.Backend()
-
-        burnin_sampler = ConvenienceSampler(
-            nwalkers, ndim, log_prob_fn,
-            pool=pool, backend=burnin_backend,
-        )
-
-        if burnin is None:
-            burnin_result = burnin_sampler.run_sampling(
-                progress_desc=f"Burn-in ({created_pool._processes} cores)" if verbose else None,
-                **sampling_kwargs,
-            )
-        else:
-            burnin_result = burnin_sampler.run_sampling(
-                min_steps=burnin,
-                max_steps=burnin,
-                progress_desc=f"Burn-in ({created_pool._processes} cores)" if verbose else None,
-            )
-
-        sampler = ConvenienceSampler(
-            nwalkers, ndim, log_prob_fn,
-            pool=pool, backend=persistent_backend,
-        )
-        sampler.run_sampling(
-            min_steps=nsteps,
-            max_steps=nsteps,
-            thin_by=thin_by,
-            initial_state=burnin_result["final_state"],
-            progress_desc=f"Sampling ({created_pool._processes} cores)" if verbose else None,
-        )
-
-        return burnin_result
 
 
 MODEL = None
@@ -342,167 +116,88 @@ def log_prob_fn(theta: np.array) -> float:
     return INV_TEMP * llh, llh
 
 
-def callable_from_dict(mapping: dict[str, Any]) -> Callable:
-    """Create a callable from a dictionary."""
-    def _callable(key):
-        return mapping[key]
-    return _callable
+@log_state()
+def run_burnin(
+    sampler: emcee.EnsembleSampler,
+    burnin: int | None,
+    check_interval: int = 100,
+) -> list[float]:
+    """Run the burnin phase of the MCMC sampling."""
+    try:
+        state = sampler.backend.get_last_sample()
+        logger.info(f"Resuming after {sampler.iteration} iterations.")
+    except AttributeError:
+        state = np.random.uniform(size=(sampler.nwalkers, sampler.ndim))
+    acor_times = []
+
+    for _sample in sampler.sample(state, iterations=burnin):
+        if sampler.iteration % check_interval != 0:
+            continue
+
+        new_acor_time = sampler.get_autocorr_time(tol=0).mean()
+        old_acor_time = acor_times[-1] if len(acor_times) > 0 else np.inf
+        acor_times.append(new_acor_time)
+
+        is_converged = burnin is not None
+        is_converged &= new_acor_time * 100 < sampler.iteration
+        is_converged &= np.abs(new_acor_time - old_acor_time) / new_acor_time < 0.05
+
+        if is_converged:
+            logger.info(f"Converged after {sampler.iteration} iterations.")
+            break
+
+    return acor_times
+
+
+@log_state()
+def run_sampling(
+    sampler: emcee.EnsembleSampler,
+    nsteps: int,
+) -> None:
+    """Run the MCMC sampling phase."""
+    sampler.run_mcmc(sampler.backend.get_last_sample(), nsteps)
 
 
 def main(args: argparse.Namespace) -> None:
-    """
-    First, this program reads in the parameter YAML file and the CSV training data.
-    After that, it parses the loaded configuration and creates an instance of the model
-    that loads the training data.
+    """Main function to run the MCMC sampling."""
+    # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
+    os.environ["OMP_NUM_THREADS"] = "1"
 
-    From there - depending on the user input - it either performs thermodynamic
-    integration [^1] to compute the data's evidence given this particular model or it
-    draws directly from the posterior of the parameters given the data. In the latter
-    case it automatically samples until convergence. It uses the amazing
-    [`emcee`](https://github.com/dfm/emcee) library for the MCMC process.
-
-    The drawn samples are always stored in and HDF5 file and some progress about the
-    sampling procedures is stored as well (acceptance rates of samples, estimates
-    of the chains' autocorrelation times and the accuracy during the runs).
-
-    Th help via `lyscripts sample --help` shows this output:
-
-    ```
-    USAGE: lyscripts sample [-h] [--params PARAMS]
-                            [--modalities MODALITIES [MODALITIES ...]] [--plots PLOTS]
-                            [--ti] [--pools POOLS] [--seed SEED]
-                            input output
-
-    Learn the spread probabilities of the HMM for lymphatic tumor progression using
-    the preprocessed data as input and MCMC as sampling method.
-
-    This is the central script performing for our project on modelling lymphatic
-    spread in head & neck cancer. We use it for model comparison via the thermodynamic
-    integration functionality and use the sampled parameter estimates for risk
-    predictions. This risk estimate may in turn some day guide clinicians to make more
-    objective decisions with respect to defining the *elective clinical target volume*
-    (CTV-N) in radiotherapy.
-
-    POSITIONAL ARGUMENTS:
-      input                 Path to training data files
-      output                Path to the HDF5 file to store the results in
-
-    OPTIONAL ARGUMENTS:
-      -h, --help            show this help message and exit
-      --params PARAMS       Path to parameter file (default: ./params.yaml)
-      --modalities MODALITIES [MODALITIES ...]
-                            List of modalities for inference. Must be defined in
-                            `params.yaml` (default: ['max_llh'])
-      --plots PLOTS         Directory to store plot of acor times (default: ./plots)
-      --ti                  Perform thermodynamic integration (default: False)
-      --pools POOLS         Number of parallel worker pools (CPU cores) to use. If not
-                            provided, it will use all cores. If set to zero,
-                            multiprocessing will not be used. (default: None)
-      --seed SEED           Seed value to reproduce the same sampling round. (default:
-                            42)
-    ```
-
-    [^1]: https://doi.org/10.1007/s11571-021-09696-9
-    """
     params = load_yaml_params(args.params)
+    inference_data = load_patient_data(args.input)
 
-    inference_data = pd.read_csv(args.input, header=[0,1,2])
-    logger.info(f"Read in training data from {args.input}")
+    # ugly, but necessary for pickling
+    global MODEL
+    MODEL = create_model(params)
 
-    global MODEL  # ugly, but necessary for pickling
-    MODEL = model_from_config(
-        graph_params=params["graph"],
-        model_params=params["model"],
-        modalities_params=get_modalities_subset(
-            defined_modalities=params["modalities"],
-            selection=args.modalities,
-        ),
-    )
+    mapping = params["model"].get("mapping", None)
+    MODEL.load_patient_data(inference_data, mapping=mapping)
 
-    try:
-        t_stage_mapping = params["model"]["t_stage_mapping"]
-    except KeyError:
-        logger.warning("No T-stage mapping provided. Using default early/late mapping.")
-        t_stage_mapping = {0: "early", 1: "early", 2: "early", 3: "late", 4: "late"}
+    sampling_config = params.get("sampling", {})
+    ndim = MODEL.get_num_dims()
+    nwalkers = ndim * sampling_config.get("walkers_per_dim", args.walkers_per_dim)
+    thin_by = sampling_config.get("thin_by", 1)
 
-    MODEL.load_patient_data(inference_data, mapping=t_stage_mapping)
-    ndim = len(MODEL.get_params())
-    nwalkers = ndim * params["sampling"]["walkers_per_dim"]
-    thin_by = params["sampling"]["thin_by"]
-    logger.info(
-        f"Set up {type(MODEL)} model with {ndim} parameters and loaded "
-        f"{len(inference_data)} patients"
-    )
-
-    # Not sure this is working. emcee sadly does not support numpy's new
-    # random number generator yet.
+    # emcee does not support numpy's new random number generator yet.
     np.random.seed(args.seed)
-    if args.ti:
-        global INV_TEMP
+    hdf5_backend = initialize_backend(args.output, nwalkers, ndim)
+    moves_mix = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
 
-        # make sure path to output file exists
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-
-        # set up sampling params
-        temp_schedule = params["sampling"]["temp_schedule"]
-        nsteps = params["sampling"]["nsteps"]
-        burnin = params["sampling"]["burnin"]
-        logger.info("Prepared thermodynamic integration.")
-
-        # record some information about each burnin phase
-        x_axis = temp_schedule.copy()
-        plots = {
-            "acor_times": [],
-            "accept_rates": [],
-        }
-        for i,inv_temp in enumerate(temp_schedule):
-            INV_TEMP = inv_temp
-            logger.info(f"TI round {i+1}/{len(temp_schedule)} with β = {INV_TEMP}")
-
-            # set up backend
-            hdf5_backend = emcee.backends.HDFBackend(args.output, name=f"ti/{i+1:0>2d}")
-
-            burnin_info = run_mcmc_with_burnin(
-                nwalkers, ndim, log_prob_fn, nsteps,
-                persistent_backend=hdf5_backend,
-                burnin=burnin,
-                keep_burnin=False,
-                thin_by=thin_by,
-                verbose=True,
-                npools=args.pools,
-            )
-            plots["acor_times"].append(burnin_info["acor_times"][-1])
-            plots["accept_rates"].append(burnin_info["accept_rates"][-1])
-
-        # copy last sampling round over to a group in the HDF5 file called "mcmc"
-        # because that is what other scripts expect to see, e.g. for plotting risks
-        h5_file = h5py.File(args.output, "r+")
-        h5_file.copy(f"ti/{len(temp_schedule):0>2d}", h5_file, name="mcmc")
-        logger.info("Finished thermodynamic integration.")
-
-    else:
-        # make sure path to output file exists
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-
-        # prepare backend
-        hdf5_backend = emcee.backends.HDFBackend(args.output, name="mcmc")
-
-        logger.info(f"Prepared sampling params & backend at {args.output}")
-
-        burnin_info = run_mcmc_with_burnin(
+    with Pool(args.cores) as pool:
+        sampler = emcee.EnsembleSampler(
             nwalkers, ndim, log_prob_fn,
-            nsteps=params["sampling"]["nsteps"],
-            persistent_backend=hdf5_backend,
-            sampling_kwargs=params["sampling"]["kwargs"],
-            thin_by=thin_by,
-            verbose=True,
-            npools=args.pools,
+            moves=moves_mix,
+            backend=hdf5_backend,
+            pool=pool,
         )
-        x_axis = np.array(burnin_info["iterations"])
-        plots = {
-            "acor_times": burnin_info["acor_times"],
-            "accept_rates": burnin_info["accept_rates"]
-        }
+        acor_times = run_burnin(sampler, burnin=args.burnin)
+        run_sampling(sampler, nsteps=args.nsteps)
+
+    x_axis = np.arange(sampler.iteration)
+    plots = {
+        "acor_times": acor_times,
+        "accept_rates": sampler.acceptance_fraction,
+    }
 
     args.plots.mkdir(parents=True, exist_ok=True)
 

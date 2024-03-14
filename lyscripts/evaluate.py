@@ -15,11 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import trapezoid
 
-from lyscripts.utils import (
-    create_model_from_config,
-    load_patient_data,
-    load_yaml_params,
-)
+from lyscripts.utils import create_model, load_patient_data, load_yaml_params
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +184,7 @@ def main(args: argparse.Namespace):
     metrics = {}
 
     params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
+    model = create_model(params)
     ndim = len(model.get_params())
     data = load_patient_data(args.data)
     h5_file = h5py.File(args.model, mode="r")

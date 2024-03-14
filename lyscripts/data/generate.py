@@ -10,7 +10,7 @@ import emcee
 import numpy as np
 
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.utils import create_model_from_config, load_yaml_params
+from lyscripts.utils import create_model, load_yaml_params
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ def main(args: argparse.Namespace):
     ```
     """
     params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
+    model = create_model(params)
     ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
 
     if args.set_theta is not None:

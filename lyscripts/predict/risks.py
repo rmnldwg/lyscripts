@@ -21,8 +21,8 @@ from lyscripts.decorators import log_state
 from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
-    create_model_from_config,
-    load_hdf5_samples,
+    create_model,
+    load_model_samples,
     load_yaml_params,
     report,
 )
@@ -165,8 +165,8 @@ def main(args: argparse.Namespace):
     ```
     """
     params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
-    samples = load_hdf5_samples(args.model)
+    model = create_model(params)
+    samples = load_model_samples(args.model)
 
     args.output.parent.mkdir(exist_ok=True)
     num_risks = len(params["risks"])
