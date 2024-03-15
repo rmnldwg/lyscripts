@@ -25,10 +25,10 @@ from lyscripts.data.utils import save_table_to_csv
 from lyscripts.decorators import log_state
 from lyscripts.utils import (
     CustomProgress,
+    console,
     get_modalities_subset,
     load_patient_data,
     load_yaml_params,
-    report,
 )
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
@@ -358,7 +358,7 @@ def main(args: argparse.Namespace):
         )
     )
 
-    with CustomProgress(console=report) as report_progress:
+    with CustomProgress(console=console) as report_progress:
         enhance_task = report_progress.add_task(
             description=f"Compute {args.consensus} consensus of modalities...",
             total=2 * len(input_table),

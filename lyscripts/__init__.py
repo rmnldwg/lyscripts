@@ -5,14 +5,12 @@ import argparse
 import logging
 import re
 
-from rich.containers import Lines
-from rich.logging import RichHandler
-from rich.text import Text
+import rich
 from rich_argparse import RichHelpFormatter
 
 from lyscripts import app, data, evaluate, plot, predict, sample, temp_schedule
 from lyscripts._version import version
-from lyscripts.utils import CustomRichHandler, report
+from lyscripts.utils import CustomRichHandler, console
 
 __version__ = version
 __description__ = "Package containing scripts used in lynference pipelines"
@@ -35,13 +33,18 @@ class RichDefaultHelpFormatter(
     Empty class that combines the functionality of displaying the default value with
     the beauty of the `rich` formatter
     """
-    def _rich_fill_text(self, text: Text, width: int, indent: Text) -> Text:
+    def _rich_fill_text(
+        self,
+        text: rich.text.Text,
+        width: int,
+        indent: rich.text.Text,
+    ) -> rich.text.Text:
         text_cls = type(text)
         if text[0] == text_cls("\n"):
             text = text[1:]
 
         paragraphs = text.split(separator="\n\n")
-        text_lines = Lines()
+        text_lines = rich.containers.Lines()
         for par in paragraphs:
             no_newline_par = text_cls(" ").join(line for line in par.split())
             wrapped_par = no_newline_par.wrap(self.console, width)
@@ -72,9 +75,9 @@ RichDefaultHelpFormatter.highlights.append(
 def exit_cli(args: argparse.Namespace):
     """Exit the cmd line tool"""
     if args.version:
-        report.print("lyscripts ", __version__)
+        logger.info(f"lyscripts {__version__}")
     else:
-        report.print("No command chosen. Exiting...")
+        logger.warning("No command chosen. Exiting...")
 
 
 def main():
@@ -112,9 +115,10 @@ def main():
     args = parser.parse_args()
 
     handler = CustomRichHandler(
-        console=report,
+        console=console,
         show_time=False,
-        markup=True,
+        markup=False,
+        highlighter=rich.highlighter.NullHighlighter(),
     )
     handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(handler)

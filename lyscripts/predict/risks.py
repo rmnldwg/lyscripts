@@ -21,10 +21,10 @@ from lyscripts.decorators import log_state
 from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
+    console,
     create_model,
     load_model_samples,
     load_yaml_params,
-    report,
 )
 
 logger = logging.getLogger(__name__)
@@ -181,7 +181,7 @@ def main(args: argparse.Namespace):
                 risks_gen,
                 total=len(samples[::args.thin]),
                 description=f"Compute risks for scenario {i+1}/{num_risks}...",
-                console=report,
+                console=console,
                 transient=True,
             )
             risks_arr = np.array(list(r for r in risks_progress))

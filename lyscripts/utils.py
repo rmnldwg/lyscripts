@@ -7,7 +7,6 @@ It also contains helpers for reporting the script's progress via a slightly cust
 occuring issues to the right place.
 """
 import warnings
-from collections.abc import Callable
 from logging import LogRecord
 from pathlib import Path
 from typing import Any
@@ -20,12 +19,7 @@ from emcee.backends import HDFBackend
 from lymph import diagnose_times, models, types
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.progress import (
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    TimeElapsedColumn,
-)
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 from scipy.special import factorial
 
 from lyscripts.decorators import (
@@ -44,7 +38,13 @@ except ImportError:
         return None
 
 
-LymphModel = models.Unilateral | models.Bilateral # | MidlineBilateral
+CROSS = "[bold red]✗[/bold red]"
+CIRCL = "[bold blue]∘[/bold blue]"
+WARN = "[bold yellow]Δ[/bold yellow]"
+CHECK = "[bold green]✓[/bold green]"
+
+LymphModel = models.Unilateral | models.Bilateral | models.Midline
+console = Console()
 
 
 class LyScriptsWarning(Warning):
@@ -62,99 +62,15 @@ class LyScriptsWarning(Warning):
         super().__init__(*args)
 
 
-CROSS = "[bold red]✗[/bold red]"
-CIRCL = "[bold blue]∘[/bold blue]"
-WARN = "[bold yellow]Δ[/bold yellow]"
-CHECK = "[bold green]✓[/bold green]"
-
-
 def is_streamlit_running() -> bool:
     """Checks if code is running inside a `streamlit` app."""
     return get_script_run_ctx() is not None
 
 
-def redirect_to_streamlit(func: Callable) -> Callable:
-    """
-    If this method detects that it is called from within a `streamlit`
-    application, the output is redirected to the appropriate `streamlit` function.
-    """
-    func_name = func.__name__
-
-    def inner(self, *objects, **kwargs) -> Any:
-        """Wrapper function."""
-        if is_streamlit_running():
-            return getattr(streamlit, func_name)(" ".join(objects))
-
-        return func(self, *objects, **kwargs)
-
-    return inner
-
-
-def inject_lvl_and_symbol(objects, level = "INFO", symbol = None, width = 8):
-    """Nicely format the `objects` to be printed with a `level` and `symbol`."""
-    prefix = "[blue]" + level.ljust(width) + "[/blue]"
-    if symbol is not None:
-        objects = [prefix, symbol, *objects]
-    else:
-        objects = [prefix, *objects]
-    return objects
-
-
-class LyScriptsReport(Console):
-    """
-    Small extension to the `Console` class of the rich package.
-    """
-    @redirect_to_streamlit
-    def status(self, *objects, **kwargs):
-        """Re-implement `status` method to allow decoration."""
-        return super().status(*objects, **kwargs)
-
-    @redirect_to_streamlit
-    def success(self, *objects, **kwargs) -> None:
-        """Prefix a bold green check mark to any output."""
-        objects = inject_lvl_and_symbol(objects, symbol=CHECK)
-        return super().print(*objects, **kwargs)
-
-    @redirect_to_streamlit
-    def info(self, *objects, **kwargs) -> None:
-        """Prefix a bold yellow circle to any output."""
-        objects = inject_lvl_and_symbol(objects, symbol=CIRCL)
-        return super().print(*objects, **kwargs)
-
-    @redirect_to_streamlit
-    def add(self, *objects, **kwargs) -> None:
-        """Prefix a bold yellow circle to any output."""
-        objects = inject_lvl_and_symbol(objects, symbol="+")
-        return super().print(*objects, **kwargs)
-
-    @redirect_to_streamlit
-    def warning(self, *objects, **kwargs) -> None:
-        """Prefix a bold yellow triangle to any output."""
-        objects = inject_lvl_and_symbol(objects, symbol=WARN)
-        return super().print(*objects, **kwargs)
-
-    @redirect_to_streamlit
-    def error(self, *objects, **kwargs) -> None:
-        """Prefix a bold red cross to any output."""
-        objects = inject_lvl_and_symbol(objects, symbol=CROSS)
-        return super().print(*objects, **kwargs)
-
-    def exception(self, exception, **kwargs) -> None:
-        """Display a traceback either via `streamlit` or in the console."""
-        if is_streamlit_running():
-            return streamlit.exception(exception)
-        else:
-            return super().print_exception(extra_lines=4, show_locals=True, **kwargs)
-
-report = LyScriptsReport()
-
-
 class CustomProgress(Progress):
     """Small wrapper around rich's `Progress` initializing my custom columns."""
     def __init__( self, **kwargs: dict):
-        prefix = " ".join(inject_lvl_and_symbol([]))
         columns = [
-            TextColumn(prefix),
             SpinnerColumn(finished_text=CHECK),
             *Progress.get_default_columns(),
             TimeElapsedColumn(),
@@ -224,7 +140,7 @@ def add_tstage_marg(
             model.set_distribution(stage, binom_pmf)
 
 
-@deprecated
+@deprecated(reason="Use new config file version.")
 def _create_model_from_v0(params: dict[str, Any]) -> LymphModel:
     """Create a model instance as defined by some YAML params."""
     if "graph" in params:
@@ -298,7 +214,7 @@ def create_model(config: dict[str, Any], config_version: int = 0) -> types.Model
 
     graph_dict = graph_from_config(graph_config)
     model_cls = getattr(models, model_config["class"])
-    model_kwargs = model_config["kwargs"]
+    model_kwargs = model_config.get("kwargs", {})
     model = model_cls(graph_dict, **model_kwargs)
 
     if (defined_modalities := config.get("modalities")) is not None:

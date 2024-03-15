@@ -24,12 +24,12 @@ from lyscripts.decorators import log_state
 from lyscripts.predict.utils import complete_pattern
 from lyscripts.utils import (
     LymphModel,
+    console,
     create_model,
     flatten,
     load_model_samples,
     load_patient_data,
     load_yaml_params,
-    report,
 )
 
 logger = logging.getLogger(__name__)
@@ -362,7 +362,7 @@ def main(args: argparse.Namespace):
                 prevs_gen,
                 total=len(samples[::args.thin]),
                 description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
-                console=report,
+                console=console,
                 transient=True,
             )
             prevs_arr = np.array(list(p for p in prevs_progress))
