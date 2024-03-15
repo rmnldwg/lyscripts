@@ -1,0 +1,27 @@
+version: 1
+
+# graph
+graph:
+  tumor:
+    T: [II, III]
+  lnl:
+    II: [III]
+    III: []
+
+# model setup
+model:
+  class: Unilateral
+  distributions:                # marginalize over diagnose times. Keys are T-stages
+    early:
+      frozen: binomial
+      max_time: 10
+      kwargs: {p: 0.3}
+    late:
+      parametric: binomial
+      max_time: 10
+  modalities: [CT, FNA]         # List of modalities, defined further down
+
+# definition of sensitivities and specificities
+modalities:
+  CT: [0.76, 0.81]
+  FNA: [0.98, 0.80]
