@@ -179,7 +179,7 @@ def run_burnin(
             warnings.simplefilter("ignore", RuntimeWarning)
             sampler.backend.save_step(state, sampler.acceptance_fraction)
 
-        if sampler.iteration % check_interval != 0:
+        if sampler.iteration % check_interval != 0 or sampler.iteration == 0:
             continue
 
         sampler.backend.grow(check_interval, None)
@@ -196,12 +196,10 @@ def run_burnin(
         is_converged &= np.abs(new_acor_time - old_acor_time) / new_acor_time < rel_thresh
 
         if is_converged and burnin is None:
+            logger.info(f"Converged after {sampler.iteration} steps.")
             break
 
-    if is_converged and burnin is None:
-        logger.info(f"Converged. Acceptance fraction: {accept_fracs[-1]:.2%}")
-    else:
-        logger.info(f"Acceptance fraction: {accept_fracs[-1]:.2%}")
+    logger.info(f"Acceptance fraction: {accept_fracs[-1]:.2%}")
     return BurninHistory(steps, acor_times, accept_fracs, max_log_probs)
 
 
