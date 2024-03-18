@@ -213,7 +213,10 @@ def create_model(config: dict[str, Any], config_version: int = 0) -> types.Model
         raise LyScriptsWarning("No model definition found in YAML file", level="error")
 
     graph_dict = graph_from_config(graph_config)
-    model_cls = getattr(models, model_config["class"])
+    model_cls_name, _, cls_meth_name = model_config["class"].partition(".")
+    model_cls = getattr(models, model_cls_name)
+    if cls_meth_name is not None:
+        model_cls = getattr(model_cls, cls_meth_name)
     model_kwargs = model_config.get("kwargs", {})
     model = model_cls(graph_dict, **model_kwargs)
 
