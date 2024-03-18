@@ -287,7 +287,8 @@ def main(args: argparse.Namespace) -> None:
     MODEL = create_model(params)
 
     mapping = params["model"].get("mapping", None)
-    MODEL.load_patient_data(inference_data, mapping=mapping)
+    side = params["model"].get("side", "ipsi")
+    MODEL.load_patient_data(inference_data, side=side, mapping=mapping)
 
     ndim = MODEL.get_num_dims()
     nwalkers = ndim * args.walkers_per_dim
