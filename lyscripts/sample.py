@@ -25,7 +25,7 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
-from rich.progress import Progress, track
+from rich.progress import Progress, TimeElapsedColumn, track
 
 from lyscripts.utils import (
     create_model,
@@ -169,7 +169,10 @@ def run_burnin(
     history = BurninHistory([], [], [], [])
     num_accepted = 0
 
-    with Progress() as progress:
+    with Progress(
+        *Progress.get_default_columns(),
+        TimeElapsedColumn(),
+    ) as progress:
         task = progress.add_task(
             description="[blue]INFO     [/blue]Burn-in phase ",
             total=burnin,
