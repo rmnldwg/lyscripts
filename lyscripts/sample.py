@@ -25,7 +25,7 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
-from rich.progress import Progress
+from rich.progress import Progress, track
 
 from lyscripts.utils import (
     create_model,
@@ -220,7 +220,7 @@ def run_sampling(
     state = get_starting_state(sampler)
     sampler.backend.reset(sampler.nwalkers, sampler.ndim)
 
-    for _sample in progress.track(
+    for _sample in track(
         sequence=sampler.sample(state, iterations=nsteps * thin, thin=thin, store=True),
         description="[blue]INFO     [/blue]Sampling phase",
         total=nsteps * thin,
