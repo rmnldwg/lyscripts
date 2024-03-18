@@ -196,13 +196,15 @@ def run_burnin(
             history.accept_fracs.append(new_accept_frac)
             history.max_log_probs.append(np.max(state.log_prob))
 
-            is_converged = new_acor_time * trust_fac < sampler.iteration
+            is_converged = burnin is None
+            is_converged &= new_acor_time * trust_fac < sampler.iteration
             is_converged &= np.abs(new_acor_time - old_acor_time) / new_acor_time < rel_thresh
 
-            if is_converged and burnin is None:
-                logger.info(f"Converged after {sampler.iteration} steps.")
+            if is_converged:
                 break
 
+    if is_converged:
+        logger.info(f"Converged after {sampler.iteration} steps.")
     logger.info(f"Acceptance fraction: {sampler.acceptance_fraction.mean():.2%}")
     return history
 
