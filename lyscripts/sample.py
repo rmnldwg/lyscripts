@@ -25,6 +25,7 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
+from lymph import models
 from rich.progress import Progress, TimeElapsedColumn, track
 
 from lyscripts.utils import (
@@ -290,8 +291,11 @@ def main(args: argparse.Namespace) -> None:
     MODEL = create_model(params)
 
     mapping = params["model"].get("mapping", None)
-    side = params["model"].get("side", "ipsi")
-    MODEL.load_patient_data(inference_data, side=side, mapping=mapping)
+    if isinstance(MODEL, models.Unilateral):
+        side = params["model"].get("side", "ipsi")
+        MODEL.load_patient_data(inference_data, side=side, mapping=mapping)
+    else:
+        MODEL.load_patient_data(inference_data, mapping=mapping)
 
     ndim = MODEL.get_num_dims()
     nwalkers = ndim * args.walkers_per_dim
