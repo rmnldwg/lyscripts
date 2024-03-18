@@ -13,7 +13,6 @@ objective decisions with respect to defining the *elective clinical target volum
 import argparse
 import logging
 import os
-import warnings
 from collections import namedtuple
 
 try:
@@ -26,7 +25,7 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
-from rich import progress
+from rich.progress import Progress
 
 from lyscripts.utils import (
     create_model,
@@ -167,40 +166,41 @@ def run_burnin(
     in a `BurninHistory` namedtuple. This may be used for plotting and diagnostics.
     """
     state = get_starting_state(sampler)
-    sampler.backend.grow(check_interval, None)
-    steps, acor_times, accept_fracs, max_log_probs = [], [], [], []
+    history = BurninHistory([], [], [], [])
+    num_accepted = 0
 
-    for state in progress.track(
-        sequence=sampler.sample(state, iterations=burnin, store=False),
-        description="[blue]INFO     [/blue]Burn-in phase ",
-        total=burnin,
-    ):
-        with warnings.catch_warnings():     # divide by zero expected on first iteration
-            warnings.simplefilter("ignore", RuntimeWarning)
-            sampler.backend.save_step(state, sampler.acceptance_fraction)
+    with Progress() as progress:
+        task = progress.add_task(
+            description="[blue]INFO     [/blue]Burn-in phase ",
+            total=burnin,
+        )
+        while sampler.iteration < (burnin or np.inf):
+            for state in sampler.sample(state, iterations=check_interval):
+                progress.update(task, advance=1)
 
-        if sampler.iteration % check_interval != 0 or sampler.iteration == 0:
-            continue
+            new_acor_time = sampler.get_autocorr_time(tol=0).mean()
+            old_acor_time = history.acor_times[-1] if len(history.acor_times) > 0 else np.inf
 
-        sampler.backend.grow(check_interval, None)
+            new_accept_frac = (
+                (np.sum(sampler.backend.accepted) - num_accepted)
+                / (sampler.nwalkers * check_interval)
+            )
+            num_accepted = np.sum(sampler.backend.accepted)
 
-        new_acor_time = sampler.get_autocorr_time(tol=0).mean()
-        old_acor_time = acor_times[-1] if len(acor_times) > 0 else np.inf
+            history.steps.append(sampler.iteration)
+            history.acor_times.append(new_acor_time)
+            history.accept_fracs.append(new_accept_frac)
+            history.max_log_probs.append(np.max(state.log_prob))
 
-        steps.append(sampler.iteration)
-        acor_times.append(new_acor_time)
-        accept_fracs.append(sampler.acceptance_fraction.mean())
-        max_log_probs.append(np.max(state.log_prob))
+            is_converged = new_acor_time * trust_fac < sampler.iteration
+            is_converged &= np.abs(new_acor_time - old_acor_time) / new_acor_time < rel_thresh
 
-        is_converged = new_acor_time * trust_fac < sampler.iteration
-        is_converged &= np.abs(new_acor_time - old_acor_time) / new_acor_time < rel_thresh
+            if is_converged and burnin is None:
+                logger.info(f"Converged after {sampler.iteration} steps.")
+                break
 
-        if is_converged and burnin is None:
-            logger.info(f"Converged after {sampler.iteration} steps.")
-            break
-
-    logger.info(f"Acceptance fraction: {accept_fracs[-1]:.2%}")
-    return BurninHistory(steps, acor_times, accept_fracs, max_log_probs)
+    logger.info(f"Acceptance fraction: {sampler.acceptance_fraction.mean():.2%}")
+    return history
 
 
 def run_sampling(
