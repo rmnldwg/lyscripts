@@ -42,9 +42,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -55,9 +53,9 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
+    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
+
+    This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
         "-i", "--input", type=Path, required=True,
@@ -144,6 +142,7 @@ BurninHistory = namedtuple(
     typename="BurninHistory",
     field_names=["steps", "acor_times", "accept_fracs", "max_log_probs"],
 )
+"""Namedtuple to store the burnin history."""
 
 
 def run_burnin(
@@ -155,7 +154,7 @@ def run_burnin(
 ) -> BurninHistory:
     """Run the burnin phase of the MCMC sampling.
 
-    This will run the sampler for `burnin` steps or (if `burnin` is `None`) until
+    This will run the sampler for ``burnin`` steps or (if ``burnin`` is `None`) until
     convergence is reached. The convergence criterion is based on the autocorrelation
     time of the chain, which is computed every `check_interval` steps. The chain is
     considered to have converged if the autocorrelation time is smaller than
@@ -164,7 +163,8 @@ def run_burnin(
 
     The samples of the burnin phase will be stored, such that one can resume a
     cancelled run. Also, metrics collected during the burnin phase will be returned
-    in a `BurninHistory` namedtuple. This may be used for plotting and diagnostics.
+    in a :py:obj:`.BurninHistory` namedtuple. This may be used for plotting and
+    diagnostics.
     """
     state = get_starting_state(sampler)
     history = BurninHistory([], [], [], [])
@@ -235,53 +235,7 @@ def run_sampling(
 
 
 def main(args: argparse.Namespace) -> None:
-    """Main function to run the MCMC sampling.
-
-    Running `lyscripts sample --help` will show the following help message:
-    ```
-    Usage: lyscripts sample [-h] -i INPUT -o OUTPUT [--history [HISTORY]]
-                            [-w WALKERS_PER_DIM] [-b [BURNIN]]
-                            [--check-interval CHECK_INTERVAL] [--trust-fac TRUST_FAC]
-                            [--rel-thresh REL_THRESH] [-n NSTEPS] [-t THIN]
-                            [-p PARAMS] [-c [CORES]] [-s SEED]
-
-    Learn the spread probabilities of the HMM for lymphatic tumor progression using
-    the preprocessed data as input and MCMC as sampling method.
-
-    This is the central script performing for our project on modelling lymphatic
-    spread in head & neck cancer. We use it for model comparison via the thermodynamic
-    integration functionality and use the sampled parameter estimates for risk
-    predictions. This risk estimate may in turn some day guide clinicians to make more
-    objective decisions with respect to defining the *elective clinical target volume*
-    (CTV-N) in radiotherapy.
-
-    Options:
-      -h, --help            show this help message and exit
-      -i, --input INPUT     Path to training data files (default: None)
-      -o, --output OUTPUT   Path to the HDF5 file to store the results in (default: None)
-      --history [HISTORY]   Path to store the burnin history in (as CSV file).
-                            (default: None)
-      -w, --walkers-per-dim WALKERS_PER_DIM
-                            Number of walkers per dimension (default: 10)
-      -b, --burnin [BURNIN]
-                            Number of burnin steps. If not provided, sampler runs
-                            until convergence. (default: None)
-      --check-interval CHECK_INTERVAL
-                            Check convergence every `check_interval` steps. (default: 100)
-      --trust-fac TRUST_FAC
-                            Factor to trust the autocorrelation time for convergence.
-                            (default: 50.0)
-      --rel-thresh REL_THRESH
-                            Relative threshold for convergence. (default: 0.05)
-      -n, --nsteps NSTEPS   Number of MCMC samples to draw, irrespective of thinning.
-                            (default: 100)
-      -t, --thin THIN       Thinning factor for the MCMC chain. (default: 10)
-      -p, --params PARAMS   Path to parameter file. (default: ./params.yaml)
-      -c, --cores [CORES]   Number of parallel workers (CPU cores/threads) to use. If
-                            not provided, it will use all cores. If set to zero,
-                            multiprocessing will not be used. (default: None)
-      -s, --seed SEED       Seed value to reproduce the same sampling round. (default: 42)
-    ```"""
+    """Main function to run the MCMC sampling."""
     # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
     os.environ["OMP_NUM_THREADS"] = "1"
 

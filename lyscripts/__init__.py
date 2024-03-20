@@ -1,5 +1,6 @@
 """
-.. include:: ../README.md
+This is the main entry point for the `lyscripts` package. It contains the `main`
+function that is used to start the command line interface (CLI) for the package.
 """
 import argparse
 import logging
@@ -29,9 +30,9 @@ class RichDefaultHelpFormatter(
     RichHelpFormatter,
     argparse.ArgumentDefaultsHelpFormatter,
 ):
-    """
-    Empty class that combines the functionality of displaying the default value with
-    the beauty of the `rich` formatter
+    """Combine formatter that shows defaults with `rich`_ formatting.
+
+    .. _rich: https://rich.readthedocs.io/en/stable/introduction.html
     """
     def _rich_fill_text(
         self,
@@ -81,10 +82,7 @@ def exit_cli(args: argparse.Namespace):
 
 
 def main():
-    """
-    Utility for performing common tasks w.r.t. the inference and prediction tasks one
-    can use the `lymph` package for.
-    """
+    """Execute the main program."""
     parser = argparse.ArgumentParser(
         prog="lyscripts",
         description=re.sub(r"\s+", " ", main.__doc__)[1:],

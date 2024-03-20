@@ -3,18 +3,19 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to lyscripts's documentation!
-=====================================
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-
-Readme
-======
 
 .. mdinclude:: ../../README.md
+    :end-line: 32
+
+
+Documentation
+=============
+
+.. toctree::
+    :maxdepth: 3
+    :caption: Content
+
+    top-level
 
 
 Indices and tables

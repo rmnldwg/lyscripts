@@ -21,6 +21,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
+    'sphinx.ext.viewcode',
     'sphinxcontrib.programoutput',
     'm2r',
 ]
