@@ -382,10 +382,7 @@ def load_model_samples(
     discard: int | None = None,
     thin: int | None = None,
 ) -> np.ndarray:
-    """
-    Load samples produced by an MCMC sampling process that are stored at
-    `file_path` in an HDF5 format.
-    """
+    """Load MCMC samples stored in an HDF5 file at `file_path` under a key `name`."""
     backend = HDFBackend(file_path, name=name, read_only=True)
     return backend.get_chain(flat=flat, dicard=discard, thin=thin)
 

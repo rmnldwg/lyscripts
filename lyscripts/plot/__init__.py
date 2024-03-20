@@ -13,7 +13,7 @@ integration for different models.
 import argparse
 from pathlib import Path
 
-from . import corner, histograms, thermo_int
+from lyscripts.plot import corner, histograms, thermo_int
 
 
 def _add_parser(

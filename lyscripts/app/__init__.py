@@ -4,7 +4,7 @@ Module containing scripts to run different `streamlit` applications.
 import argparse
 from pathlib import Path
 
-from . import prevalence
+from lyscripts.app import prevalence
 
 
 def _add_parser(

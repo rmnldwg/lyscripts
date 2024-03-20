@@ -12,7 +12,7 @@ of involvement given any particular diagnosis.
 import argparse
 from pathlib import Path
 
-from . import prevalences, risks
+from lyscripts.predict import precompute, prevalences, risks
 
 
 def _add_parser(
@@ -31,3 +31,4 @@ def _add_parser(
     subparsers = parser.add_subparsers()
     prevalences._add_parser(subparsers, help_formatter=parser.formatter_class)
     risks._add_parser(subparsers, help_formatter=parser.formatter_class)
+    precompute._add_parser(subparsers, help_formatter=parser.formatter_class)
