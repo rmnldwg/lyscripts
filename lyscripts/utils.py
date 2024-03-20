@@ -379,12 +379,12 @@ def load_model_samples(
     file_path: Path,
     name: str = "mcmc",
     flat: bool = True,
-    discard: int | None = None,
-    thin: int | None = None,
+    discard: int = 0,
+    thin: int = 1,
 ) -> np.ndarray:
     """Load MCMC samples stored in an HDF5 file at `file_path` under a key `name`."""
     backend = HDFBackend(file_path, name=name, read_only=True)
-    return backend.get_chain(flat=flat, dicard=discard, thin=thin)
+    return backend.get_chain(flat=flat, discard=discard, thin=thin)
 
 
 @log_state()
