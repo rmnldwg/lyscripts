@@ -32,7 +32,7 @@ dependencies = [
     "rich",
     "rich-argparse",
     "pyyaml",
-    "lymph-model >= 1, < 2",
+    "lymph-model >= 1.1, < 2",
     "deprecated < 2",
 ]
 dynamic = ["version"]
@@ -49,7 +49,11 @@ dev = [
     "pylint",
 ]
 docs = [
-    "pdoc",
+    "sphinx",
+    "sphinx-book-theme",
+    "sphinx-autodoc-typehints",
+    "sphinxcontrib-programoutput",
+    "m2r",
 ]
 tests = [
     "pytest",
