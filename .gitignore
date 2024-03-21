@@ -72,9 +72,6 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# documentation
-/docs
-
 # PyBuilder
 target/
 

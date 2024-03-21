@@ -30,9 +30,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -43,10 +41,7 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
-    """
+    """Add arguments to the parser."""
     parser.add_argument(
         "inputs", type=Path, nargs="+",
         help="Paths to the CSV files containing the stored TI runs"
@@ -83,41 +78,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def main(args: argparse.Namespace):
-    """
-    Load the CSV files where the sampling processes stored the accuracies during
-    the thermodynamic integration [^1] processes and plot them against the inverse
-    temparature to get a visual idea of how the evidence developed.
-
-    The function's help page shows this:
-
-    ```
-    USAGE: lyscripts plot thermo_int [-h] [-o OUTPUT | --show] [--title TITLE]
-                                     [--labels LABELS [LABELS ...]] [--power POWER]
-                                     [--mplstyle MPLSTYLE]
-                                     inputs [inputs ...]
-
-    Plot how the accuracy develops over the course of a thermodynamic integration run.
-
-    This can also be used to compare how the accuracy of different models develops
-    during thermdynamic integration.
-
-    POSITIONAL ARGUMENTS:
-        inputs                Paths to the CSV files containing the stored TI runs
-
-    OPTIONAL ARGUMENTS:
-        -h, --help            show this help message and exit
-        -o, --output OUTPUT   Path to where the plot should be stored (PNG and SVG)
-                              (default: None)
-        --show                Show the plot instead of saving it (default: False)
-        --title TITLE         Title of the plot (default: None)
-        --labels LABELS [LABELS ...]
-                              Labels for the individual data series (default: [])
-        --power POWER         Scale the x-axis with this power (default: 5.0)
-        --mplstyle MPLSTYLE   Path to the MPL stylesheet (default: ./.mplstyle)
-    ```
-
-    [^1]: https://doi.org/10.1007/s11571-021-09696-9
-    """
+    """Run the main function."""
     use_mpl_stylesheet(args.mplstyle)
 
     accuracy_series = []

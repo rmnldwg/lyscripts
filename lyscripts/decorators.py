@@ -1,6 +1,8 @@
 """
 This module provides decorators that can be used to avoid repetitive snippets of code,
 e.g. safely opening files or logging the state of a function call.
+
+This is *not* a command line tool.
 """
 import functools
 import logging

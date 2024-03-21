@@ -24,9 +24,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -37,9 +35,9 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
+    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
+
+    This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
         "data", type=Path,
@@ -76,8 +74,8 @@ def comp_bic(
 
     The BIC is defined as [^1]
     $$ BIC = k \\ln{n} - 2 \\ln{\\hat{L}} $$
-    where $k$ is the number of parameters `num_params`, $n$ the number of datapoints
-    `num_data` and $\\hat{L}$ the maximum likelihood estimate of the `log_prob`.
+    where $k$ is the number of parameters ``num_params``, $n$ the number of datapoints
+    ``num_data`` and $\\hat{L}$ the maximum likelihood estimate of the ``log_prob``.
     It is constructed such that the following is an
     approximation of the model evidence:
     $$ p(D \\mid m) \\approx \\exp{\\left( - BIC / 2 \\right)} $$
@@ -94,12 +92,12 @@ def compute_evidence(
 ) -> tuple[float, float]:
     """Compute the evidene and its standard deviation.
 
-    Given a `temp_schedule` of inverse temperatures and corresponding sets of
-    `log_probs`, draw `num` "paths" of log-probabilities and compute the evidence for
-    each using trapezoidal integration.
+    Given a ``temp_schedule`` of inverse temperatures and corresponding sets of
+    ``log_probs``, draw ``num`` "paths" of log-probabilities and compute the evidence
+    for each using trapezoidal integration.
 
-    The evidence is then the mean of those `num` integrations, while the error is their
-    standard deviation.
+    The evidence is then the mean of those ``num`` integrations, while the error is
+    their standard deviation.
     """
     integrals = np.zeros(shape=num)
     for i in range(num):
@@ -142,45 +140,7 @@ def compute_ti_results(
 
 
 def main(args: argparse.Namespace):
-    """
-    To evaluate the performance of a sampling round, this program follows these steps:
-
-    1. Read in the paramter file `params.yaml` and the data that was used for inference
-    2. Recreate an instance of the model that was used during the training stage
-    3. If thermodynamic integration (TI) [^2] was performed, compute the accuracy for
-    every TI step and integrate over it to obtain the evidence. This is computed for
-    a number of samples of the computed accuracies to also obtain an error on the
-    evidence.
-    4. Use the recreated model and data to compute quantities like the mean and maximum
-    likelihood, as well as the Bayesian information criterion (BIC).
-
-    Everything computed is then stored in a `metrics.json` file and for TI, a CSV is
-    created that shows how the accuracy developed during the runs.
-
-    The output of running `lyscripts evaluate --help` shows this:
-
-    ```
-    usage: lyscripts evaluate [-h] [-p PARAMS] [--plots PLOTS] [--metrics METRICS]
-                            data model
-
-    Evaluate the performance of the trained model by computing quantities like the
-    Bayesian information criterion (BIC) or (if thermodynamic integration was performed)
-    the actual evidence (with error) of the model.
-
-
-    POSITIONAL ARGUMENTS
-    data                 Path to the tables of patient data (CSV).
-    model                Path to model output files (HDF5).
-
-    OPTIONAL ARGUMENTS
-    -h, --help           show this help message and exit
-    -p, --params PARAMS  Path to parameter file (default: ./params.yaml)
-    --plots PLOTS        Directory for storing plots (default: ./plots)
-    --metrics METRICS    Path to metrics file (default: ./metrics.json)
-    ```
-
-    [^2]: https://doi.org/10.1007/s11571-021-09696-9
-    """
+    """Main entry point of the script."""
     metrics = {}
 
     params = load_yaml_params(args.params)
