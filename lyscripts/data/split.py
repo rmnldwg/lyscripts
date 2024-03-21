@@ -21,9 +21,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -34,10 +32,7 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
-    """
+    """Add arguments to the parser."""
     parser.add_argument(
         "input", type=Path,
         help="The path to the full dataset to split."
@@ -56,24 +51,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def main(args: argparse.Namespace):
-    """
-    The output from `lyscripts split --help` looks like this:
-
-    ```
-    USAGE: lyscripts data split [-h] [-p PARAMS] input output
-
-    Split the full dataset into cross-validation folds according to the content of the
-    params.yaml file.
-
-    POSITIONAL ARGUMENTS:
-      input                 The path to the full dataset to split.
-      output                Folder to store the split CSV files in.
-
-    OPTIONAL ARGUMENTS:
-      -h, --help            show this help message and exit
-      -p, --params PARAMS   Path to parameter YAML file. (default: ./params.yaml)
-    ```
-    """
+    """Run the splitting main routine."""
     params = load_yaml_params(args.params)
     concatenated_df = pd.read_csv(args.input)
     logger.info(f"Read in concatenated CSV file from {args.input}")

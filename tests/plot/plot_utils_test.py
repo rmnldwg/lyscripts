@@ -11,9 +11,9 @@ import pytest
 from lyscripts.plot.utils import (
     Histogram,
     Posterior,
-    _ceil_to_step,
-    _floor_to_step,
+    ceil_to_step,
     draw,
+    floor_to_step,
     get_size,
     save_figure,
 )
@@ -35,7 +35,7 @@ def test_floor_to_step():
 
     comp_res = np.zeros_like(exp_res)
     for i, (num, step) in enumerate(zip(numbers, steps)):
-        comp_res[i] = _floor_to_step(num, step)
+        comp_res[i] = floor_to_step(num, step)
 
     assert all(np.isclose(comp_res, exp_res)), "Floor to step did not work properly."
 
@@ -48,7 +48,7 @@ def test_ceil_to_step():
 
     comp_res = np.zeros_like(exp_res)
     for i, (num, step) in enumerate(zip(numbers, steps)):
-        comp_res[i] = _ceil_to_step(num, step)
+        comp_res[i] = ceil_to_step(num, step)
 
     assert all(np.isclose(comp_res, exp_res)), "Ceil to step did not work properly."
 

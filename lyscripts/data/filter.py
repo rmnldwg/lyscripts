@@ -31,9 +31,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -44,10 +42,7 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
-    """
+    """Add arguments to the parser."""
     parser.add_argument(
         "input", type=Path,
         help="The path to the full dataset to split."
@@ -77,10 +72,10 @@ def filter_patients(
 ) -> pd.DataFrame:
     """Filter patient data.
 
-    Filter `by` the given column. Rows are in- or excluded (depending on the chosen
-    `method`) if their corresponding column value is in the `values` iterable.
+    Filter ``by`` the given column. Rows are in- or excluded (depending on the chosen
+    ``method``) if their corresponding column value is in the ``values`` iterable.
 
-    The `match` string may be any method of a pandas `Series` object that returns a
+    The ``match`` string may be any method of a pandas ``Series`` object that returns a
     boolean series, e.g. "isin" or "contains".
     """
     try:
@@ -105,47 +100,7 @@ def sanitize(value: str) -> int | str:
 
 
 def main(args: argparse.Namespace):
-    """Putting `lyscripts data filter --help` into a terminal will show this help:
-
-    ```
-    Usage: lyscripts data filter [-h]
-                                [--include-locations INCLUDE_LOCATIONS [INCLUDE_LOCATIONS ...]]
-                                [--include-subsites INCLUDE_SUBSITES [INCLUDE_SUBSITES ...]]
-                                [--include-t_categories INCLUDE_T_CATEGORIES [INCLUDE_T_CATEGORIES ...]]
-                                [--exclude-locations EXCLUDE_LOCATIONS [EXCLUDE_LOCATIONS ...]]
-                                [--exclude-subsites EXCLUDE_SUBSITES [EXCLUDE_SUBSITES ...]]
-                                [--exclude-t_categories EXCLUDE_T_CATEGORIES [EXCLUDE_T_CATEGORIES ...]]
-                                input output
-
-    Filter a datset according to some common criteria, like tumor location, subsite,
-    T-category, etc.
-
-    Positional Arguments:
-    input                 The path to the full dataset to split.
-    output                Folder to store the split CSV files in.
-
-    Options:
-    -h, --help            show this help message and exit
-    --include-locations INCLUDE_LOCATIONS [INCLUDE_LOCATIONS ...]
-                            If provided, include patients with the given tumor locations.
-                            (default: None)
-    --include-subsites INCLUDE_SUBSITES [INCLUDE_SUBSITES ...]
-                            If provided, include patients with the given tumor subsites.
-                            (default: None)
-    --include-t_categories INCLUDE_T_CATEGORIES [INCLUDE_T_CATEGORIES ...]
-                            If provided, include patients with the given tumor
-                            t_categories. (default: None)
-    --exclude-locations EXCLUDE_LOCATIONS [EXCLUDE_LOCATIONS ...]
-                            If provided, exclude patients with the given tumor locations.
-                            (default: None)
-    --exclude-subsites EXCLUDE_SUBSITES [EXCLUDE_SUBSITES ...]
-                            If provided, exclude patients with the given tumor subsites.
-                            (default: None)
-    --exclude-t_categories EXCLUDE_T_CATEGORIES [EXCLUDE_T_CATEGORIES ...]
-                            If provided, exclude patients with the given tumor
-                            t_categories. (default: None)
-    ```
-    """
+    """Filter a dataset according to the given criteria."""
     table = load_patient_data(args.input)
 
     for prefix in ["include", "exclude"]:

@@ -1,11 +1,11 @@
 """
-Consumes raw data and transforms it into a CSV of the format that [LyProX] understands.
+Consumes raw data and transforms it into a CSV of the format that `LyProX`_ understands.
 
 To do so, it needs a dictionary that defines a mapping from raw columns to the LyProX
-style data format. See the documentation of the `transform_to_lyprox` function for
-more information.
+style data format. See the documentation of the :py:func:`.transform_to_lyprox` function
+for more information.
 
-[LyProX]: https://lyprox.org
+.. _LyProX: https://lyprox.org
 """
 # pylint: disable=logging-fstring-interpolation
 import argparse
@@ -31,9 +31,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -44,10 +42,7 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
-    """
+    """Add arguments to the parser."""
     parser.add_argument(
         "-i", "--input", type=Path, required=True,
         help="Location of raw CSV data."
@@ -95,7 +90,7 @@ def clean_header(
     num_cols: int,
     num_header_rows: int,
 ) -> pd.DataFrame:
-    """Rename the header cells in the `table`."""
+    """Rename the header cells in the ``table``."""
     for col in range(num_cols):
         for row in range(num_header_rows):
             table.rename(
@@ -112,6 +107,7 @@ def get_instruction_depth(nested_column_map: dict[tuple, dict[str, Any]]) -> int
     Instructions are a dictionary that contains either a 'func' or 'default' key.
 
     Example:
+
     >>> nested_column_map = {"patient": {"age": {"func": int}}}
     >>> get_instruction_depth(nested_column_map)
     2
@@ -145,7 +141,7 @@ def generate_markdown_docs(
     Generate a markdown nested, ordered list as documentation for the column map.
 
     A key in the doctionary is supposed to be documented, when its value is a dictionary
-    containing a `"__doc__"` key.
+    containing a ``"__doc__"`` key.
 
     Example:
     >>> nested_column_map = {
@@ -181,7 +177,7 @@ def transform_to_lyprox(
     column_map: dict[tuple, dict[str, Any]]
 ) -> pd.DataFrame:
     """
-    Transform `raw` data frame into table that can be uploaded directly to [LyProX].
+    Transform ``raw`` data frame into table that can be uploaded directly to `LyProX`_.
 
     To do so, it uses instructions in the `colum_map` dictionary, that needs to have
     a particular structure:
@@ -190,27 +186,29 @@ def transform_to_lyprox(
     the `column_map` dctionary. E.g., for the column corresponding to a patient's age,
     the dictionary should contain a key-value pair of this shape:
 
-    ```python
-    column_map = {
-        ("patient", "#", "age"): {
-            "func": compute_age_from_raw,
-            "kwargs": {"randomize": False},
-            "columns": ["birthday", "date of diagnosis"]
-        },
-    }
-    ```
+    .. code-block:: python
 
-    In this example, the function `compute_age_from_raw` is called with the values of
-    the columns `birthday` and `date of diagnosis` as positional arguments, and the
-    keyword argument `randomize` is set to `False`. The function then returns the
-    patient's age, which is subsequently stored in the column `("patient", "#", "age")`.
+        column_map = {
+            ("patient", "#", "age"): {
+                "func": compute_age_from_raw,
+                "kwargs": {"randomize": False},
+                "columns": ["birthday", "date of diagnosis"]
+            },
+        }
 
-    Note that the `column_map` dictionary must have either a `default` key or `func`
-    along with `columns` and `kwargs`, depending on the function definition. If the
-    function does not take any arguments, `columns` can be omitted. If it also does
-    not take any keyword arguments, `kwargs` can be omitted, too.
+    In this example, the function ``compute_age_from_raw`` is called with the
+    values of the columns ``"birthday"`` and ``"date of diagnosis"`` as positional
+    arguments, and the keyword argument ``"randomize"`` is set to ``False``. The
+    function then returns the patient's age, which is subsequently stored in the column
+    ``("patient", "#", "age")``.
 
-    [LyProX]: https://lyprox.org
+    Note that the ``column_map`` dictionary must have either a ``"default"`` key or
+    ``"func"`` along with ``"columns"`` and ``"kwargs"``, depending on the function
+    definition. If the function does not take any arguments, ``"columns"`` can be
+    omitted. If it also does not take any keyword arguments, ``"kwargs"`` can be
+    omitted, too.
+
+    .. _LyProX: https://lyprox.org
     """
     column_map = delete_private_keys(column_map)
 
@@ -251,7 +249,7 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     Change absolute side reporting to tumor-relative.
 
     Transform reporting of LNL involvement by absolute side (right & left) to a
-    reporting relative to the tumor (ipsi- & contralateral). The table `data` should
+    reporting relative to the tumor (ipsi- & contralateral). The table ``data`` should
     already be in the format LyProX requires, except for the side-reporting of LNL
     involvement.
     """
@@ -278,11 +276,12 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
 @log_state()
 def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
     """
-    Exclude patients in the `raw` data based on a list of what to `exclude`. This
-    list contains tuples `(column, check)`. The `check` function will then exclude
-    any patients from the cohort where `check(raw[column])` evaluates to `True`.
+    Exclude patients in the ``raw`` data based on a list of what to ``exclude``. This
+    list contains tuples ``(column, check)``. The ``check`` function will then exclude
+    any patients from the cohort where ``check(raw[column])`` evaluates to ``True``.
 
     Example:
+
     >>> exclude = [("age", lambda s: s > 50)]
     >>> table = pd.DataFrame({
     ...     "age":        [43, 82, 18, 67],
@@ -300,44 +299,7 @@ def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
 
 
 def main(args: argparse.Namespace):
-    """
-    The main entry point for the CLI of this command. Upon requesting `lyscripts
-    data lyproxify --help`, this is the help output:
-
-    ```
-    USAGE: lyscripts data lyproxify [-h] -i INPUT [-r HEADER_ROWS [HEADER_ROWS ...]]
-                                    -o OUTPUT -m MAPPING
-                                    [--drop-rows DROP_ROWS [DROP_ROWS ...]]
-                                    [--drop-cols DROP_COLS [DROP_COLS ...]]
-                                    [--add-index]
-
-    Consumes raw data and transforms it into a CSV of the format that LyProX can
-    understand.
-
-    To do so, it needs a dictionary that defines a mapping from raw columns to the
-    LyProX style data format. See the documentation of the `transform_to_lyprox`
-    function for more information.
-
-    OPTIONAL ARGUMENTS:
-      -h, --help            show this help message and exit
-      -i, --input INPUT     Location of raw CSV data. (default: None)
-      -r, --header-rows HEADER_ROWS [HEADER_ROWS ...]
-                            List with header row indices of raw file. (default: [0])
-      -o, --output OUTPUT   Location to store the lyproxified CSV file. (default:
-                            None)
-      -m, --mapping MAPPING
-                            Location of the Python file that contains column mapping
-                            instructions. This must contain a dictionary with the name
-                            'column_map'. (default: None)
-      --drop-rows DROP_ROWS [DROP_ROWS ...]
-                            Delete rows of specified indices. Counting of rows start
-                            at 0 _after_ the `header-rows`. (default: [])
-      --drop-cols DROP_COLS [DROP_COLS ...]
-                            Delete columns of specified indices. (default: [])
-      --add-index           If the data doesn't contain an index, add one by
-                            enumerating the patients (default: False)
-    ```
-    """
+    """Run the lyproxify main function."""
     raw: pd.DataFrame = load_patient_data(args.input)
     raw = clean_header(raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows))
 

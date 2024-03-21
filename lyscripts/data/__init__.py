@@ -1,29 +1,23 @@
 """
-Provide a range of commands related to datasets on patterns of lymphatic progression.
-Currently, the following modules provide additional commands:
+Provide a range of commands and functions related to managing CSV datasets on patterns
+of lymphatic progression.
 
-1. `lyscripts.data.enhance`, a module for computing consensus diagnoses and to ensure
-that super- and sublevels are consistently reported.
-2. The module `lyscripts.data.generate` for creating synthetic datasets with certain
-characteristics.
-3. Submodule `lyscripts.data.join` to concatenate two datasets, e.g. from different
-institutions.
-4. `lyscripts.data.split`, a module with which datasets may be split into random sets
-of patient data. The split data may then be used e.g. for cross-validation.
+It helps transform raw CSV data of any form to be converted into our `LyProX`_ format,
+which can then be uploaded to the `LyProX`_ online tool for others to inspect the data.
+
+.. _LyProX: https://lyprox.org
 """
 import argparse
 from pathlib import Path
 
-from . import enhance, filter, generate, join, lyproxify, split
+from lyscripts.data import enhance, filter, generate, join, lyproxify, split
 
 
 def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action and then add more subparsers.
-    """
+    """Add parser to the ``subparsers`` and then add this module's subcommands."""
     parser = subparsers.add_parser(
         Path(__file__).parent.name,
         description=__doc__,

@@ -5,9 +5,11 @@ the model via MCMC sampling and compare them to the prevalence in the data.
 This essentially amounts to computing the data likelihood under the model and comparing
 it to the empirical likelihood of a given pattern of lymphatic progression.
 
-Like `lyscripts.predict.risks`, the computation of the prevalences can be done for
+Like :py:mod:`.predict.risks`, the computation of the prevalences can be done for
 different scenarios. How to define these scenarios can be seen in the
-[`lynference`](https://github.com/rmnldwg/lynference) repository.
+`lynference`_ repository.
+
+.. _lynference: https://github.com/rmnldwg/lynference
 """
 # pylint: disable=logging-fstring-interpolation
 import argparse
@@ -39,9 +41,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -52,10 +52,7 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
-    """
+    """Add arguments to the parser."""
     parser.add_argument(
         "model", type=Path,
         help="Path to drawn samples (HDF5)"
@@ -87,8 +84,12 @@ def get_match_idx(
     lnls: list[str],
     invert: bool = False,
 ) -> pd.Series:
-    """Get the indices of the rows in the `data` where the diagnose matches the
-    `pattern` of interest for every lymph node level in the `lnls`. An example:
+    """Get indices of rows in the ``data`` where the diagnose matches the ``pattern``.
+
+    This uses the ``match_idx`` as a starting point and updates it according to the
+    ``pattern``. If ``invert`` is set to ``True``, the function returns the inverted
+    indices.
+
     >>> pattern = {"II": True, "III": None}
     >>> lnls = ["II", "III"]
     >>> data = pd.DataFrame.from_dict({
@@ -112,7 +113,7 @@ def get_match_idx(
 
 
 def does_t_stage_match(data: pd.DataFrame, t_stage: str | None) -> pd.Series:
-    """Return the indices of the `data` where the `t_stage` of the patients matches."""
+    """Return indices of the ``data`` where ``t_stage`` of the patients matches."""
     if t_stage is None:
         return pd.Series([True] * len(data))
     return data["tumor", "1", "t_stage"] == t_stage
@@ -122,9 +123,7 @@ def does_midline_ext_match(
     data: pd.DataFrame,
     midline_ext: bool | None = None
 ) -> pd.Index:
-    """
-    Return the indices of the `data` where the `midline_ext` of the patients matches.
-    """
+    """Return indices of ``data`` where ``midline_ext`` of the patients matches."""
     if midline_ext is None or data.columns.nlevels == 2:
         return True
 
@@ -137,7 +136,7 @@ def does_midline_ext_match(
 
 
 def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
-    """Get the prevalence of midline extension from `data` for `t_stage`."""
+    """Get the prevalence of midline extension from ``data`` for ``t_stage``."""
     if data.columns.nlevels == 2:
         return None
 
@@ -154,11 +153,12 @@ def create_patient_row(
     modality: str = "prev",
     midline_ext: bool | None = None,
 ) -> pd.DataFrame:
-    """
-    Create a pandas `DataFrame` representing a single patient from the specified
-    involvement `pattern`, along with their `t_stage` and `midline_ext` (if provided).
-    If `midline_ext` is not provided, the function creates two patient rows. One of a
-    patient _with_ and one of a patient _without_ a midline extention.
+    """Create pandas ``DataFrame`` row from arguments.
+
+    It is created from the specified involvement ``pattern``, along with their
+    ``t_stage`` and ``midline_ext`` (if provided). If ``midline_ext`` is not provided,
+    the function creates two patient rows. One of a patient _with_ and one of a patient
+    _without_ a midline extention.
     """
     flat_pattern = flatten({modality: pattern})
     patient_row = pd.DataFrame(flat_pattern, index=[0])
@@ -181,16 +181,16 @@ def compute_observed_prevalence(
     invert: bool = False,
     **_kwargs,
 ):
-    """Extract the prevalence of a lymphatic `pattern` of progression for a given
-    `t_stage` from the `data` as reported by the given `modality`.
+    """Extract prevalence of a ``pattern`` from the ``data``.
 
-    If the `data` contains bilateral information, one can choose to factor in whether
-    or not the patient's `midline_ext` should be considered as well.
+    This also considers the ``t_stage`` of the patients. If the ``data`` contains
+    bilateral information, one can choose to factor in whether or not the patient's
+    ``midline_ext`` should be considered as well.
 
-    By giving a list of `lnls`, one can restrict the matching algorithm to only those
+    By giving a list of ``lnls``, one can restrict the matching algorithm to only those
     lymph node levels that are provided via this list.
 
-    When `invert` is set to `True`, the function returns 1 minus the prevalence.
+    When ``invert`` is set to ``True``, the function returns 1 minus the prevalence.
     """
     pattern = complete_pattern(pattern, lnls)
 
@@ -237,15 +237,14 @@ def compute_predicted_prevalence(
     midline_ext_prob: float = 0.3,
 ) -> float:
     """
-    Given a `loaded_model` with loaded patient data and modalities, compute the
-    prevalence of the loaded data for a sample of `given_params`.
+    Given a ``loaded_model`` compute the prevalence (i.e. likelihood) of data.
 
-    If `midline_ext` is `True`, the prevalence is computed for the case where the
-    tumor does extend over the mid-sagittal line, while if it is `False`, it is
+    If ``midline_ext`` is ``True``, the prevalence is computed for the case where the
+    tumor does extend over the mid-sagittal line, while if it is ``False``, it is
     predicted for the case of a lateralized tumor.
 
-    If `midline_ext` is set to `None`, the prevalence is marginalized over both cases,
-    assuming the provided `midline_ext_prob`.
+    If ``midline_ext`` is set to ``None``, the prevalence is marginalized over both
+    cases, assuming the provided ``midline_ext_prob``.
     """
     if False: #isinstance(loaded_model, MidlineBilateral):
         loaded_model.check_and_assign(given_params)
@@ -280,15 +279,15 @@ def generate_predicted_prevalences(
     invert: bool = False,
     **_kwargs,
 ) -> Generator[float, None, None]:
-    """Compute the prevalence of a given `pattern` of lymphatic progression using a
-    `model` and trained `samples`.
+    """Compute the prevalence of a given ``pattern`` of lymphatic progression using a
+    ``model`` and trained ``samples``.
 
-    Do this computation for the specified `t_stage` and whether or not the tumor has
-    a `midline_ext`. `modality_spsn` defines the values for specificity & sensitivity
+    Do this computation for the specified ``t_stage`` and whether or not the tumor has
+    a ``midline_ext``. `modality_spsn` defines the values for specificity & sensitivity
     of the diagnostic modality for which the prevalence is to be computed. Default is
     a value of 1 for both.
 
-    Use `invert` to compute 1 - p.
+    Use ``invert`` to compute 1 - p.
     """
     lnls = list(model.graph.lnls.keys())
     pattern = complete_pattern(pattern, lnls)
@@ -317,32 +316,7 @@ def generate_predicted_prevalences(
 
 
 def main(args: argparse.Namespace):
-    """
-    This subprogram's call signature can be obtained via `lyscripts predict
-    prevalences --help` and shows this:
-
-    ```
-    USAGE: lyscripts predict prevalences [-h] [--thin THIN] [--params PARAMS]
-                                         model data output
-
-    Predict prevalences of diagnostic patterns using the samples that were inferred
-    using the model via MCMC sampling and compare them to the prevalence in the data.
-
-    This essentially amounts to computing the data likelihood under the model and
-    comparing it to the empirical likelihood of a given pattern of lymphatic
-    progression.
-
-    POSITIONAL ARGUMENTS:
-    model            Path to drawn samples (HDF5)
-    data             Path to the data file to compare prediction and data prevalence
-    output           Output path for predicted prevalences (HDF5 file)
-
-    OPTIONAL ARGUMENTS:
-    -h, --help       show this help message and exit
-    --thin THIN      Take only every n-th sample (default: 1)
-    --params PARAMS  Path to parameter file (default: ./params.yaml)
-    ```
-    """
+    """Function to run the risk prediction routine."""
     params = load_yaml_params(args.params)
     model = create_model(params)
     samples = load_model_samples(args.model)

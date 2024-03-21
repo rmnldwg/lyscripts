@@ -1,6 +1,9 @@
 """
-This is the main entry point for the `lyscripts` package. It contains the `main`
-function that is used to start the command line interface (CLI) for the package.
+This is the top-level module of the `lyscripts` package. It contains the
+:py:func:`.main` function that is used to start the command line interface (CLI) for
+the package.
+
+Also, it configures the logging system and sets the metadate of the package.
 """
 import argparse
 import logging

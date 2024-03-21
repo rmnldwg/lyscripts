@@ -1,6 +1,5 @@
 """
-Functions and methods that are shared by the prediction submodules in
-`lyscripts.predict`.
+Functions and methods that are shared by the prediction submodules in :py:mod:`.predict`.
 """
 
 
@@ -9,8 +8,10 @@ def complete_pattern(
     lnls: list[str],
 ) -> dict[str, dict[str, bool]]:
     """
-    Make sure the provided involvement `pattern` is correct. For each side of the neck,
-    and for each of the `lnls` this should in the end contain `True`, `False` or `None`.
+    Make sure the provided involvement ``pattern`` is correct.
+
+    For each side of the neck, and for each of the ``lnls`` this should in the end
+    contain ``True``, ``False`` or ``None``.
 
     Example:
     >>> pattern = {"ipsi": {"II": True}}
@@ -37,12 +38,13 @@ def complete_pattern(
 
 
 def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, bool]]:
-    """
-    Reduce a `pattern` by removing all entries that are `None`. This way, it should
-    be completely recoverable by the `complete_pattern` function but be shorter to
-    store.
+    """ Reduce a ``pattern`` by removing all entries that are ``None``.
+
+    This way, it should be completely recoverable by the ``complete_pattern`` function
+    but be shorter to store.
 
     Example:
+
     >>> full = {
     ...     "ipsi": {"I": None, "II": True, "III": None},
     ...     "contra": {"I": None, "II": None, "III": None},
