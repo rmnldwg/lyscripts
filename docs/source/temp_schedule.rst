@@ -6,7 +6,7 @@ Temperature Schedule
 .. automodule:: lyscripts.temp_schedule
     :members:
 
-Usage
------
+Command Help
+------------
 
 .. program-output:: lyscripts temp_schedule --help

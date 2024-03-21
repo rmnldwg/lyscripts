@@ -6,28 +6,24 @@ Main Entry Point
 .. automodule:: lyscripts
     :members:
 
-Usage
------
+Command Help
+------------
 
 .. program-output:: lyscripts --help
 
 
-Subcommands
-===========
+Submodules
+----------
 
 .. toctree::
     :maxdepth: 1
 
-    sample
-    evaluate
-    temp_schedule
-
-
-Utilities
-=========
-
-.. toctree::
-    :maxdepth: 1
-
+    app/init
+    data/init
     decorators
+    evaluate
+    plot/init
+    predict/init
+    sample
+    temp_schedule
     utils

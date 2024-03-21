@@ -3,23 +3,25 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+Introduction
+============
+
 
 .. mdinclude:: ../../README.md
     :end-line: 32
 
 
 Documentation
-=============
+-------------
 
 .. toctree::
-    :maxdepth: 3
-    :caption: Content
+    :maxdepth: 2
 
-    top-level
+    init
 
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`

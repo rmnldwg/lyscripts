@@ -6,7 +6,7 @@ Sampling
 .. automodule:: lyscripts.sample
     :members:
 
-Usage
------
+Command Help
+------------
 
 .. program-output:: lyscripts sample --help

@@ -53,6 +53,8 @@ html_theme_options = {
     "repository_url": f"https://github.com/{gh_username}/{project}",
     "repository_branch": "main",
     "use_repository_button": True,
+    "show_navbar_depth": 3,
+    "home_page_in_toc": True,
 }
 html_favicon = "_static/favicon.png"
 

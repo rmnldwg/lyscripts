@@ -6,7 +6,7 @@ Evaluation
 .. automodule:: lyscripts.evaluate
     :members:
 
-Usage
------
+Command Help
+------------
 
 .. program-output:: lyscripts evaluate --help
