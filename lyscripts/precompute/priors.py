@@ -34,14 +34,14 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments needed to run this script to a `subparsers` instance."""
+    """Add arguments needed to run this script to a ``subparsers`` instance."""
     parser.add_argument(
         "-s", "--samples", type=Path, required=True,
         help="Path to the drawn samples (HDF5 file)."
     )
     parser.add_argument(
         "-p", "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file."
+        help="Path to parameter file defining the model (YAML)."
     )
     parser.add_argument(
         "--state-dists", default="./distributions.hdf5", type=Path,
@@ -55,17 +55,17 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 @log_state()
-def compute_state_dists(
+def compute_prior_state_dists(
     samples: np.ndarray,
     model: types.ModelT,
     **state_dist_kwargs,
 ) -> np.ndarray:
-    """Compute an array of state distributions from the `samples` for the `model`."""
+    """Compute prior state distributions from the ``samples`` for the ``model``."""
     num_samples = len(samples)
     state_dists = np.empty(shape=(num_samples, *model.state_dist(**state_dist_kwargs).shape))
     for i, sample in progress.track(
         sequence=enumerate(samples),
-        description="[blue]INFO     [/blue]Computing state distributions",
+        description="[blue]INFO     [/blue]Computing prior state dists",
         total=num_samples,
     ):
         model.set_params(*sample)
@@ -74,15 +74,19 @@ def compute_state_dists(
 
 
 @log_state()
-def store_in_hdf5(file_path: Path, array: np.ndarray) -> None:
-    """Store the `state_dists` in an HDF5 file at `file_path`."""
+def store_in_hdf5(
+    file_path: Path,
+    array: np.ndarray,
+    name: str = "prior_state_dists",
+) -> None:
+    """Store the ``array`` in an HDF5 file at ``file_path`` under the key ``name``."""
     with h5py.File(file_path, "w") as file:
-        previous = file.get("state_dists", default=None)
+        previous = file.get(name, default=None)
         if previous is not None:
             logger.info("Overwriting previous state distributions")
-            del file["state_dists"]
+            del file[name]
 
-        file.create_dataset("state_dists", data=array)
+        file.create_dataset(name, data=array)
 
 
 def main(args: argparse.Namespace):
@@ -90,7 +94,7 @@ def main(args: argparse.Namespace):
     params = load_yaml_params(args.params)
     model = create_model(params)
     samples = load_model_samples(args.samples, flat=True)
-    state_dists = compute_state_dists(samples, model, **args.kwargs)
+    state_dists = compute_prior_state_dists(samples, model, **args.kwargs)
     store_in_hdf5(Path(args.state_dists), state_dists)
 
 
