@@ -1,6 +1,7 @@
 """
-Given samples drawn during an MCMC round, precompute the state distribution for each
-sample. This may then later on be used to compute risks and prevalences more quickly.
+Given samples drawn during an MCMC round, precompute the (prior) state distribution for
+each sample. This may then later on be used to compute risks and prevalences more
+quickly.
 """
 import argparse
 import json
@@ -85,7 +86,7 @@ def store_in_hdf5(file_path: Path, array: np.ndarray) -> None:
 
 
 def main(args: argparse.Namespace):
-    """Precompute the state distribution for each sample."""
+    """Precompute the prior state distribution for each sample."""
     params = load_yaml_params(args.params)
     model = create_model(params)
     samples = load_model_samples(args.samples, flat=True)
