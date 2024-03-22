@@ -25,7 +25,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """Add an `ArgumentParser` to the subparsers action."""
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -50,7 +50,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Path to file for storing the computed prior distributions."
     )
 
-    t_or_dist_group = parser.add_mutually_exclusive_group()
+    t_or_dist_group = parser.add_mutually_exclusive_group(required=True)
     t_or_dist_group.add_argument(
         "--t-stage", type=str,
         help="T-stage to compute the posterior for."

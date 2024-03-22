@@ -7,9 +7,15 @@ import argparse
 import logging
 from pathlib import Path
 
+import h5py
 import numpy as np
 from lymph import models, types
+from rich import progress
 
+from lyscripts.precompute.priors import (
+    compute_priors_from_samples,
+    store_in_hdf5,
+)
 from lyscripts.utils import create_model, load_model_samples, load_yaml_params
 
 logger = logging.getLogger(__name__)
@@ -50,32 +56,40 @@ def optional_bool(value: str) -> bool | None:
 
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a `subparsers` instance."""
-    ex_group = parser.add_mutually_exclusive_group(required=True)
-    ex_group.add_argument(
-        "-s", "--samples", type=Path,
+    parser.add_argument(
+        "-s", "--samples", type=Path, required=False,
         help="Path to the drawn samples (HDF5 file)."
     )
-    ex_group.add_argument(
-        "--priors", type=Path,
-        help="Path to the prior state distributions (HDF5 file)."
+    parser.add_argument(
+        "--priors", type=Path, required=False,
+        help=(
+            "Path to the prior state distributions (HDF5 file). If samples are "
+            "provided, this will be used as output to store the computed posteriors. "
+            "If no samples are provided, this will be used as input to load the priors."
+        )
     )
     parser.add_argument(
         "--params", default="./params.yaml", type=Path,
         help="Path to parameter file defining the model (YAML)."
     )
-    parser.add_argument(
-        "--spec", type=float,
+
+    scenarios_or_stdin_group = parser.add_mutually_exclusive_group()
+    stdin_group = scenarios_or_stdin_group.add_argument_group(
+        description="Scenario from stdin."
+    )
+    stdin_group.add_argument(
+        "--spec", type=float, default=0.76,
         help="Specificity of the diagnostic modality to compute the posterior with."
     )
-    parser.add_argument(
-        "--sens", type=float,
+    stdin_group.add_argument(
+        "--sens", type=float, default=0.81,
         help="Sensitivity of the diagnostic modality to compute the posterior with."
     )
-    parser.add_argument(
+    stdin_group.add_argument(
         "--kind", choices=["clinical", "pathological"], default="clinical",
         help="Kind of diagnostic modality to compute the posterior with."
     )
-    parser.add_argument(
+    stdin_group.add_argument(
         "--ipsi-diagnose", nargs="+", type=optional_bool,
         help=(
             "Provide the ipsilateral diagnosis as an involvement pattern of "
@@ -83,7 +97,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
             "models."
         )
     )
-    parser.add_argument(
+    stdin_group.add_argument(
         "--contra-diagnose", nargs="+", type=optional_bool,
         help=(
             "Provide the contralateral diagnosis as an involvement pattern of "
@@ -91,19 +105,39 @@ def _add_arguments(parser: argparse.ArgumentParser):
             "models."
         ),
     )
-    parser.add_argument(
+    scenarios_or_stdin_group.add_argument(
+        "--scenarios", type=Path, required=False,
+        help=(
+            "Path to a YAML file containing a `scenarios` key with a list of "
+            "diagnosis scnearios to compute the posteriors for."
+        )
+    )
+
+    t_or_dist_group = parser.add_mutually_exclusive_group()
+    t_or_dist_group.add_argument(
         "--t-stage", type=str,
         help="T-stage to compute the posterior for. Only used with samples."
+    )
+    t_or_dist_group.add_argument(
+        "--t-stage-dist", type=float, nargs="+",
+        help="Distribution to marginalize over unknown T-stages. Only used with samples."
     )
     parser.add_argument(
         "--mode", choices=["HMM", "BN"], default="HMM",
         help="Mode of the model to use for the computation. Only used with samples."
     )
+
     parser.set_defaults(run_main=main)
 
 
+def load_from_hdf5(file_path: Path, name: str) -> np.ndarray:
+    """Load an array from an HDF5 file."""
+    with h5py.File(file_path, mode="r") as file:
+        return file[name][()]
+
+
 def create_pattern_dict(
-    from_list: list[bool | None],
+    from_list: list[bool | None] | None,
     lnls: list[str],
 ) -> dict[str, bool | None]:
     """Create a dictionary from a list of bools and Nones."""
@@ -113,30 +147,35 @@ def create_pattern_dict(
     return {lnl: value for lnl, value in zip(lnls, from_list)}
 
 
-def compute_posteriors_from_samples(
+def compute_posteriors_from_priors(
     model: types.ModelT,
-    samples: np.ndarray,
+    priors: np.ndarray,
     diagnose: types.DiagnoseType | dict[str, types.DiagnoseType],
-    t_stage: str | int,
-    mode: str,
 ) -> np.ndarray:
-    """Compute posteriors from drawn samples.
+    """Compute posteriors from prior state distributions.
 
-    TODO: Think about marginalization over T-stages.
+    This will call the ``model`` method :py:meth:`~lymph.types.Model.posterior_state_dist`
+    for each of the ``priors``, given the specified ``diagnose`` pattern.
     """
-    posteriors = np.empty(shape=(len(samples), *model.state_dist().shape))
-    for i, sample in enumerate(samples):
-        model.set_params(*sample)
+    posteriors = np.empty(shape=priors.shape)
+
+    for i, prior in progress.track(
+        sequence=enumerate(priors),
+        description="Computing posteriors from priors",
+        total=len(priors),
+    ):
         posteriors[i] = model.posterior_state_dist(
+            given_state_dist=prior,
             given_diagnose=diagnose,
-            t_stage=t_stage,
-            mode=mode,
         )
     return posteriors
 
 
 def main(args: argparse.Namespace) -> None:
     """Compute posteriors from priors or drawn samples."""
+    if args.samples is None and args.priors is None:
+        raise ValueError("Either --samples or --priors must be provided.")
+
     params = load_yaml_params(args.params)
     model = create_model(params)
     side = params["model"].get("side", "ipsi")
@@ -156,20 +195,36 @@ def main(args: argparse.Namespace) -> None:
 
     if args.samples is not None:
         samples = load_model_samples(args.samples)
-        posteriors = compute_posteriors_from_samples(
+        priors = compute_priors_from_samples(
             model=model,
             samples=samples,
-            diagnose=diagnose,
             t_stage=args.t_stage,
+            t_stage_dist=args.t_stage_dist,
             mode=args.mode,
         )
+        if args.priors is not None:
+            attrs = {"mode": str(args.mode)}
+            if args.t_stage_dist is not None:
+                attrs["t_stage_dist"] = args.t_stage_dist
+            else:
+                attrs["t_stage"] = args.t_stage
+            store_in_hdf5(
+                file_path=args.priors,
+                array=priors,
+                name=str(args.mode) + "_" + str(args.t_stage),
+                attrs=attrs,
+            )
     else:
-        priors = load_model_samples(args.priors)
-        posteriors = compute_posteriors_from_priors(
-            model=model,
-            priors=priors,
-            diagnose=diagnose,
+        priors = load_from_hdf5(
+            file_path=args.priors,
+            name=str(args.mode) + "_" + str(args.t_stage),
         )
+
+    posteriors = compute_posteriors_from_priors(
+        model=model,
+        priors=priors,
+        diagnose=diagnose,
+    )
 
 
 if __name__ == "__main__":
