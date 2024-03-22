@@ -2,11 +2,13 @@
 Given samples drawn during an MCMC round, precompute the (prior) state distribution for
 each sample. This may then later on be used to compute risks and prevalences more
 quickly.
+
+The computed priors are stored in an HDF5 file under the key ``mode + t_stage``.
 """
 import argparse
-import json
 import logging
 from pathlib import Path
+from typing import Any, Literal
 
 import h5py
 import numpy as np
@@ -44,40 +46,68 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Path to parameter file defining the model (YAML)."
     )
     parser.add_argument(
-        "--state-dists", default="./distributions.hdf5", type=Path,
-        help="Path to file for storing state distributions."
+        "--priors", default="./priors.hdf5", type=Path,
+        help="Path to file for storing the computed prior distributions."
     )
+
+    t_or_dist_group = parser.add_mutually_exclusive_group()
+    t_or_dist_group.add_argument(
+        "--t-stage", type=str,
+        help="T-stage to compute the posterior for."
+    )
+    t_or_dist_group.add_argument(
+        "--t-stage-dist", type=float, nargs="+",
+        help="Distribution to marginalize over unknown T-stages."
+    )
+
     parser.add_argument(
-        "--kwargs", default="{}", type=json.loads,
-        help="Keyword arguments for the `state_dist()` method of the model."
+        "--mode", choices=["HMM", "BN"], default="HMM",
+        help="Mode of the model to use for the computation."
     )
     parser.set_defaults(run_main=main)
 
 
-@log_state()
-def compute_prior_state_dists(
-    samples: np.ndarray,
+def compute_priors_from_samples(
     model: types.ModelT,
-    **state_dist_kwargs,
+    samples: np.ndarray,
+    t_stage: str | int | None = None,
+    t_stage_dist: list[float] | np.ndarray | None = None,
+    mode: Literal["HMM", "BN"] = "HMM",
 ) -> np.ndarray:
-    """Compute prior state distributions from the ``samples`` for the ``model``."""
-    num_samples = len(samples)
-    state_dists = np.empty(shape=(num_samples, *model.state_dist(**state_dist_kwargs).shape))
+    """Compute prior state distributions from the ``samples`` for the ``model``.
+
+    This will call the ``model`` method :py:meth:`~lymph.types.Model.state_dist`
+    for each of the ``samples``. If ``t_stage`` is not provided, the priors will be
+    computed by marginalizing over the provided ``t_stage_dist``. Otherwise, the
+    priors will be computed for the given ``t_stage``.
+    """
+    if t_stage_dist is not None and not np.isclose(sum(t_stage_dist), 1.):
+        raise ValueError("The provided t_stage_dist does not sum to 1.")
+
+    priors = np.empty(shape=(len(samples), *model.state_dist().shape))
+
     for i, sample in progress.track(
         sequence=enumerate(samples),
-        description="[blue]INFO     [/blue]Computing prior state dists",
-        total=num_samples,
+        description="Computing priors from samples",
+        total=len(samples),
     ):
         model.set_params(*sample)
-        state_dists[i] = model.state_dist(**state_dist_kwargs)
-    return state_dists
+        if t_stage is None:
+            priors[i] = sum(
+                model.state_dist(t_stage=t, mode=mode) * p
+                for t, p in zip(model.t_stages, t_stage_dist)
+            )
+        else:
+            priors[i] = model.state_dist(t_stage=t_stage, mode=mode)
+    return priors
 
 
 @log_state()
 def store_in_hdf5(
     file_path: Path,
     array: np.ndarray,
-    name: str = "prior_state_dists",
+    name: str,
+    attrs: dict[str, Any] | None = None,
 ) -> None:
     """Store the ``array`` in an HDF5 file at ``file_path`` under the key ``name``."""
     with h5py.File(file_path, "w") as file:
@@ -86,7 +116,9 @@ def store_in_hdf5(
             logger.info("Overwriting previous state distributions")
             del file[name]
 
-        file.create_dataset(name, data=array)
+        dset = file.create_dataset(name, data=array)
+        if attrs is not None:
+            dset.attrs.update(attrs)
 
 
 def main(args: argparse.Namespace):
@@ -94,8 +126,23 @@ def main(args: argparse.Namespace):
     params = load_yaml_params(args.params)
     model = create_model(params)
     samples = load_model_samples(args.samples, flat=True)
-    state_dists = compute_prior_state_dists(samples, model, **args.kwargs)
-    store_in_hdf5(Path(args.state_dists), state_dists)
+    priors = compute_priors_from_samples(
+        model=model,
+        samples=samples,
+        t_stage=args.t_stage,
+        t_stage_dist=args.t_stage_dist,
+    )
+    attrs = {"mode": str(args.mode)}
+    if args.t_stage_dist is not None:
+        attrs["t_stage_dist"] = args.t_stage_dist
+    else:
+        attrs["t_stage"] = args.t_stage
+    store_in_hdf5(
+        file_path=args.priors,
+        array=priors,
+        name=str(args.mode) + "_" + str(args.t_stage),
+        attrs=attrs,
+    )
 
 
 if __name__ == "__main__":

@@ -98,7 +98,7 @@ def predicted_risk(
             "contra: {"I": None , "II": False, "III": False, "IV": None},
         }
 
-    The returned probability can be ``invert``ed.
+    The returned probability can be ``invert`` ed.
 
     Set ``verbose`` to ``True`` for a visualization of the progress.
     """
