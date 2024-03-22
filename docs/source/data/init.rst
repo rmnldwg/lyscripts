@@ -1,7 +1,7 @@
 .. currentmodule:: lyscripts.data
 
-Data Commands and Helpders
-==========================
+Data Commands/Helpers
+=====================
 
 .. automodule:: lyscripts.data
     :members:

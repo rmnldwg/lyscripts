@@ -1,7 +1,7 @@
 .. currentmodule:: lyscripts.precompute
 
-Precompute Expensive Quantitites
-================================
+Precomputing Quantitites
+========================
 
 .. automodule:: lyscripts.precompute
     :members:
