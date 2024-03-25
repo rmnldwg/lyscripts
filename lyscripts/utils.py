@@ -181,6 +181,21 @@ def _create_model_from_v0(params: dict[str, Any]) -> LymphModel:
     return model
 
 
+def assign_modalities(from_config: dict[str, Any], model: types.ModelT) -> None:
+    """Assign modalities to the ``model`` based on the ``mod_config``."""
+    model.clear_modalities()
+    for mod_name, mod_val in from_config.items():
+        try:
+            model.set_modality(
+                mod_name,
+                spec=mod_val["spec"],
+                sens=mod_val["sens"],
+                kind=mod_val.get("kind", "clinical"),
+            )
+        except TypeError:
+            model.set_modality(mod_name, *mod_val)
+
+
 def create_distribution(config: dict[str, Any]) -> diagnose_times.Distribution:
     """Create a distribution instance as defined by a ``config`` dictionary."""
     max_time = config["max_time"]
@@ -220,9 +235,7 @@ def create_model(config: dict[str, Any], config_version: int = 0) -> types.Model
     model_kwargs = model_config.get("kwargs", {})
     model = model_cls(graph_dict, **model_kwargs)
 
-    if (defined_modalities := config.get("modalities")) is not None:
-        for modality in model_config["modalities"]:
-            model.set_modality(modality, *defined_modalities[modality])
+    assign_modalities(config.get("modalities", {}), model)
 
     for t_stage, dist_config in model_config.get("distributions", {}).items():
         distribution = create_distribution(dist_config)
