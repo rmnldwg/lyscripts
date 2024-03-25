@@ -12,6 +12,7 @@ import numpy as np
 from lymph import models, types
 from rich import progress
 
+from lyscripts import utils
 from lyscripts.precompute.priors import (
     compute_priors_from_samples,
     store_in_hdf5,
@@ -72,8 +73,19 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--params", default="./params.yaml", type=Path,
         help="Path to parameter file defining the model (YAML)."
     )
+    parser.add_argument(
+        "--posteriors", default="./posteriors.hdf5", type=Path,
+        help="Path to file for storing the computed posterior distributions."
+    )
 
     scenarios_or_stdin_group = parser.add_mutually_exclusive_group()
+    scenarios_or_stdin_group.add_argument(
+        "--scenarios", type=Path, required=False,
+        help=(
+            "Path to a YAML file containing a `scenarios` key with a list of "
+            "diagnosis scnearios to compute the posteriors for."
+        )
+    )
     stdin_group = scenarios_or_stdin_group.add_argument_group(
         description="Scenario from stdin."
     )
@@ -105,12 +117,9 @@ def _add_arguments(parser: argparse.ArgumentParser):
             "models."
         ),
     )
-    scenarios_or_stdin_group.add_argument(
-        "--scenarios", type=Path, required=False,
-        help=(
-            "Path to a YAML file containing a `scenarios` key with a list of "
-            "diagnosis scnearios to compute the posteriors for."
-        )
+    stdin_group.add_argument(
+        "--label", type=str,
+        help="Label for the scenario entered via stdin. Used to name the HDF5 dataset.",
     )
 
     t_or_dist_group = parser.add_mutually_exclusive_group()
@@ -150,7 +159,8 @@ def create_pattern_dict(
 def compute_posteriors_from_priors(
     model: types.ModelT,
     priors: np.ndarray,
-    diagnose: types.DiagnoseType | dict[str, types.DiagnoseType],
+    diagnoses: types.DiagnoseType | dict[str, types.DiagnoseType],
+    progress_desc: str = "Computing posteriors from priors",
 ) -> np.ndarray:
     """Compute posteriors from prior state distributions.
 
@@ -161,12 +171,12 @@ def compute_posteriors_from_priors(
 
     for i, prior in progress.track(
         sequence=enumerate(priors),
-        description="Computing posteriors from priors",
+        description=progress_desc,
         total=len(priors),
     ):
         posteriors[i] = model.posterior_state_dist(
             given_state_dist=prior,
-            given_diagnose=diagnose,
+            given_diagnoses=diagnoses,
         )
     return posteriors
 
@@ -181,18 +191,7 @@ def main(args: argparse.Namespace) -> None:
     side = params["model"].get("side", "ipsi")
     lnl_names = params["graph"]["lnl"].keys()
 
-    if not isinstance(model, models.Unilateral):
-        diagnose = {
-            "ipsi": {"_": create_pattern_dict(args.ipsi_diagnose, lnl_names)},
-            "contra": {"_": create_pattern_dict(args.contra_diagnose, lnl_names)},
-        }
-    else:
-        side_pattern = getattr(args, f"{side}_diagnose")
-        diagnose = {"_": create_pattern_dict(side_pattern, lnl_names)}
-
-    model.clear_all_modalities()
-    model.add_modality("_", spec=args.spec, sens=args.sens, kind=args.kind)
-
+    # compute or fetch priors
     if args.samples is not None:
         samples = load_model_samples(args.samples)
         priors = compute_priors_from_samples(
@@ -220,11 +219,44 @@ def main(args: argparse.Namespace) -> None:
             name=str(args.mode) + "_" + str(args.t_stage),
         )
 
-    posteriors = compute_posteriors_from_priors(
-        model=model,
-        priors=priors,
-        diagnose=diagnose,
-    )
+    if args.scenarios is None:
+        if not isinstance(model, models.Unilateral):
+            diagnose = {
+                "ipsi": {"_": create_pattern_dict(args.ipsi_diagnose, lnl_names)},
+                "contra": {"_": create_pattern_dict(args.contra_diagnose, lnl_names)},
+            }
+        else:
+            side_pattern = getattr(args, f"{side}_diagnose")
+            diagnose = {"_": create_pattern_dict(side_pattern, lnl_names)}
+
+        model.clear_modalities()
+        model.set_modality("_", spec=args.spec, sens=args.sens, kind=args.kind)
+
+        posteriors = compute_posteriors_from_priors(
+            model=model,
+            priors=priors,
+            diagnoses=diagnose,
+        )
+        store_in_hdf5(
+            file_path=args.posteriors,
+            array=posteriors,
+            name=args.label or "posteriors",
+        )
+    else:
+        scenarios = load_yaml_params(args.scenarios)["scenarios"]
+        for i, scenario in enumerate(scenarios):
+            utils.assign_modalities(scenario["modalities"], model)
+            posteriors = compute_posteriors_from_priors(
+                model=model,
+                priors=priors,
+                diagnoses=scenario["diagnose"],
+                progress_desc=f"Computing posteriors for scenario {i+1}/{len(scenarios)}",
+            )
+            store_in_hdf5(
+                file_path=args.posteriors,
+                array=posteriors,
+                name=scenario["label"],
+            )
 
 
 if __name__ == "__main__":
