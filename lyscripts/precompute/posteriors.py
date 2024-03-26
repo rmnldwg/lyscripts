@@ -1,11 +1,14 @@
 """
-Given samples drawn during an MCMC round, precompute the posterior state distribution
-for each sample or given prior state distributon. This may then later on be used to
-compute risks and prevalences more quickly.
+Compute posterior state distributions from precomputed priors (see
+:py:mod:`.precompute.priors`) or from drawn samples (see :py:mod:`.sample`). The
+posteriors are computed for a given "scenario" (or many of them), which typically
+define a clinical diagnosis w.r.t. the lymphatic involvement of a patient.
 """
 import argparse
+import hashlib
 import logging
 from pathlib import Path
+from typing import Any
 
 import h5py
 import numpy as np
@@ -13,11 +16,8 @@ from lymph import models, types
 from rich import progress
 
 from lyscripts import utils
-from lyscripts.precompute.priors import (
-    compute_priors_from_samples,
-    store_in_hdf5,
-)
-from lyscripts.utils import create_model, load_model_samples, load_yaml_params
+from lyscripts.precompute.priors import compute_priors_from_samples
+from lyscripts.precompute.utils import HDF5FileCache, str_dict
 
 logger = logging.getLogger(__name__)
 
@@ -77,31 +77,27 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--posteriors", default="./posteriors.hdf5", type=Path,
         help="Path to file for storing the computed posterior distributions."
     )
-
-    scenarios_or_stdin_group = parser.add_mutually_exclusive_group()
-    scenarios_or_stdin_group.add_argument(
+    parser.add_argument(
         "--scenarios", type=Path, required=False,
         help=(
             "Path to a YAML file containing a `scenarios` key with a list of "
             "diagnosis scnearios to compute the posteriors for."
         )
     )
-    stdin_group = scenarios_or_stdin_group.add_argument_group(
-        description="Scenario from stdin."
-    )
-    stdin_group.add_argument(
+
+    parser.add_argument(
         "--spec", type=float, default=0.76,
         help="Specificity of the diagnostic modality to compute the posterior with."
     )
-    stdin_group.add_argument(
+    parser.add_argument(
         "--sens", type=float, default=0.81,
         help="Sensitivity of the diagnostic modality to compute the posterior with."
     )
-    stdin_group.add_argument(
+    parser.add_argument(
         "--kind", choices=["clinical", "pathological"], default="clinical",
         help="Kind of diagnostic modality to compute the posterior with."
     )
-    stdin_group.add_argument(
+    parser.add_argument(
         "--ipsi-diagnose", nargs="+", type=optional_bool,
         help=(
             "Provide the ipsilateral diagnosis as an involvement pattern of "
@@ -109,7 +105,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
             "models."
         )
     )
-    stdin_group.add_argument(
+    parser.add_argument(
         "--contra-diagnose", nargs="+", type=optional_bool,
         help=(
             "Provide the contralateral diagnosis as an involvement pattern of "
@@ -117,11 +113,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
             "models."
         ),
     )
-    stdin_group.add_argument(
-        "--label", type=str,
-        help="Label for the scenario entered via stdin. Used to name the HDF5 dataset.",
-    )
-
     t_or_dist_group = parser.add_mutually_exclusive_group()
     t_or_dist_group.add_argument(
         "--t-stage", type=str,
@@ -130,6 +121,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
     t_or_dist_group.add_argument(
         "--t-stage-dist", type=float, nargs="+",
         help="Distribution to marginalize over unknown T-stages. Only used with samples."
+    )
+    parser.add_argument(
+        "--midext", type=bool, default=None,
+        help="Midline extension of the tumor. Only used with the Midline model."
     )
     parser.add_argument(
         "--mode", choices=["HMM", "BN"], default="HMM",
@@ -156,11 +151,35 @@ def create_pattern_dict(
     return {lnl: value for lnl, value in zip(lnls, from_list)}
 
 
+def get_modality_subset(scenario: dict[str, Any]) -> set[str]:
+    """Get the subset of modalities used in the ``scenario``.
+
+    >>> scenario = {"diagnose": {
+    ...     "ipsi": {
+    ...         "MRI": {"II": True, "III": False},
+    ...         "PET": {"II": False, "III": True},
+    ...      },
+    ...     "contra": {"MRI": {"II": False, "III": None}},
+    ... }}
+    >>> sorted(get_modality_subset(scenario))
+    ['MRI', 'PET']
+    """
+    modality_set = set()
+    diagnose = scenario["diagnose"]
+
+    for side in ["ipsi", "contra"]:
+        if side in diagnose:
+            modality_set |= set(diagnose[side].keys())
+
+    return modality_set
+
+
 def compute_posteriors_from_priors(
     model: types.ModelT,
     priors: np.ndarray,
-    diagnoses: types.DiagnoseType | dict[str, types.DiagnoseType],
+    diagnose: types.DiagnoseType | dict[str, types.DiagnoseType],
     progress_desc: str = "Computing posteriors from priors",
+    midext: bool | None = None,
 ) -> np.ndarray:
     """Compute posteriors from prior state distributions.
 
@@ -168,6 +187,10 @@ def compute_posteriors_from_priors(
     for each of the ``priors``, given the specified ``diagnose`` pattern.
     """
     posteriors = np.empty(shape=priors.shape)
+    if isinstance(model, models.Midline):
+        kwargs = {"midext": midext}
+    else:
+        kwargs = {}
 
     for i, prior in progress.track(
         sequence=enumerate(priors),
@@ -176,87 +199,96 @@ def compute_posteriors_from_priors(
     ):
         posteriors[i] = model.posterior_state_dist(
             given_state_dist=prior,
-            given_diagnoses=diagnoses,
+            given_diagnoses=diagnose,
+            **kwargs,
         )
     return posteriors
 
 
 def main(args: argparse.Namespace) -> None:
     """Compute posteriors from priors or drawn samples."""
-    if args.samples is None and args.priors is None:
-        raise ValueError("Either --samples or --priors must be provided.")
-
-    params = load_yaml_params(args.params)
-    model = create_model(params)
+    params = utils.load_yaml_params(args.params)
+    model = utils.create_model(params)
+    is_uni = isinstance(model, models.Unilateral)
     side = params["model"].get("side", "ipsi")
     lnl_names = params["graph"]["lnl"].keys()
 
-    # compute or fetch priors
-    if args.samples is not None:
-        samples = load_model_samples(args.samples)
-        priors = compute_priors_from_samples(
-            model=model,
-            samples=samples,
-            t_stage=args.t_stage,
-            t_stage_dist=args.t_stage_dist,
-            mode=args.mode,
-        )
-        if args.priors is not None:
-            attrs = {"mode": str(args.mode)}
-            if args.t_stage_dist is not None:
-                attrs["t_stage_dist"] = args.t_stage_dist
-            else:
-                attrs["t_stage"] = args.t_stage
-            store_in_hdf5(
-                file_path=args.priors,
-                array=priors,
-                name=str(args.mode) + "_" + str(args.t_stage),
-                attrs=attrs,
-            )
+    if args.priors is None:
+        prior_cache = {}
     else:
-        priors = load_from_hdf5(
-            file_path=args.priors,
-            name=str(args.mode) + "_" + str(args.t_stage),
-        )
+        prior_cache = HDF5FileCache(args.priors)
+    posterior_cache = HDF5FileCache(args.posteriors)
+
+    if args.samples is not None:
+        samples = utils.load_model_samples(args.samples)
 
     if args.scenarios is None:
-        if not isinstance(model, models.Unilateral):
-            diagnose = {
-                "ipsi": {"_": create_pattern_dict(args.ipsi_diagnose, lnl_names)},
-                "contra": {"_": create_pattern_dict(args.contra_diagnose, lnl_names)},
-            }
-        else:
-            side_pattern = getattr(args, f"{side}_diagnose")
-            diagnose = {"_": create_pattern_dict(side_pattern, lnl_names)}
-
-        model.clear_modalities()
-        model.set_modality("_", spec=args.spec, sens=args.sens, kind=args.kind)
-
-        posteriors = compute_posteriors_from_priors(
-            model=model,
-            priors=priors,
-            diagnoses=diagnose,
-        )
-        store_in_hdf5(
-            file_path=args.posteriors,
-            array=posteriors,
-            name=args.label or "posteriors",
-        )
+        # create a single scenario from the stdin arguments...
+        scenarios = {
+            "t_stage": args.t_stage,
+            "t_stage_dist": args.t_stage_dist,
+            "midext": args.midext,
+            "mode": args.mode,
+            "diagnose": {
+                "ipsi": {"tmp": create_pattern_dict(args.ipsi_diagnose, lnl_names)},
+                "contra": {"tmp": create_pattern_dict(args.contra_diagnose, lnl_names)},
+            },
+        }
+        modalities = {"tmp": {"spec": args.spec, "sens": args.sens, "kind": args.kind}}
+        num_scens = len(scenarios)
     else:
-        scenarios = load_yaml_params(args.scenarios)["scenarios"]
-        for i, scenario in enumerate(scenarios):
-            utils.assign_modalities(scenario["modalities"], model)
+        # ...or load the scenarios from a YAML file
+        scenarios = utils.load_yaml_params(args.scenarios)["scenarios"]
+        num_scens = len(scenarios)
+        logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
+        modalities = params["modalities"]
+
+    for i, scenario in enumerate(scenarios):
+        scenario.pop("involvement")
+        scenario_attrs = {
+            "t_stage": scenario.get("t_stage"),
+            "t_stage_dist": scenario.get("t_stage_dist"),
+            "mode": scenario.get("mode", "HMM"),
+        }
+        # compute a persistent hash from the scenario attributes
+        prior_hash = hashlib.md5(str(scenario_attrs).encode()).hexdigest()
+
+        if prior_hash not in prior_cache:
+            # compute priors for the cache...
+            priors = compute_priors_from_samples(
+                model=model,
+                samples=samples,
+                description=f"Computing priors for scenario {i+1}/{num_scens}",
+                **scenario_attrs,
+            )
+            prior_cache[prior_hash] = (priors, scenario_attrs)
+        else:
+            # ...or fetch them from the cache
+            priors, attrs = prior_cache[prior_hash]
+            logger.info(f"Loading priors for scenario {i+1}/{num_scens} from cache.")
+            if str_dict(scenario_attrs) != attrs:
+                raise RuntimeError(
+                    f"Same hash {prior_hash}, but different attributes: "
+                    f"{scenario_attrs} != {attrs}"
+                )
+
+        subset = get_modality_subset(scenario)
+        utils.assign_modalities(modalities, model, subset=subset)
+        diagnose = scenario["diagnose"]
+
+        scenario_attrs.update(**scenario)
+        posterior_hash = hashlib.md5(str(scenario_attrs).encode()).hexdigest()
+
+        if posterior_hash not in posterior_cache:
             posteriors = compute_posteriors_from_priors(
                 model=model,
                 priors=priors,
-                diagnoses=scenario["diagnose"],
-                progress_desc=f"Computing posteriors for scenario {i+1}/{len(scenarios)}",
+                diagnose=diagnose[side] if is_uni else diagnose,
+                progress_desc=f"Computing posteriors for scenario {i+1}/{num_scens}",
             )
-            store_in_hdf5(
-                file_path=args.posteriors,
-                array=posteriors,
-                name=scenario["label"],
-            )
+            posterior_cache[posterior_hash] = (posteriors, scenario_attrs)
+        else:
+            logger.info(f"Loading posteriors for scenario {i+1}/{num_scens} from cache.")
 
 
 if __name__ == "__main__":

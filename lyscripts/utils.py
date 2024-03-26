@@ -181,10 +181,49 @@ def _create_model_from_v0(params: dict[str, Any]) -> LymphModel:
     return model
 
 
-def assign_modalities(from_config: dict[str, Any], model: types.ModelT) -> None:
-    """Assign modalities to the ``model`` based on the ``mod_config``."""
-    model.clear_modalities()
+def assign_modalities(
+    from_config: dict[str, Any],
+    model: types.ModelT,
+    subset: list[str] | set[str] | None = None,
+    clear: bool = True,
+) -> None:
+    """Assign modalities to the ``model`` based on the ``mod_config``.
+
+    Every key in the ``from_config`` dictionary is a modality name and its corresponding
+    value is either a dictionary with keys ``spec``, ``sens`` (for specificity and
+    sensitivity of the diagnostic modality), and (optionally) ``kind`` which may be
+    either ``clinical`` or ``pathology``. The latter only plays a role in trinary
+    models. Alternatively, the value can be a tuple with the same values in the same
+    order.
+
+    The ``subset`` parameter can be used to only assign a subset of the modalities
+    to the ``model``.
+
+    Example:
+
+    >>> from_config = {
+    ...     "CT": {"spec": 0.76, "sens": 0.81},
+    ...     "MRI": [0.63, 0.86, "pathological"],
+    ... }
+    >>> model = models.Unilateral.binary(graph_dict={
+    ...     ("tumor", "T"): ["II", "III"],
+    ...     ("lnl", "II"): ["III"],
+    ...     ("lnl", "III"): [],
+    ... })
+    >>> assign_modalities(from_config, model)
+    >>> model.get_all_modalities()   # doctest: +NORMALIZE_WHITESPACE
+    {'CT': Clinical(spec=0.76, sens=0.81, is_trinary=False),
+     'MRI': Pathological(spec=0.63, sens=0.86, is_trinary=False)}
+    >>> assign_modalities(from_config, model, subset=["CT"])
+    >>> model.get_all_modalities()   # doctest: +NORMALIZE_WHITESPACE
+    {'CT': Clinical(spec=0.76, sens=0.81, is_trinary=False)}
+    """
+    if clear:
+        model.clear_modalities()
+
     for mod_name, mod_val in from_config.items():
+        if subset is not None and mod_name not in subset:
+            continue
         try:
             model.set_modality(
                 mod_name,
@@ -245,10 +284,8 @@ def create_model(config: dict[str, Any], config_version: int = 0) -> types.Model
 
 
 def get_dict_depth(nested: dict) -> int:
-    """
-    Get the depth of a nested dictionary.
+    """Get the depth of a nested dictionary.
 
-    For example:
     >>> get_dict_depth({"a": {"b": 1}})
     2
     >>> varying_depth = {"a": {"b": 1}, "c": {"d": {"e": 2}}}
@@ -267,10 +304,10 @@ def get_dict_depth(nested: dict) -> int:
 
 
 def delete_private_keys(nested: dict) -> dict:
-    """
-    Delete private keys from a nested dictionary.
+    """Delete private keys from a nested dictionary.
 
     A 'private' key is a key whose name starts with an underscore. For example:
+
     >>> delete_private_keys({"patient": {"__doc__": "some patient info", "age": 61}})
     {'patient': {'age': 61}}
     >>> delete_private_keys({"patient": {"age": 61}})
@@ -293,10 +330,8 @@ def flatten(
     prev_key: tuple = (),
     max_depth: int | None = None,
 ) -> dict:
-    """
-    Flatten a `nested` dictionary by creating key tuples for each value at `max_depth`.
+    """Flatten ``nested`` dict by creating key tuples for each value at ``max_depth``.
 
-    For example:
     >>> nested = {"tumor": {"1": {"t_stage": 1, "size": 12.3}}}
     >>> flatten(nested)
     {('tumor', '1', 't_stage'): 1, ('tumor', '1', 'size'): 12.3}
@@ -321,10 +356,8 @@ def flatten(
 
 
 def unflatten(flat: dict) -> dict:
-    """
-    Take a flat dictionary with tuples of keys and create nested dict from it.
+    """Take a flat dictionary with tuples of keys and create nested dict from it.
 
-    Like so:
     >>> flat = {('tumor', '1', 't_stage'): 1, ('tumor', '1', 'size'): 12.3}
     >>> unflatten(flat)
     {'tumor': {'1': {'t_stage': 1, 'size': 12.3}}}
@@ -348,10 +381,8 @@ def get_modalities_subset(
     defined_modalities: dict[str, list[float]],
     selection: list[str],
 ) -> dict[str, list[float]]:
-    """
-    Of the `defined_modalities` return only those mentioned in the `selection`.
+    """Of the ``defined_modalities`` return only those mentioned in the ``selection``.
 
-    For instance:
     >>> modalities = {"CT": [0.76, 0.81], "MRI": [0.63, 0.86]}
     >>> get_modalities_subset(modalities, ["CT"])
     {'CT': [0.76, 0.81]}
@@ -371,7 +402,7 @@ def load_patient_data(
     file_path: Path,
     header: list[int] | None = None,
 ) -> pd.DataFrame:
-    """Load patient data from a CSV file stored at `file`."""
+    """Load patient data from a CSV file stored at ``file``."""
     if header is None:
         header = [0,1,2]
     return pd.read_csv(file_path, header=header)
@@ -380,7 +411,7 @@ def load_patient_data(
 @log_state()
 @check_input_file_exists
 def load_yaml_params(file_path: Path) -> dict:
-    """Load parameters from a YAML `file`."""
+    """Load parameters from a YAML ``file``."""
     with open(file_path, encoding="utf-8") as file:
         params = yaml.safe_load(file)
     return params
@@ -395,7 +426,7 @@ def load_model_samples(
     discard: int = 0,
     thin: int = 1,
 ) -> np.ndarray:
-    """Load MCMC samples stored in an HDF5 file at `file_path` under a key `name`."""
+    """Load MCMC samples stored in an HDF5 file at ``file_path`` under a key ``name``."""
     backend = HDFBackend(file_path, name=name, read_only=True)
     return backend.get_chain(flat=flat, discard=discard, thin=thin)
 
@@ -409,7 +440,7 @@ def initialize_backend(
     name: str = "mcmc",
     reset: bool = False,
 ) -> HDFBackend:
-    """Open an HDF5 file at `file_path` and return a backend."""
+    """Open an HDF5 file at ``file_path`` and return a backend."""
     backend = HDFBackend(file_path, name=name)
 
     if reset:

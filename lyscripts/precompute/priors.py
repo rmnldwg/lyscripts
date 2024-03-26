@@ -6,6 +6,7 @@ quickly.
 The computed priors are stored in an HDF5 file under the key ``mode + t_stage``.
 """
 import argparse
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any, Literal
@@ -16,6 +17,7 @@ from lymph import types
 from rich import progress
 
 from lyscripts.decorators import log_state
+from lyscripts.precompute.utils import HDF5FileCache
 from lyscripts.utils import create_model, load_model_samples, load_yaml_params
 
 logger = logging.getLogger(__name__)
@@ -73,6 +75,7 @@ def compute_priors_from_samples(
     t_stage: str | int | None = None,
     t_stage_dist: list[float] | np.ndarray | None = None,
     mode: Literal["HMM", "BN"] = "HMM",
+    description: str = "Computing priors from samples",
 ) -> np.ndarray:
     """Compute prior state distributions from the ``samples`` for the ``model``.
 
@@ -88,7 +91,7 @@ def compute_priors_from_samples(
 
     for i, sample in progress.track(
         sequence=enumerate(samples),
-        description="Computing priors from samples",
+        description=description,
         total=len(samples),
     ):
         model.set_params(*sample)
@@ -99,6 +102,7 @@ def compute_priors_from_samples(
             )
         else:
             priors[i] = model.state_dist(t_stage=t_stage, mode=mode)
+
     return priors
 
 
@@ -126,23 +130,23 @@ def main(args: argparse.Namespace):
     params = load_yaml_params(args.params)
     model = create_model(params)
     samples = load_model_samples(args.samples, flat=True)
-    priors = compute_priors_from_samples(
-        model=model,
-        samples=samples,
-        t_stage=args.t_stage,
-        t_stage_dist=args.t_stage_dist,
-    )
-    attrs = {"mode": str(args.mode)}
-    if args.t_stage_dist is not None:
-        attrs["t_stage_dist"] = args.t_stage_dist
+    prior_cache = HDF5FileCache(args.priors)
+
+    attrs = {
+        "mode": args.mode,
+        "t_stage": args.t_stage,
+        "t_stage_dist": args.t_stage_dist,
+    }
+    prior_hash = hashlib.md5(str(attrs).encode()).hexdigest()
+    if prior_hash in prior_cache:
+        logger.info("Priors already computed. Skipping.")
     else:
-        attrs["t_stage"] = args.t_stage
-    store_in_hdf5(
-        file_path=args.priors,
-        array=priors,
-        name=str(args.mode) + "_" + str(args.t_stage),
-        attrs=attrs,
-    )
+        priors = compute_priors_from_samples(
+            model=model,
+            samples=samples,
+            **attrs,
+        )
+        prior_cache[prior_hash] = (priors, attrs)
 
 
 if __name__ == "__main__":
