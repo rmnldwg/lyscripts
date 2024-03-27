@@ -1,15 +1,17 @@
 """
-Predict prevalences of diagnostic patterns using the samples that were inferred using
-the model via MCMC sampling and compare them to the prevalence in the data.
+Predict prevalences of observed involvement pattern using the samples or prior state
+distributions that were previously inferred or computed. These computed prevalences can
+be compared to the prevalence of the respective pattern in the data, if provided.
 
-This essentially amounts to computing the data likelihood under the model and comparing
-it to the empirical likelihood of a given pattern of lymphatic progression.
+This may make use of :py:mod:`.predict.priors` to precompute and cache the prior state
+distributions in an HDF5 file. The prevalences themselves are also stored in an HDF5
+file.
 
-Like :py:mod:`.predict.risks`, the computation of the prevalences can be done for
-different scenarios. How to define these scenarios can be seen in the
-`lynference`_ repository.
-
-.. _lynference: https://github.com/rmnldwg/lynference
+Formally, the prevalence is the likelihood of the observed involvement pattern that we
+are interested in, given the model and samples. We compute this by calling the model's
+:py:meth:`~lymph.types.Model.state_dist` method for each of the samples and mutiply
+it with the :py:func:`~lymph.matrix.observation_matrix` to get the likelihood of the
+observed involvement pattern.
 """
 # pylint: disable=logging-fstring-interpolation
 import argparse
