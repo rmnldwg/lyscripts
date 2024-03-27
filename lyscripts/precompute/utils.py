@@ -19,6 +19,7 @@ class HDF5FileCache:
     """HDF5 file acting as a cache for expensive arrays."""
     def __init__(self, file_path: Path) -> None:
         """Initialize the cache with the given ``file_path``."""
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         self.file_path = file_path
 
     def __getitem__(self, key: bytes | str) -> tuple[np.ndarray, dict[str, Any]]:

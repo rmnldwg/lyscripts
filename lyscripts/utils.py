@@ -182,8 +182,8 @@ def _create_model_from_v0(params: dict[str, Any]) -> LymphModel:
 
 
 def assign_modalities(
-    from_config: dict[str, Any],
     model: types.ModelT,
+    config: dict[str, Any],
     subset: list[str] | set[str] | None = None,
     clear: bool = True,
 ) -> None:
@@ -221,7 +221,7 @@ def assign_modalities(
     if clear:
         model.clear_modalities()
 
-    for mod_name, mod_val in from_config.items():
+    for mod_name, mod_val in config.items():
         if subset is not None and mod_name not in subset:
             continue
         try:
@@ -274,7 +274,7 @@ def create_model(config: dict[str, Any], config_version: int = 0) -> types.Model
     model_kwargs = model_config.get("kwargs", {})
     model = model_cls(graph_dict, **model_kwargs)
 
-    assign_modalities(config.get("modalities", {}), model)
+    assign_modalities(model=model, config=config.get("modalities", {}))
 
     for t_stage, dist_config in model_config.get("distributions", {}).items():
         distribution = create_distribution(dist_config)
