@@ -24,17 +24,9 @@ import numpy as np
 import pandas as pd
 from rich.progress import track
 
+from lyscripts import utils
 from lyscripts.decorators import log_state
 from lyscripts.predict.utils import complete_pattern
-from lyscripts.utils import (
-    LymphModel,
-    console,
-    create_model,
-    flatten,
-    load_model_samples,
-    load_patient_data,
-    load_yaml_params,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -54,28 +46,54 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to the parser."""
+    """Add arguments needed to run this script to a ``subparsers`` instance."""
     parser.add_argument(
-        "model", type=Path,
-        help="Path to drawn samples (HDF5)"
+        "-s", "--samples", type=Path, required=False,
+        help="Path to the drawn samples (HDF5 file)."
     )
     parser.add_argument(
-        "data", type=Path,
-        help="Path to the data file to compare prediction and data prevalence"
+        "-p", "--params", default="./params.yaml", type=Path,
+        help="Path to parameter file defining the model (YAML)."
     )
     parser.add_argument(
-        "output", type=Path,
-        help="Output path for predicted prevalences (HDF5 file)"
-    )
-    parser.add_argument(
-        "--thin", default=1, type=int,
-        help="Take only every n-th sample"
-    )
-    parser.add_argument(
-        "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file"
+        "--priors", type=Path, required=False,
+        help=(
+            "Path to the prior state distributions (HDF5 file). If samples are "
+            "provided, this will be used as output to store the computed posteriors. "
+            "If no samples are provided, this will be used as input to load the priors."
+        )
     )
 
+    parser.add_argument(
+        "--ipsi-involvement", nargs="+", type=utils.optional_bool,
+        help=(
+            "Provide the ipsilateral involvement pattern for which to compute the "
+            "prevalence as a sequence of True/False/None for each LNL. Will be ignored "
+            "for contralateral only models."
+        )
+    )
+    parser.add_argument(
+        "--contra-involvement", nargs="+", type=utils.optional_bool,
+        help=(
+            "Provide the ipsilateral involvement pattern for which to compute the "
+            "prevalence as a sequence of True/False/None for each LNL. Will be ignored "
+            "for contralateral only models."
+        )
+    )
+    t_or_dist_group = parser.add_mutually_exclusive_group(required=True)
+    t_or_dist_group.add_argument(
+        "--t-stage", type=str,
+        help="T-stage to compute the posterior for."
+    )
+    t_or_dist_group.add_argument(
+        "--t-stage-dist", type=float, nargs="+",
+        help="Distribution to marginalize over unknown T-stages."
+    )
+
+    parser.add_argument(
+        "--mode", choices=["HMM", "BN"], default="HMM",
+        help="Mode of the model to use for the computation."
+    )
     parser.set_defaults(run_main=main)
 
 
