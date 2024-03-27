@@ -9,7 +9,7 @@ occuring issues to the right place.
 import warnings
 from logging import LogRecord
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -447,3 +447,38 @@ def initialize_backend(
         backend.reset(nwalkers, ndim)
 
     return backend
+
+
+NoneChoices = Literal["none", "unknown", "na", "?", "x"]
+"""Type alias for what is interpreted as unknown/ignored involvement of an LNL."""
+
+TrueChoices = Literal["true", "t", "yes", "y", "involved", "metastatic"]
+"""Type alias for what is interpreted as involved/metastatic involvement of an LNL."""
+
+FalseChoices = Literal["false", "f", "no", "n", "healthy", "benign"]
+"""Type alias for what is interpreted as healthy/benign involvement of an LNL."""
+
+def optional_bool(value: NoneChoices | TrueChoices | FalseChoices) -> bool | None:
+    """Convert a string to a boolean or ``None``.
+
+    See the type aliases :py:data:`NoneChoices`, :py:data:`TrueChoices`, and
+    :py:data:`FalseChoices` for the possible values that can be converted.
+    """
+    if value.lower() in ["none", "unknown", "na", "?", "x"]:
+        return None
+
+    if value.lower() in ["true", "t", "yes", "y", "involved", "metastatic"]:
+        return True
+
+    if value.lower() in ["false", "f", "no", "n", "healthy", "benign"]:
+        return False
+
+    raise ValueError(f"Could not convert '{value}' to a boolean or None.")
+
+
+def make_pattern(
+    from_list: list[bool | None] | None,
+    lnls: list[str],
+) -> dict[str, bool | None]:
+    """Create a dictionary from a list of bools and Nones."""
+    return dict(zip(lnls, from_list or [None] * len(lnls)))

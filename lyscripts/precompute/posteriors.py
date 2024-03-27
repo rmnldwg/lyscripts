@@ -37,25 +37,6 @@ def _add_parser(
     _add_arguments(parser)
 
 
-def optional_bool(value: str) -> bool | None:
-    """Convert a string to a boolean or ``None``.
-
-    ``None`` is returned when the string is one of
-    ``["none", "unknown", "na", "?", "x"]``. Everything else is just passed to
-    ``bool(value)``.
-    """
-    if value.lower() in ["none", "unknown", "na", "?", "x"]:
-        return None
-
-    if value.lower() in ["true", "t", "yes", "y", "involved", "metastatic"]:
-        return True
-
-    if value.lower() in ["false", "f", "no", "n", "healthy", "benign"]:
-        return False
-
-    raise ValueError(f"Could not convert '{value}' to a boolean or None.")
-
-
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a `subparsers` instance."""
     parser.add_argument(
@@ -99,7 +80,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Kind of diagnostic modality to compute the posterior with."
     )
     parser.add_argument(
-        "--ipsi-diagnose", nargs="+", type=optional_bool,
+        "--ipsi-diagnose", nargs="+", type=utils.optional_bool,
         help=(
             "Provide the ipsilateral diagnosis as an involvement pattern of "
             "True/False/None for each LNL. Will be ignored for contralateral only "
@@ -107,7 +88,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         )
     )
     parser.add_argument(
-        "--contra-diagnose", nargs="+", type=optional_bool,
+        "--contra-diagnose", nargs="+", type=utils.optional_bool,
         help=(
             "Provide the contralateral diagnosis as an involvement pattern of "
             "True/False/None for each LNL. Will be ignored for ipsilateral only "
@@ -141,17 +122,6 @@ def load_from_hdf5(file_path: Path, name: str) -> np.ndarray:
         return file[name][()]
 
 
-def create_pattern_dict(
-    from_list: list[bool | None] | None,
-    lnls: list[str],
-) -> dict[str, bool | None]:
-    """Create a dictionary from a list of bools and Nones."""
-    if from_list is None:
-        return {lnl: None for lnl in lnls}
-
-    return {lnl: value for lnl, value in zip(lnls, from_list)}
-
-
 def scenario_and_modalities_from_stdin(
     args: argparse.Namespace,
     lnl_names: list[str],
@@ -163,8 +133,8 @@ def scenario_and_modalities_from_stdin(
         "midext": args.midext,
         "mode": args.mode,
         "diagnose": {
-            "ipsi": {"tmp": create_pattern_dict(args.ipsi_diagnose, lnl_names)},
-            "contra": {"tmp": create_pattern_dict(args.contra_diagnose, lnl_names)},
+            "ipsi": {"tmp": utils.make_pattern(args.ipsi_diagnose, lnl_names)},
+            "contra": {"tmp": utils.make_pattern(args.contra_diagnose, lnl_names)},
         },
     }
     modalities = {"tmp": {"spec": args.spec, "sens": args.sens, "kind": args.kind}}
