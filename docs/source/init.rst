@@ -23,6 +23,7 @@ Submodules
     decorators
     evaluate
     plot/init
+    precompute/init
     predict/init
     sample
     temp_schedule

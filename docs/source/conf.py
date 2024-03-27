@@ -41,6 +41,11 @@ autodoc_member_order = 'bysource'
 # show type hints
 autodoc_typehints = 'signature'
 
+# create links to other projects
+intersphinx_mapping = {
+    'lymph': ('https://lymph-model.readthedocs.io/en/latest/', None),
+}
+
 
 # -- Options for HTML output -------------------------------------------------
 

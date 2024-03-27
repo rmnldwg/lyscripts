@@ -1,11 +1,12 @@
 """
-This module provides functions and scripts to predict the risk of hidden involvement,
-given observed diagnoses, and prevalences of patterns for diagnostic modalities.
+With the commands of this module, a user may precompute prior and posterior state
+distributions from drawn samples of a model. This can in turn speed up the computation
+of risks and prevalences.
 """
 import argparse
 from pathlib import Path
 
-from lyscripts.predict import prevalences, risks
+from lyscripts.precompute import posteriors, priors
 
 
 def _add_parser(
@@ -20,5 +21,5 @@ def _add_parser(
         formatter_class=help_formatter,
     )
     subparsers = parser.add_subparsers()
-    prevalences._add_parser(subparsers, help_formatter=parser.formatter_class)
-    risks._add_parser(subparsers, help_formatter=parser.formatter_class)
+    priors._add_parser(subparsers, help_formatter=parser.formatter_class)
+    posteriors._add_parser(subparsers, help_formatter=parser.formatter_class)
