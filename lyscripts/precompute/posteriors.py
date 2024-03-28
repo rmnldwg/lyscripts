@@ -63,7 +63,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--scenarios", type=Path, required=False,
         help=(
             "Path to a YAML file containing a `scenarios` key with a list of "
-            "diagnosis scnearios to compute the posteriors for."
+            "diagnosis scenarios to compute the posteriors for."
         )
     )
 
@@ -125,6 +125,7 @@ def load_from_hdf5(file_path: Path, name: str) -> np.ndarray:
 def scenario_and_modalities_from_stdin(
     args: argparse.Namespace,
     lnl_names: list[str],
+    mod_name: str = "tmp",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Create scenarios and modalities from the stdin arguments."""
     scenario = {
@@ -133,11 +134,11 @@ def scenario_and_modalities_from_stdin(
         "midext": args.midext,
         "mode": args.mode,
         "diagnose": {
-            "ipsi": {"tmp": utils.make_pattern(args.ipsi_diagnose, lnl_names)},
-            "contra": {"tmp": utils.make_pattern(args.contra_diagnose, lnl_names)},
+            "ipsi": {mod_name: utils.make_pattern(args.ipsi_diagnose, lnl_names)},
+            "contra": {mod_name: utils.make_pattern(args.contra_diagnose, lnl_names)},
         },
     }
-    modalities = {"tmp": {"spec": args.spec, "sens": args.sens, "kind": args.kind}}
+    modalities = {mod_name: {"spec": args.spec, "sens": args.sens, "kind": args.kind}}
     return scenario, modalities
 
 
@@ -165,7 +166,7 @@ def get_modality_subset(scenario: dict[str, Any]) -> set[str]:
 
 
 def compute_posteriors_from_priors(
-    model: types.ModelT,
+    model: types.Model,
     priors: np.ndarray,
     diagnose: types.DiagnoseType | dict[str, types.DiagnoseType],
     progress_desc: str = "Computing posteriors from priors",
@@ -196,7 +197,7 @@ def compute_posteriors_from_priors(
 
 
 def compute_posteriors_using_cache(
-    model: types.ModelT,
+    model: types.Model,
     scenario: dict[str, Any],
     modalities: dict[str, Any],
     side: str = "ipsi",

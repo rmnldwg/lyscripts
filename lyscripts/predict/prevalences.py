@@ -15,17 +15,20 @@ observed involvement pattern.
 """
 # pylint: disable=logging-fstring-interpolation
 import argparse
+import hashlib
 import logging
-from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 import h5py
 import numpy as np
 import pandas as pd
+from lymph import models, types, utils
 from rich.progress import track
 
 from lyscripts import utils
-from lyscripts.decorators import log_state
+from lyscripts.precompute.priors import compute_priors_using_cache
+from lyscripts.precompute.utils import HDF5FileCache
 from lyscripts.predict.utils import complete_pattern
 
 logger = logging.getLogger(__name__)
@@ -63,6 +66,44 @@ def _add_arguments(parser: argparse.ArgumentParser):
             "If no samples are provided, this will be used as input to load the priors."
         )
     )
+    parser.add_argument(
+        "-d", "--data", type=Path, required=False,
+        help="Path to the patient data (CSV file)."
+    )
+    parser.add_argument(
+        "--prevalences", type=Path, required=True,
+        help="Path to the HDF5 file for storing the computed prevalences."
+    )
+    parser.add_argument(
+        "--scenarios", type=Path, required=False,
+        help=(
+            "Path to a YAML file containing a `scenarios` key with a list of "
+            "involvement scenarios to compute the posteriors for."
+        )
+    )
+
+    parser.add_argument(
+        "--modality", type=str, default="max_llh",
+        help=(
+            "Modality to compute prevalence for. This will be used to compute the "
+            "prevalence in data. And if a key `modalities` is present in the provided "
+            "params, this argument will also try to find the specificity and "
+            "sensitivity for a modality with the same name. Overriden by `spec` and "
+            "`sens` arguments."
+        ),
+    )
+    parser.add_argument(
+        "--spec", type=float, default=1.0,
+        help="Specificity of the diagnostic modality to compute the prevalence with."
+    )
+    parser.add_argument(
+        "--sens", type=float, default=1.0,
+        help="Sensitivity of the diagnostic modality to compute the prevalence with."
+    )
+    parser.add_argument(
+        "--kind", choices=["clinical", "pathological"], default="clinical",
+        help="Kind of diagnostic modality to compute the prevalence with."
+    )
 
     parser.add_argument(
         "--ipsi-involvement", nargs="+", type=utils.optional_bool,
@@ -89,7 +130,13 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--t-stage-dist", type=float, nargs="+",
         help="Distribution to marginalize over unknown T-stages."
     )
-
+    parser.add_argument(
+        "--midext", type=utils.optional_bool, default=None,
+        help=(
+            "Whether the involvement to compute the prevalence for should include "
+            "midline extension."
+        )
+    )
     parser.add_argument(
         "--mode", choices=["HMM", "BN"], default="HMM",
         help="Mode of the model to use for the computation."
@@ -132,27 +179,23 @@ def get_match_idx(
     return match_idx
 
 
-def does_t_stage_match(data: pd.DataFrame, t_stage: str | None) -> pd.Series:
+def does_t_stage_match(data: pd.DataFrame, t_stages: list[str] | None) -> pd.Series:
     """Return indices of the ``data`` where ``t_stage`` of the patients matches."""
-    if t_stage is None:
+    if t_stages is None:
         return pd.Series([True] * len(data))
-    return data["tumor", "1", "t_stage"] == t_stage
+    return data["tumor", "1", "t_stage"].isin(t_stages)
 
 
 def does_midline_ext_match(
     data: pd.DataFrame,
-    midline_ext: bool | None = None
+    midext: bool | None = None
 ) -> pd.Index:
     """Return indices of ``data`` where ``midline_ext`` of the patients matches."""
-    if midline_ext is None or data.columns.nlevels == 2:
-        return True
+    midext_col = data["tumor", "1", "extension"]
+    if midext is None:
+        return midext_col.isna()
 
-    try:
-        return data["info", "tumor", "midline_extension"] == midline_ext
-    except KeyError as key_err:
-        raise KeyError(
-            "Data does not seem to have midline extension information"
-        ) from key_err
+    return midext_col == midext
 
 
 def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
@@ -160,45 +203,20 @@ def get_midline_ext_prob(data: pd.DataFrame, t_stage: str) -> float:
     if data.columns.nlevels == 2:
         return None
 
-    has_matching_t_stage = does_t_stage_match(data, t_stage)
+    has_matching_t_stage = does_t_stage_match(data, [t_stage])
     eligible_data = data[has_matching_t_stage]
-    has_matching_midline_ext = does_midline_ext_match(eligible_data, midline_ext=True)
+    has_matching_midline_ext = does_midline_ext_match(eligible_data, midext=True)
     matching_data = eligible_data[has_matching_midline_ext]
     return len(matching_data) / len(eligible_data)
 
 
-def create_patient_row(
-    pattern: dict[str, dict[str, bool]],
-    t_stage: str,
-    modality: str = "prev",
-    midline_ext: bool | None = None,
-) -> pd.DataFrame:
-    """Create pandas ``DataFrame`` row from arguments.
-
-    It is created from the specified involvement ``pattern``, along with their
-    ``t_stage`` and ``midline_ext`` (if provided). If ``midline_ext`` is not provided,
-    the function creates two patient rows. One of a patient _with_ and one of a patient
-    _without_ a midline extention.
-    """
-    flat_pattern = flatten({modality: pattern})
-    patient_row = pd.DataFrame(flat_pattern, index=[0])
-    patient_row["tumor", "1", "t_stage"] = t_stage
-
-    if midline_ext is not None:
-        patient_row["tumor", "1", "extension"] = midline_ext
-
-    return patient_row
-
-
-@log_state()
 def compute_observed_prevalence(
-    pattern: dict[str, dict[str, bool]],
+    involvement: dict[str, dict[str, bool]],
     data: pd.DataFrame,
     lnls: list[str],
-    t_stage: str = "early",
+    t_stage: int | str | None = None,
+    midext: bool | None = None,
     modality: str = "max_llh",
-    midline_ext: bool | None = None,
-    invert: bool = False,
     **_kwargs,
 ):
     """Extract prevalence of a ``pattern`` from the ``data``.
@@ -212,176 +230,164 @@ def compute_observed_prevalence(
 
     When ``invert`` is set to ``True``, the function returns 1 minus the prevalence.
     """
-    pattern = complete_pattern(pattern, lnls)
+    involvement = complete_pattern(involvement, lnls)
+    if t_stage is not None:
+        t_stages = [0,1,2] if t_stage == "early" else [3,4]
+    else:
+        t_stages = None
+    has_t_stage = does_t_stage_match(data, t_stages)
+    eligible_data = data.loc[has_t_stage].reset_index()
 
-    has_matching_t_stage = does_t_stage_match(data, t_stage)
-    has_matching_midline_ext = does_midline_ext_match(data, midline_ext)
-
-    eligible_data = data.loc[has_matching_t_stage & has_matching_midline_ext, modality]
-    eligible_data = eligible_data.dropna(axis="index", how="all")
-
-    # filter the data by the LNL pattern they report
-    do_lnls_match = not invert
-    if data.columns.nlevels == 2:
+    # filter the data by the involvement, which includes the involvement pattern itself
+    # and the midline extension status
+    has_midext = does_midline_ext_match(eligible_data, midext)
+    do_lnls_match = pd.Series([True] * len(eligible_data))
+    for side in ["ipsi", "contra"]:
         do_lnls_match = get_match_idx(
             do_lnls_match,
-            pattern["ipsi"],
-            eligible_data,
+            involvement[side],
+            eligible_data[modality, side],
             lnls=lnls,
-            invert=invert,
         )
-    else:
-        for side in ["ipsi", "contra"]:
-            do_lnls_match = get_match_idx(
-                do_lnls_match,
-                pattern[side],
-                eligible_data[side],
-                lnls=lnls,
-                invert=invert
-            )
 
     try:
-        matching_data = eligible_data.loc[do_lnls_match]
+        matching_data = eligible_data.loc[do_lnls_match & has_midext]
+        len_matching_data = len(matching_data)
     except KeyError:
         # return X, X if no actual pattern was selected
-        len_matching_data = 0 if invert else len(eligible_data)
-        return len_matching_data, len(eligible_data)
+        len_matching_data = len(eligible_data)
 
-    return len(matching_data), len(eligible_data)
-
-
-def compute_predicted_prevalence(
-    loaded_model: LymphModel,
-    given_params: np.ndarray,
-    midline_ext: bool,
-    midline_ext_prob: float = 0.3,
-) -> float:
-    """
-    Given a ``loaded_model`` compute the prevalence (i.e. likelihood) of data.
-
-    If ``midline_ext`` is ``True``, the prevalence is computed for the case where the
-    tumor does extend over the mid-sagittal line, while if it is ``False``, it is
-    predicted for the case of a lateralized tumor.
-
-    If ``midline_ext`` is set to ``None``, the prevalence is marginalized over both
-    cases, assuming the provided ``midline_ext_prob``.
-    """
-    if False: #isinstance(loaded_model, MidlineBilateral):
-        loaded_model.check_and_assign(given_params)
-        if midline_ext is None:
-                # marginalize over patients with and without midline extension
-            prevalence = (
-                    midline_ext_prob * loaded_model.ext.likelihood(log=False) +
-                    (1. - midline_ext_prob) * loaded_model.noext.likelihood(log=False)
-                )
-        elif midline_ext:
-            prevalence = loaded_model.ext.likelihood(log=False)
-        else:
-            prevalence = loaded_model.noext.likelihood(log=False)
-    else:
-        prevalence = loaded_model.likelihood(
-            given_param_args=given_params,
-            log=False,
-        )
-
-    return prevalence
+    return len_matching_data, len(eligible_data)
 
 
-@log_state()
-def generate_predicted_prevalences(
-    pattern: dict[str, dict[str, bool]],
-    model: LymphModel,
-    samples: np.ndarray,
-    t_stage: str = "early",
-    midline_ext: bool | None = None,
-    midline_ext_prob: float = 0.3,
-    modality_spsn: list[float] | None = None,
-    invert: bool = False,
-    **_kwargs,
-) -> Generator[float, None, None]:
-    """Compute the prevalence of a given ``pattern`` of lymphatic progression using a
-    ``model`` and trained ``samples``.
-
-    Do this computation for the specified ``t_stage`` and whether or not the tumor has
-    a ``midline_ext``. `modality_spsn` defines the values for specificity & sensitivity
-    of the diagnostic modality for which the prevalence is to be computed. Default is
-    a value of 1 for both.
-
-    Use ``invert`` to compute 1 - p.
-    """
-    lnls = list(model.graph.lnls.keys())
-    pattern = complete_pattern(pattern, lnls)
-
-    if modality_spsn is None:
-        model.modalities = {"prev": [1., 1.]}
-    else:
-        model.modalities = {"prev": modality_spsn}
-
-    patient_row = create_patient_row(
-        pattern=pattern,
-        t_stage=t_stage,
-        midline_ext=midline_ext,
+def compute_prevalences_using_cache(
+    model: types.Model,
+    scenario: dict[str, Any],
+    side: str = "ipsi",
+    samples: np.ndarray | None = None,
+    priors_cache: HDF5FileCache | None = None,
+    prevalences_cache: HDF5FileCache | None = None,
+    progress_desc: str = "Computing prevalences from priors",
+) -> np.ndarray:
+    """Compute prevalences from ``priors``."""
+    expected_keys = ["mode", "t_stage", "t_stage_dist"]
+    prior_scenario = {k: scenario.get(k) for k in expected_keys}
+    priors = compute_priors_using_cache(
+        model=model,
+        samples=samples,
+        priors_cache=priors_cache,
+        progress_desc=progress_desc.replace("prevalences", "priors"),
+        **prior_scenario,
     )
-    model.load_patient_data(patient_row, mapping=lambda x: x)
 
-    # compute prevalence as likelihood of diagnose `prev`, which was defined above
-    for sample in samples:
-        prevalence = compute_predicted_prevalence(
-            loaded_model=model,
-            given_params=sample,
-            midline_ext=midline_ext,
-            midline_ext_prob=midline_ext_prob,
-        )
-        yield (1. - prevalence) if invert else prevalence
+    if len(model.get_modalities()) != 1:
+        raise ValueError("Exactly one modality must be set in the model.")
+
+    is_uni = isinstance(model, models.Unilateral)
+    scenario_hash = hashlib.md5(str(scenario).encode()).hexdigest()
+
+    if scenario_hash in prevalences_cache:
+        logger.info("Prevalences already computed. Skipping.")
+        prevalences, _ = prevalences_cache[scenario_hash]
+    else:
+        involvement = scenario["involvement"]
+        prevalences = np.empty(shape=(priors.shape[0],))
+        for i, prior in track(
+            sequence=enumerate(priors),
+            description="[blue]INFO     [/blue]" + progress_desc,
+            total=len(priors),
+        ):
+            obs_dist = model.obs_dist(given_state_dist=prior)
+            # marginalizing the distribution over observational states is not quite the
+            # intended use of the method. But as long as exactly one modality is set in
+            # the model, this should work as expected.
+            prevalences[i] = model.marginalize(
+                involvement=involvement[side] if is_uni else involvement,
+                given_state_dist=obs_dist,
+                midext=scenario["midext"],
+            )
+
+    prevalences_cache[scenario_hash] = (prevalences, scenario)
+    return prevalences
 
 
 def main(args: argparse.Namespace):
     """Function to run the risk prediction routine."""
-    params = load_yaml_params(args.params)
-    model = create_model(params)
-    samples = load_model_samples(args.model)
-    data = load_patient_data(args.data)
+    if args.samples is None and args.priors is None:
+        raise ValueError("Either samples or priors must be provided.")
 
-    args.output.parent.mkdir(exist_ok=True)
-    num_prevalences = len(params["prevalences"])
-    with h5py.File(args.output, mode="w") as prevalences_storage:
-        for i,scenario in enumerate(params["prevalences"]):
-            prevs_gen = generate_predicted_prevalences(
-                model=model,
-                samples=samples[::args.thin],
-                midline_ext_prob=get_midline_ext_prob(data, scenario["t_stage"]),
-                **scenario
-            )
-            prevs_progress = track(
-                prevs_gen,
-                total=len(samples[::args.thin]),
-                description=f"Compute prevalences for scenario {i+1}/{num_prevalences}...",
-                console=console,
-                transient=True,
-            )
-            prevs_arr = np.array(list(p for p in prevs_progress))
-            prevs_h5dset = prevalences_storage.create_dataset(
-                name=scenario["name"],
-                data=prevs_arr,
-            )
-            num_match, num_total = compute_observed_prevalence(
-                data=data,
-                lnls=len(model.get_params()),
-                **scenario,
-            )
-            for key,val in scenario.items():
-                try:
-                    prevs_h5dset.attrs[key] = val
-                except TypeError:
-                    pass
+    params = utils.load_yaml_params(args.params)
+    defined_modalities = params["modalities"]
+    lnl_names = params["graph"]["lnl"].keys()
+    model = utils.create_model(params)
+    side = params["model"].get("side", "ipsi")
+    samples = utils.load_model_samples(args.samples) if args.samples else None
+    data = utils.load_patient_data(args.data)
 
-            prevs_h5dset.attrs["num_match"] = num_match
-            prevs_h5dset.attrs["num_total"] = num_total
+    if args.modality is not None:
+        try:
+            modality = {args.modality: defined_modalities[args.modality]}
+        except KeyError:
+            modality = {args.modality: {
+                "spec": args.spec,
+                "sens": args.sens,
+                "kind": args.kind,
+            }}
 
-        logger.info(
-            f"Computed prevalences of {num_prevalences} scenarios stored at "
-            f"{args.output}"
+    if args.scenarios is None:
+        scenario = {
+            "mode": args.mode,
+            "t_stage": args.t_stage,
+            "t_stage_dist": args.t_stage_dist,
+            "midext": args.midext,
+            "involvement": {
+                "ipsi": utils.make_pattern(args.ipsi_involvement, lnl_names),
+                "contra": utils.make_pattern(args.contra_involvement, lnl_names),
+            },
+        }
+        scenarios = [scenario]
+        num_scens = len(scenarios)
+    else:
+        scenarios = utils.load_yaml_params(args.scenarios)["scenarios"]
+        num_scens = len(scenarios)
+        logger.info(f"Loaded {num_scens} scenarios. May ignore some arguments.")
+
+    if args.priors is None:
+        logger.warning("No persistent priors cache provided.")
+        priors_cache = {}
+    else:
+        priors_cache = HDF5FileCache(args.priors)
+    prevalences_cache = HDF5FileCache(args.prevalences)
+
+    for i, scenario in enumerate(scenarios):
+        if (scen_mod_name := scenario.get("modality")) is not None:
+            scen_mod = {scen_mod_name: defined_modalities[scen_mod_name]}
+        else:
+            scen_mod = modality
+        utils.assign_modalities(model=model, config=scen_mod, clear=True)
+
+        _predicted_prevalences = compute_prevalences_using_cache(
+            model=model,
+            scenario=scenario,
+            side=side,
+            samples=samples,
+            priors_cache=priors_cache,
+            prevalences_cache=prevalences_cache,
+            progress_desc=f"Computing prevalences for scenario {i+1}/{num_scens}",
         )
+        expected_keys = ["t_stage", "midext", "involvement"]
+        obs_scenario = {k: scenario.get(k) for k in expected_keys}
+        logger.info(f"Computing observed prevalence for scenario {i+1}/{num_scens}.")
+        num_match, num_total = compute_observed_prevalence(
+            data=data,
+            lnls=lnl_names,
+            modality=list(scenario.get("modality", modality).keys())[0],
+            **obs_scenario,
+        )
+        scenario_hash = hashlib.md5(str(scenario).encode()).hexdigest()
+        with h5py.File(prevalences_cache.file_path, "a") as file:
+            file[scenario_hash].attrs["num_match"] = num_match
+            file[scenario_hash].attrs["num_total"] = num_total
 
 
 if __name__ == "__main__":

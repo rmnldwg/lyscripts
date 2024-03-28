@@ -23,13 +23,13 @@ def params() -> dict:
 
 
 @pytest.fixture
-def model(params: dict) -> types.ModelT:
+def model(params: dict) -> types.Model:
     """Model fixture from parameters."""
     return create_model(params)
 
 
 @pytest.fixture
-def loaded_model(model: types.ModelT) -> types.ModelT:
+def loaded_model(model: types.Model) -> types.Model:
     """Get synthetically generated data from disk."""
     data = load_patient_data("./tests/test_data.csv")
     model.load_patient_data(data)
@@ -43,7 +43,7 @@ def hdf5_backend(tmp_path) -> backends.HDFBackend:
 
 
 @pytest.fixture
-def sampler(model: types.ModelT, hdf5_backend: backends.HDFBackend) -> EnsembleSampler:
+def sampler(model: types.Model, hdf5_backend: backends.HDFBackend) -> EnsembleSampler:
     """Construct a sampler for the model."""
     np.random.seed(42)
     ndim = model.get_num_dims()

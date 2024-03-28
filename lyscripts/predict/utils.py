@@ -7,8 +7,7 @@ def complete_pattern(
     pattern: dict[str, dict[str, bool]] | None,
     lnls: list[str],
 ) -> dict[str, dict[str, bool]]:
-    """
-    Make sure the provided involvement ``pattern`` is correct.
+    """Make sure the provided involvement ``pattern`` is correct.
 
     For each side of the neck, and for each of the ``lnls`` this should in the end
     contain ``True``, ``False`` or ``None``.
@@ -38,7 +37,7 @@ def complete_pattern(
 
 
 def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, bool]]:
-    """ Reduce a ``pattern`` by removing all entries that are ``None``.
+    """Reduce a ``pattern`` by removing all entries that are ``None``.
 
     This way, it should be completely recoverable by the ``complete_pattern`` function
     but be shorter to store.

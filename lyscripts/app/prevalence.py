@@ -20,9 +20,8 @@ import yaml
 from lymph import models
 
 from lyscripts.plot.utils import COLOR_CYCLE, Histogram, Posterior, draw
-from lyscripts.predict.prevalences import (
+from lyscripts.predict.prevalences import (  # generate_predicted_prevalences,
     compute_observed_prevalence,
-    generate_predicted_prevalences,
 )
 from lyscripts.predict.utils import complete_pattern, reduce_pattern
 from lyscripts.utils import (
@@ -249,7 +248,7 @@ def add_current_scenario(
     and :py:func:`.predict.prevalences.generate_predicted_prevalences`.
     """
     num_success, num_total = compute_observed_prevalence(
-        pattern=pattern,
+        involvement=pattern,
         data=data,
         lnls=len(model.get_params()),
         **prevs_kwargs,

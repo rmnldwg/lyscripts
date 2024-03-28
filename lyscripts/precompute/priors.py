@@ -16,9 +16,9 @@ import numpy as np
 from lymph import types
 from rich import progress
 
+from lyscripts import utils
 from lyscripts.decorators import log_state
 from lyscripts.precompute.utils import HDF5FileCache
-from lyscripts.utils import create_model, load_model_samples, load_yaml_params
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def compute_priors_from_samples(
-    model: types.ModelT,
+    model: types.Model,
     samples: np.ndarray,
     t_stage: str | int | None = None,
     t_stage_dist: list[float] | np.ndarray | None = None,
@@ -107,7 +107,7 @@ def compute_priors_from_samples(
 
 
 def compute_priors_using_cache(
-    model: types.ModelT,
+    model: types.Model,
     samples: np.ndarray | None = None,
     priors_cache: HDF5FileCache | None = None,
     t_stage: str | int | None = None,
@@ -187,11 +187,11 @@ def store_in_hdf5(
 
 def main(args: argparse.Namespace):
     """Precompute the prior state distribution for each sample."""
-    params = load_yaml_params(args.params)
+    params = utils.load_yaml_params(args.params)
 
     _priors = compute_priors_using_cache(
-        model=create_model(params),
-        samples=load_model_samples(args.samples),
+        model=utils.create_model(params),
+        samples=utils.load_model_samples(args.samples),
         priors_cache=HDF5FileCache(args.priors),
         t_stage=args.t_stage,
         t_stage_dist=args.t_stage_dist,

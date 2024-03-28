@@ -182,7 +182,7 @@ def _create_model_from_v0(params: dict[str, Any]) -> LymphModel:
 
 
 def assign_modalities(
-    model: types.ModelT,
+    model: types.Model,
     config: dict[str, Any],
     subset: list[str] | set[str] | None = None,
     clear: bool = True,
@@ -252,7 +252,7 @@ def create_distribution(config: dict[str, Any]) -> diagnose_times.Distribution:
 
 
 @log_state()
-def create_model(config: dict[str, Any], config_version: int = 0) -> types.ModelT:
+def create_model(config: dict[str, Any], config_version: int = 0) -> types.Model:
     """Create a model instance as defined by a ``config`` dictionary."""
     if (version := config.get("version", config_version)) == 0:
         return _create_model_from_v0(config)

@@ -2,7 +2,7 @@
 Utilities for precomputing the priors and posteriors.
 """
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 import h5py
 import numpy as np
@@ -12,8 +12,6 @@ def str_dict(attrs: dict[str, Any]) -> dict[str, str]:
     """Convert a dictionary of attributes to a dictionary of strings."""
     return {key: str(value) for key, value in attrs.items()}
 
-
-HDF5FileCacheT = TypeVar("HDF5FileCacheT", bound="HDF5FileCache")
 
 class HDF5FileCache:
     """HDF5 file acting as a cache for expensive arrays."""
@@ -35,6 +33,8 @@ class HDF5FileCache:
     ) -> None:
         array, attrs = value
         with h5py.File(self.file_path, "a") as file:
+            if key in file:
+                del file[key]
             file[key] = array
             file[key].attrs.update(str_dict(attrs))
 
