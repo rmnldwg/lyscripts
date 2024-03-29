@@ -134,19 +134,20 @@ def compute_posteriors_using_cache(
     )
 
     kwargs = {"midext": scenario.midext} if isinstance(model, models.Midline) else {}
-    posteriors = np.empty(shape=priors.shape)
+    posteriors = []
 
     for i, prior in progress.track(
         sequence=enumerate(priors),
         description="[blue]INFO     [/blue]" + progress_desc,
         total=len(priors),
     ):
-        posteriors[i] = model.posterior_state_dist(
+        posteriors.append(model.posterior_state_dist(
             given_state_dist=prior,
             given_diagnosis=scenario.diagnosis,
             **kwargs,
-        )
+        ))
 
+    posteriors = np.stack(posteriors)
     posteriors_cache[posteriors_hash] = (posteriors, scenario.as_dict("posteriors"))
     return posteriors
 
