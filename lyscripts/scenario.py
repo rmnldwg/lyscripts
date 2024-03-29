@@ -37,7 +37,7 @@ class Scenario:
         midext: bool | None = None,
         involvement: dict[str, types.PatternType] | None = None,
         modality: str | None = None,
-        diagnose: dict[str, dict[str, types.PatternType]] | None = None,
+        diagnosis: dict[str, dict[str, types.PatternType]] | None = None,
     ) -> None:
         """Initialize a scenario.
 
@@ -50,7 +50,7 @@ class Scenario:
         self.midext = midext
         self.involvement = involvement
         self.modality = modality
-        self.diagnose = diagnose
+        self.diagnosis = diagnosis
 
 
     @classmethod
@@ -144,7 +144,7 @@ class Scenario:
             "t_stages": self.t_stages,
             "t_stages_dist": self.t_stages_dist,
             "midext": self.midext,
-            "diagnose": self.diagnose.get(side) if side else self.diagnose,
+            "diagnosis": self.diagnosis.get(side) if side else self.diagnosis,
         }
 
     def for_prevalences(self, side: Literal["ipsi", "contra"] | None = None) -> dict[str, Any]:
@@ -166,7 +166,7 @@ class Scenario:
             "t_stages_dist": self.t_stages_dist,
             "midext": self.midext,
             "involvement": self.involvement.get(side) if side else self.involvement,
-            "diagnose": self.diagnose.get(side) if side else self.diagnose,
+            "diagnosis": self.diagnosis.get(side) if side else self.diagnosis,
         }
 
     def md5_hash(
@@ -261,11 +261,11 @@ def add_scenario_arguments(
 
     if for_comp in ["posteriors", "risks"]:
         parser.add_argument(
-            "--ipsi-diagnose", nargs="+", type=optional_bool,
+            "--ipsi-diagnosis", nargs="+", type=optional_bool,
             help="Diagnosis of ipsilateral side.",
         )
         parser.add_argument(
-            "--contra-diagnose", nargs="+", type=optional_bool,
+            "--contra-diagnosis", nargs="+", type=optional_bool,
             help="Diagnosis of contralateral side.",
         )
 

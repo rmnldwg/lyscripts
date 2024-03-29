@@ -94,7 +94,7 @@ def get_match_idx(
     lnls: list[str],
     invert: bool = False,
 ) -> pd.Series:
-    """Get indices of rows in the ``data`` where the diagnose matches the ``pattern``.
+    """Get indices of rows in the ``data`` where the diagnosis matches the ``pattern``.
 
     This uses the ``match_idx`` as a starting point and updates it according to the
     ``pattern``. If ``invert`` is set to ``True``, the function returns the inverted

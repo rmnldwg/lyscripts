@@ -89,9 +89,9 @@ def scenario_and_modalities_from_stdin(
         "t_stage_dist": args.t_stage_dist,
         "midext": args.midext,
         "mode": args.mode,
-        "diagnose": {
-            "ipsi": {mod_name: utils.make_pattern(args.ipsi_diagnose, lnl_names)},
-            "contra": {mod_name: utils.make_pattern(args.contra_diagnose, lnl_names)},
+        "diagnosis": {
+            "ipsi": {mod_name: utils.make_pattern(args.ipsi_diagnosis, lnl_names)},
+            "contra": {mod_name: utils.make_pattern(args.contra_diagnosis, lnl_names)},
         },
     }
     modalities = {mod_name: {"spec": args.spec, "sens": args.sens, "kind": args.kind}}
@@ -101,7 +101,7 @@ def scenario_and_modalities_from_stdin(
 def get_modality_subset(scenario: dict[str, Any]) -> set[str]:
     """Get the subset of modalities used in the ``scenario``.
 
-    >>> scenario = {"diagnose": {
+    >>> scenario = {"diagnosis": {
     ...     "ipsi": {
     ...         "MRI": {"II": True, "III": False},
     ...         "PET": {"II": False, "III": True},
@@ -112,11 +112,11 @@ def get_modality_subset(scenario: dict[str, Any]) -> set[str]:
     ['MRI', 'PET']
     """
     modality_set = set()
-    diagnose = scenario["diagnose"]
+    diagnosis = scenario["diagnosis"]
 
     for side in ["ipsi", "contra"]:
-        if side in diagnose:
-            modality_set |= set(diagnose[side].keys())
+        if side in diagnosis:
+            modality_set |= set(diagnosis[side].keys())
 
     return modality_set
 
@@ -124,14 +124,14 @@ def get_modality_subset(scenario: dict[str, Any]) -> set[str]:
 def compute_posteriors_from_priors(
     model: types.Model,
     priors: np.ndarray,
-    diagnose: types.DiagnoseType | dict[str, types.DiagnoseType],
+    diagnosis: types.DiagnosisType | dict[str, types.DiagnosisType],
     progress_desc: str = "Computing posteriors from priors",
     midext: bool | None = None,
 ) -> np.ndarray:
     """Compute posteriors from prior state distributions.
 
     This will call the ``model`` method :py:meth:`~lymph.types.Model.posterior_state_dist`
-    for each of the ``priors``, given the specified ``diagnose`` pattern.
+    for each of the ``priors``, given the specified ``diagnosis`` pattern.
     """
     posteriors = np.empty(shape=priors.shape)
     if isinstance(model, models.Midline):
@@ -146,7 +146,7 @@ def compute_posteriors_from_priors(
     ):
         posteriors[i] = model.posterior_state_dist(
             given_state_dist=prior,
-            given_diagnoses=diagnose,
+            given_diagnosis=diagnosis,
             **kwargs,
         )
     return posteriors
@@ -165,9 +165,9 @@ def compute_posteriors_using_cache(
     """Compute posteriors from prior state distributions.
 
     This will call the ``model`` method :py:meth:`~lymph.types.Model.posterior_state_dist`
-    for each of the ``priors``, given the specified ``diagnose`` pattern.
+    for each of the ``priors``, given the specified ``diagnosis`` pattern.
     """
-    expected_keys = ["mode", "t_stage", "t_stage_dist", "midext", "diagnose"]
+    expected_keys = ["mode", "t_stage", "t_stage_dist", "midext", "diagnosis"]
     scenario = {k: scenario.get(k) for k in expected_keys}
     posterior_hash = hashlib.md5(str(scenario).encode()).hexdigest()
 
@@ -194,7 +194,7 @@ def compute_posteriors_using_cache(
 
     kwargs = {"midext": scenario["midext"]} if isinstance(model, models.Midline) else {}
     is_uni = isinstance(model, models.Unilateral)
-    diagnose = scenario["diagnose"][side] if is_uni else scenario["diagnose"]
+    diagnosis = scenario["diagnosis"][side] if is_uni else scenario["diagnosis"]
 
     posteriors = np.empty(shape=priors.shape)
     for i, prior in progress.track(
@@ -204,7 +204,7 @@ def compute_posteriors_using_cache(
     ):
         posteriors[i] = model.posterior_state_dist(
             given_state_dist=prior,
-            given_diagnoses=diagnose,
+            given_diagnosis=diagnosis,
             **kwargs,
         )
 

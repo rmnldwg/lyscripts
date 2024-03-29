@@ -16,7 +16,7 @@ import pandas as pd
 import yaml
 from deprecated import deprecated
 from emcee.backends import HDFBackend
-from lymph import diagnose_times, models, types
+from lymph import diagnosis_times, models, types
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
@@ -131,7 +131,7 @@ def add_tstage_marg(
     first_binom_prob: float,
     max_time: int,
 ):
-    """Add margializors over diagnose times to `model`."""
+    """Add margializors over diagnosis times to `model`."""
     support = np.arange(max_time + 1)
     for i, stage in enumerate(t_stages):
         if i == 0:
@@ -235,16 +235,16 @@ def assign_modalities(
             model.set_modality(mod_name, *mod_val)
 
 
-def create_distribution(config: dict[str, Any]) -> diagnose_times.Distribution:
+def create_distribution(config: dict[str, Any]) -> diagnosis_times.Distribution:
     """Create a distribution instance as defined by a ``config`` dictionary."""
     max_time = config["max_time"]
     kwargs = config.get("kwargs", {})
 
     if (type_ := config.get("frozen")) is not None:
         kwargs.update({"support": np.arange(max_time+1)})
-        distribution = diagnose_times.Distribution(FUNCS[type_](**kwargs))
+        distribution = diagnosis_times.Distribution(FUNCS[type_](**kwargs))
     elif (type_ := config.get("parametric")) is not None:
-        distribution = diagnose_times.Distribution(FUNCS[type_], max_time, **kwargs)
+        distribution = diagnosis_times.Distribution(FUNCS[type_], max_time, **kwargs)
     else:
         raise LyScriptsWarning("No distribution type found", level="error")
 

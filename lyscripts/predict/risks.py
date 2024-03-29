@@ -118,7 +118,7 @@ def predicted_risk(
             risk = model.risk(
                 involvement=involvement["ipsi"],
                 given_params=sample,
-                given_diagnoses=given_diagnosis,
+                given_diagnosis=given_diagnosis,
                 t_stage=t_stage
             )
             yield 1. - risk if invert else risk
@@ -130,7 +130,7 @@ def predicted_risk(
             risk = model.risk(
                 involvement=involvement,
                 given_params=sample,
-                given_diagnoses=given_diagnosis,
+                given_diagnosis=given_diagnosis,
                 t_stage=t_stage,
                 midline_extension=midline_ext,
             )
