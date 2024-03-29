@@ -30,6 +30,7 @@ from lyscripts import utils
 from lyscripts.precompute.priors import compute_priors_using_cache
 from lyscripts.precompute.utils import HDF5FileCache
 from lyscripts.predict.utils import complete_pattern
+from lyscripts.scenario import add_scenario_arguments
 
 logger = logging.getLogger(__name__)
 
@@ -82,65 +83,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         )
     )
 
-    parser.add_argument(
-        "--modality", type=str, default="max_llh",
-        help=(
-            "Modality to compute prevalence for. This will be used to compute the "
-            "prevalence in data. And if a key `modalities` is present in the provided "
-            "params, this argument will also try to find the specificity and "
-            "sensitivity for a modality with the same name. Overriden by `spec` and "
-            "`sens` arguments."
-        ),
-    )
-    parser.add_argument(
-        "--spec", type=float, default=1.0,
-        help="Specificity of the diagnostic modality to compute the prevalence with."
-    )
-    parser.add_argument(
-        "--sens", type=float, default=1.0,
-        help="Sensitivity of the diagnostic modality to compute the prevalence with."
-    )
-    parser.add_argument(
-        "--kind", choices=["clinical", "pathological"], default="clinical",
-        help="Kind of diagnostic modality to compute the prevalence with."
-    )
-
-    parser.add_argument(
-        "--ipsi-involvement", nargs="+", type=utils.optional_bool,
-        help=(
-            "Provide the ipsilateral involvement pattern for which to compute the "
-            "prevalence as a sequence of True/False/None for each LNL. Will be ignored "
-            "for contralateral only models."
-        )
-    )
-    parser.add_argument(
-        "--contra-involvement", nargs="+", type=utils.optional_bool,
-        help=(
-            "Provide the ipsilateral involvement pattern for which to compute the "
-            "prevalence as a sequence of True/False/None for each LNL. Will be ignored "
-            "for contralateral only models."
-        )
-    )
-    t_or_dist_group = parser.add_mutually_exclusive_group(required=True)
-    t_or_dist_group.add_argument(
-        "--t-stage", type=str,
-        help="T-stage to compute the posterior for."
-    )
-    t_or_dist_group.add_argument(
-        "--t-stage-dist", type=float, nargs="+",
-        help="Distribution to marginalize over unknown T-stages."
-    )
-    parser.add_argument(
-        "--midext", type=utils.optional_bool, default=None,
-        help=(
-            "Whether the involvement to compute the prevalence for should include "
-            "midline extension."
-        )
-    )
-    parser.add_argument(
-        "--mode", choices=["HMM", "BN"], default="HMM",
-        help="Mode of the model to use for the computation."
-    )
+    add_scenario_arguments(parser, for_comp="prevalences")
     parser.set_defaults(run_main=main)
 
 

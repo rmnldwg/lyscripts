@@ -19,6 +19,7 @@ from rich import progress
 from lyscripts import utils
 from lyscripts.precompute.priors import compute_priors_using_cache
 from lyscripts.precompute.utils import HDF5FileCache
+from lyscripts.scenario import add_scenario_arguments
 
 logger = logging.getLogger(__name__)
 
@@ -67,52 +68,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         )
     )
 
-    parser.add_argument(
-        "--spec", type=float, default=0.76,
-        help="Specificity of the diagnostic modality to compute the posterior with."
-    )
-    parser.add_argument(
-        "--sens", type=float, default=0.81,
-        help="Sensitivity of the diagnostic modality to compute the posterior with."
-    )
-    parser.add_argument(
-        "--kind", choices=["clinical", "pathological"], default="clinical",
-        help="Kind of diagnostic modality to compute the posterior with."
-    )
-    parser.add_argument(
-        "--ipsi-diagnose", nargs="+", type=utils.optional_bool,
-        help=(
-            "Provide the ipsilateral diagnosis as an involvement pattern of "
-            "True/False/None for each LNL. Will be ignored for contralateral only "
-            "models."
-        )
-    )
-    parser.add_argument(
-        "--contra-diagnose", nargs="+", type=utils.optional_bool,
-        help=(
-            "Provide the contralateral diagnosis as an involvement pattern of "
-            "True/False/None for each LNL. Will be ignored for ipsilateral only "
-            "models."
-        ),
-    )
-    t_or_dist_group = parser.add_mutually_exclusive_group()
-    t_or_dist_group.add_argument(
-        "--t-stage", type=str,
-        help="T-stage to compute the posterior for. Only used with samples."
-    )
-    t_or_dist_group.add_argument(
-        "--t-stage-dist", type=float, nargs="+",
-        help="Distribution to marginalize over unknown T-stages. Only used with samples."
-    )
-    parser.add_argument(
-        "--midext", type=bool, default=None,
-        help="Midline extension of the tumor. Only used with the Midline model."
-    )
-    parser.add_argument(
-        "--mode", choices=["HMM", "BN"], default="HMM",
-        help="Mode of the model to use for the computation. Only used with samples."
-    )
-
+    add_scenario_arguments(parser, for_comp="posteriors")
     parser.set_defaults(run_main=main)
 
 

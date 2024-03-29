@@ -18,6 +18,8 @@ from typing import Any, Literal, TypeVar
 import numpy as np
 from lymph import types
 
+from lyscripts.utils import optional_bool
+
 ScenarioT = TypeVar("ScenarioT", bound="Scenario")
 
 
@@ -52,10 +54,16 @@ class Scenario:
 
 
     @classmethod
-    def fields(cls) -> list[str]:
+    def fields(cls) -> dict[str, Any]:
         """Return a list of fields that may make up a scenario."""
         params = inspect.signature(cls).parameters
-        return list(params.keys())
+        res = {}
+        for field, param in params.items():
+            if param.default == inspect.Parameter.empty:
+                res[field] = None
+            else:
+                res[field] = param.default
+        return res
 
     @property
     def t_stages_dist(self) -> np.ndarray:
@@ -94,7 +102,11 @@ class Scenario:
     @classmethod
     def from_namespace(cls, namespace: argparse.Namespace) -> ScenarioT:
         """Create a scenario from an ``argparse`` namespace."""
-        return cls(getattr(namespace, field) for field in cls.fields())
+        kwargs = {
+            field: getattr(namespace, field, value)
+            for field, value in cls.fields().items()
+        }
+        return cls(**kwargs)
 
     @classmethod
     def from_params(cls, params: dict[str, Any]) -> Generator[ScenarioT, None, None]:
@@ -172,6 +184,100 @@ class Scenario:
         meth_name = f"for_{for_comp}"
         meth = getattr(self, meth_name)
         return hashlib.md5(str(meth()).encode("utf-8")).hexdigest()
+
+
+def add_scenario_arguments(
+    parser: argparse.ArgumentParser,
+    for_comp: Literal["priors", "posteriors", "prevalences", "risks"],
+) -> None:
+    """Add scenario arguments to an argument parser.
+
+    >>> parser = argparse.ArgumentParser()
+    >>> add_scenario_arguments(parser, for_comp="priors")
+    >>> args = parser.parse_args(["--t-stages", "early", "--mode", "BN"])
+    >>> scenario = Scenario.from_namespace(args)
+    >>> scenario.for_priors()
+    {'mode': 'BN', 't_stages': ['early'], 't_stages_dist': array([1.])}
+    """
+    parser.add_argument(
+        "--t-stages", nargs="+", default=["early"],
+        help="T-stages to consider.",
+    )
+    parser.add_argument(
+        "--t-stages-dist", nargs="+", type=float,
+        help=(
+            "Distribution over T-stages. Prior distribution over hidden states will "
+            "be marginalized over T-stages using this distribution."
+        )
+    )
+    parser.add_argument(
+        "--mode", choices=["BN", "HMM"], default="HMM",
+        help="Mode to use for computing the scenario.",
+    )
+
+    if for_comp == "priors":
+        return
+
+    parser.add_argument(
+        "--midext", action=optional_bool, default=None,
+        help=(
+            "Use midline extention for computing the scenario. Only used with "
+            "midline model."
+        ),
+    )
+
+    if for_comp in ["posteriors", "risks"]:
+        modality_help = (
+            "The specificity and sensitivity of the defined modality is provided along "
+            "with the diagnosis to compute the posterior distribution over hidden "
+            "states."
+        )
+    else:
+        modality_help = (
+            "The specificity and sensitivity of the defined modality is provided to "
+            "compute the prevalence of observing a specified involvement using this "
+            "diagnostic modality."
+        )
+
+    parser.add_argument(
+        "--modality", type=str, required=False,
+        help=(
+            "Name of diagnostic modality. Used to look for a defined modality in the "
+            "params. " + modality_help
+        ),
+    )
+    parser.add_argument(
+        "--spec", type=float, required=False,
+        help="Specificity of the diagnostic modality. Overrides value found in params."
+    )
+    parser.add_argument(
+        "--sens", type=float, required=False,
+        help="Sensitivity of the diagnostic modality. Overrides value found in params."
+    )
+    parser.add_argument(
+        "--kind", choices=["clinical", "pathological"], required=False,
+        help="Kind of diagnostic modality. Overrides value found in params."
+    )
+
+    if for_comp in ["posteriors", "risks"]:
+        parser.add_argument(
+            "--ipsi-diagnose", nargs="+", type=optional_bool,
+            help="Diagnosis of ipsilateral side.",
+        )
+        parser.add_argument(
+            "--contra-diagnose", nargs="+", type=optional_bool,
+            help="Diagnosis of contralateral side.",
+        )
+
+    if for_comp in ["prevalences", "risks"]:
+        parser.add_argument(
+            "--ipsi-involvement", nargs="+", type=optional_bool,
+            help="Involvement to compute quantitty for (ipsilateral side).",
+        )
+        parser.add_argument(
+            "--contra-involvement", nargs="+", type=optional_bool,
+            help="Involvement to compute quantitty for (contralateral side).",
+        )
 
 
 if __name__ == "__main__":

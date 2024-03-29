@@ -19,6 +19,7 @@ from rich import progress
 from lyscripts import utils
 from lyscripts.decorators import log_state
 from lyscripts.precompute.utils import HDF5FileCache
+from lyscripts.scenario import add_scenario_arguments
 
 logger = logging.getLogger(__name__)
 
@@ -52,20 +53,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Path to file for storing the computed prior distributions."
     )
 
-    t_or_dist_group = parser.add_mutually_exclusive_group(required=True)
-    t_or_dist_group.add_argument(
-        "--t-stage", type=str,
-        help="T-stage to compute the posterior for."
-    )
-    t_or_dist_group.add_argument(
-        "--t-stage-dist", type=float, nargs="+",
-        help="Distribution to marginalize over unknown T-stages."
-    )
-
-    parser.add_argument(
-        "--mode", choices=["HMM", "BN"], default="HMM",
-        help="Mode of the model to use for the computation."
-    )
+    add_scenario_arguments(parser, for_comp="priors")
     parser.set_defaults(run_main=main)
 
 
