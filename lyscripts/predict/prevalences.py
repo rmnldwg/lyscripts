@@ -218,7 +218,7 @@ def compute_prevalences_using_cache(
     priors = compute_priors_using_cache(
         model=model,
         samples=samples,
-        priors_cache=priors_cache,
+        cache=priors_cache,
         progress_desc=progress_desc.replace("prevalences", "priors"),
         **prior_scenario,
     )

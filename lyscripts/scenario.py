@@ -12,7 +12,7 @@ diagnosis, given which to compute the quantities of interest.
 import argparse
 import hashlib
 import inspect
-from collections.abc import Generator, Iterable
+from collections.abc import Iterable
 from typing import Any, Literal, TypeVar
 
 import numpy as np
@@ -35,9 +35,8 @@ class Scenario:
         t_stages_dist: Iterable[float] | None = None,
         mode: Literal["BN", "HMM"] = "HMM",
         midext: bool | None = None,
-        involvement: dict[str, types.PatternType] | None = None,
-        modality: str | None = None,
         diagnosis: dict[str, dict[str, types.PatternType]] | None = None,
+        involvement: dict[str, types.PatternType] | None = None,
     ) -> None:
         """Initialize a scenario.
 
@@ -48,9 +47,8 @@ class Scenario:
         self.t_stages_dist = t_stages_dist
         self.mode = mode
         self.midext = midext
-        self.involvement = involvement
-        self.modality = modality
-        self.diagnosis = diagnosis
+        self.diagnosis = diagnosis or {}
+        self.involvement = involvement or {}
 
 
     @classmethod
@@ -109,7 +107,7 @@ class Scenario:
         return cls(**kwargs)
 
     @classmethod
-    def from_params(cls, params: dict[str, Any]) -> Generator[ScenarioT, None, None]:
+    def from_params(cls, params: dict[str, Any]) -> list[ScenarioT]:
         """Create scenarios from a dictionary of parameters.
 
         >>> params = {
@@ -123,51 +121,57 @@ class Scenario:
         ['early'] BN
         ['late'] HMM
         """
+        res = []
         scenarios = params.get("scenarios", [])
         for scenario in scenarios:
-            kwargs = {field: scenario.get(field) for field in cls.fields()}
-            yield cls(**kwargs)
+            kwargs = {
+                field: scenario.get(field, value)
+                for field, value in cls.fields().items()
+            }
+            res.append(cls(**kwargs))
+
+        return res
 
 
-    def for_priors(self) -> dict[str, Any]:
+    def for_side(self, side: Literal["ipsi", "contra"]) -> ScenarioT:
+        """Return the side-specific part of the scenario.
+
+        >>> scenario = Scenario(involvement={"ipsi": {"II": True}})
+        >>> scenario.involvement
+        {'ipsi': {'II': True}}
+        >>> scenario.for_side("ipsi").involvement
+        {'II': True}
+        """
+        cls = type(self)
+        kwargs = {field: getattr(self, field) for field in cls.fields()}
+        kwargs["involvement"] = kwargs["involvement"].get(side, {})
+        kwargs["diagnosis"] = kwargs["diagnosis"].get(side, {})
+        return cls(**kwargs)
+
+
+    def as_dict(
+        self,
+        for_comp: Literal["priors", "posteriors", "prevalences", "risks"],
+    ) -> dict[str, Any]:
         """Return dict that may be used as keyword arguments for computing priors."""
-        return {
+        res = {
             "mode": self.mode,
             "t_stages": self.t_stages,
             "t_stages_dist": self.t_stages_dist,
         }
+        if for_comp == "priors":
+            return res
 
-    def for_posteriors(self, side: Literal["ipsi", "contra"] | None = None) -> dict[str, Any]:
-        """Return dict that may be used as keyword arguments for computing posteriors."""
-        return {
-            "mode": self.mode,
-            "t_stages": self.t_stages,
-            "t_stages_dist": self.t_stages_dist,
+        res.update({
             "midext": self.midext,
-            "diagnosis": self.diagnosis.get(side) if side else self.diagnosis,
-        }
+            "diagnosis": self.diagnosis,
+        })
 
-    def for_prevalences(self, side: Literal["ipsi", "contra"] | None = None) -> dict[str, Any]:
-        """Return dict that may be used as keyword arguments for computing prevalences."""
-        return {
-            "mode": self.mode,
-            "t_stages": self.t_stages,
-            "t_stages_dist": self.t_stages_dist,
-            "midext": self.midext,
-            "modality": self.modality,
-            "involvement": self.involvement.get(side) if side else self.involvement,
-        }
+        if for_comp == "risks":
+            res["involvement"] = self.involvement
 
-    def for_risks(self, side: Literal["ipsi", "contra"] | None = None) -> dict[str, Any]:
-        """Return dict that may be used as keyword arguments for computing risks."""
-        return {
-            "mode": self.mode,
-            "t_stages": self.t_stages,
-            "t_stages_dist": self.t_stages_dist,
-            "midext": self.midext,
-            "involvement": self.involvement.get(side) if side else self.involvement,
-            "diagnosis": self.diagnosis.get(side) if side else self.diagnosis,
-        }
+        return res
+
 
     def md5_hash(
         self,
@@ -176,14 +180,14 @@ class Scenario:
         """Return MD5 hash of the scenario ``for_comp``.
 
         >>> scenario = Scenario(t_stages=["early"], mode="BN")
-        >>> scenario.for_priors()
+        >>> scenario.as_dict("priors")
         {'mode': 'BN', 't_stages': ['early'], 't_stages_dist': array([1.])}
-        >>> scenario.md5_hash(for_comp="priors")
+        >>> scenario.md5_hash("priors")
         '49f9cb2f5c33982395e723d7d9f71f41'
+        >>> scenario.md5_hash("posteriors")
+        '7988663ea4474c1c20731cc7cbd01b1e'
         """
-        meth_name = f"for_{for_comp}"
-        meth = getattr(self, meth_name)
-        return hashlib.md5(str(meth()).encode("utf-8")).hexdigest()
+        return hashlib.md5(str(self.as_dict(for_comp)).encode("utf-8")).hexdigest()
 
 
 def add_scenario_arguments(
@@ -196,7 +200,7 @@ def add_scenario_arguments(
     >>> add_scenario_arguments(parser, for_comp="priors")
     >>> args = parser.parse_args(["--t-stages", "early", "--mode", "BN"])
     >>> scenario = Scenario.from_namespace(args)
-    >>> scenario.for_priors()
+    >>> scenario.as_dict("priors")
     {'mode': 'BN', 't_stages': ['early'], 't_stages_dist': array([1.])}
     """
     parser.add_argument(
@@ -219,7 +223,7 @@ def add_scenario_arguments(
         return
 
     parser.add_argument(
-        "--midext", action=optional_bool, default=None,
+        "--midext", type=optional_bool, required=False,
         help=(
             "Use midline extention for computing the scenario. Only used with "
             "midline model."
@@ -228,48 +232,15 @@ def add_scenario_arguments(
 
     if for_comp in ["posteriors", "risks"]:
         modality_help = (
-            "The specificity and sensitivity of the defined modality is provided along "
-            "with the diagnosis to compute the posterior distribution over hidden "
-            "states."
+            "provided along with the diagnosis to compute the posterior distribution "
+            "over hidden states."
         )
     else:
         modality_help = (
-            "The specificity and sensitivity of the defined modality is provided to "
-            "compute the prevalence of observing a specified involvement using this "
-            "diagnostic modality."
+            "used to compute the prevalence of a diagnosis made with this modality."
         )
 
-    parser.add_argument(
-        "--modality", type=str, required=False,
-        help=(
-            "Name of diagnostic modality. Used to look for a defined modality in the "
-            "params. " + modality_help
-        ),
-    )
-    parser.add_argument(
-        "--spec", type=float, required=False,
-        help="Specificity of the diagnostic modality. Overrides value found in params."
-    )
-    parser.add_argument(
-        "--sens", type=float, required=False,
-        help="Sensitivity of the diagnostic modality. Overrides value found in params."
-    )
-    parser.add_argument(
-        "--kind", choices=["clinical", "pathological"], required=False,
-        help="Kind of diagnostic modality. Overrides value found in params."
-    )
-
-    if for_comp in ["posteriors", "risks"]:
-        parser.add_argument(
-            "--ipsi-diagnosis", nargs="+", type=optional_bool,
-            help="Diagnosis of ipsilateral side.",
-        )
-        parser.add_argument(
-            "--contra-diagnosis", nargs="+", type=optional_bool,
-            help="Diagnosis of contralateral side.",
-        )
-
-    if for_comp in ["prevalences", "risks"]:
+    if for_comp == "risks":
         parser.add_argument(
             "--ipsi-involvement", nargs="+", type=optional_bool,
             help="Involvement to compute quantitty for (ipsilateral side).",
@@ -278,6 +249,15 @@ def add_scenario_arguments(
             "--contra-involvement", nargs="+", type=optional_bool,
             help="Involvement to compute quantitty for (contralateral side).",
         )
+
+    parser.add_argument(
+        "--ipsi-diagnosis", nargs="+", type=optional_bool,
+        help="Diagnosis of ipsilateral side.",
+    )
+    parser.add_argument(
+        "--contra-diagnosis", nargs="+", type=optional_bool,
+        help="Diagnosis of contralateral side.",
+    )
 
 
 if __name__ == "__main__":

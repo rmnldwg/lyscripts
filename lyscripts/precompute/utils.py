@@ -8,9 +8,20 @@ import h5py
 import numpy as np
 
 
-def str_dict(attrs: dict[str, Any]) -> dict[str, str]:
-    """Convert a dictionary of attributes to a dictionary of strings."""
-    return {key: str(value) for key, value in attrs.items()}
+def is_hdf5_compatible(value: Any) -> bool:
+    """Check if the given ``value`` can be stored in an HDF5 file."""
+    return isinstance(value, (bool, str, bytes, int, float, np.ndarray, list, tuple))
+
+
+def hdf5_dict(attrs: dict[str, Any]) -> dict[str, str]:
+    """Convert ``attrs`` to a dictionary of HDF5 compatible attributes or strings."""
+    res = {}
+    for key, val in attrs.items():
+        if is_hdf5_compatible(val):
+            res[key] = val
+        else:
+            res[key] = str(val)
+    return res
 
 
 class HDF5FileCache:
@@ -36,7 +47,7 @@ class HDF5FileCache:
             if key in file:
                 del file[key]
             file[key] = array
-            file[key].attrs.update(str_dict(attrs))
+            file[key].attrs.update(hdf5_dict(attrs))
 
     def __contains__(self, key: bytes | str) -> bool:
         with h5py.File(self.file_path, "a") as file:
