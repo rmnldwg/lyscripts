@@ -48,6 +48,13 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--priors", default="./priors.hdf5", type=Path,
         help="Path to file for storing the computed prior distributions."
     )
+    parser.add_argument(
+        "--scenarios", type=Path, required=False,
+        help=(
+            "Path to a YAML file containing a `scenarios` key with a list of "
+            "diagnosis scenarios to compute the posteriors for."
+        )
+    )
 
     add_scenario_arguments(parser, for_comp="priors")
     parser.set_defaults(run_main=main)
@@ -103,12 +110,28 @@ def main(args: argparse.Namespace):
     """Precompute the prior state distribution for each sample."""
     params = utils.load_yaml_params(args.params)
 
-    _priors = compute_priors_using_cache(
-        model=utils.create_model(params),
-        samples=utils.load_model_samples(args.samples),
-        cache=HDF5FileCache(args.priors),
-        scenario=Scenario.from_namespace(args),
-    )
+    if args.scenarios is None:
+        # create a single scenario from the stdin arguments...
+        scenarios = [Scenario.from_namespace(args)]
+        num_scens = len(scenarios)
+    else:
+        # ...or load the scenarios from a YAML file
+        scenarios = Scenario.from_params(utils.load_yaml_params(args.scenarios))
+        num_scens = len(scenarios)
+        logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
+
+    model = utils.create_model(params)
+    samples = utils.load_model_samples(args.samples)
+    priors_cache = HDF5FileCache(args.priors)
+
+    for i, scenario in enumerate(scenarios):
+        _priors = compute_priors_using_cache(
+            model=model,
+            samples=samples,
+            cache=priors_cache,
+            scenario=scenario,
+            progress_desc=f"Computing priors for scenario {i + 1}/{num_scens}",
+        )
 
 
 if __name__ == "__main__":
