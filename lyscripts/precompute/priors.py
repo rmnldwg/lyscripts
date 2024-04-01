@@ -89,19 +89,20 @@ def compute_priors_using_cache(
     if samples is None:
         raise ValueError("No samples provided.")
 
-    priors = np.empty(shape=(len(samples), *model.state_dist().shape))
+    priors = []
 
-    for i, sample in progress.track(
-        sequence=enumerate(samples),
+    for sample in progress.track(
+        sequence=samples,
         description="[blue]INFO     [/blue]" + progress_desc,
         total=len(samples),
     ):
         model.set_params(*sample)
-        priors[i] = sum(
+        priors.append(sum(
             model.state_dist(t_stage=t, mode=scenario.mode) * p
             for t, p in zip(scenario.t_stages, scenario.t_stages_dist)
-        )
+        ))
 
+    priors = np.stack(priors)
     cache[priors_hash] = (priors, scenario.as_dict("priors"))
     return priors
 

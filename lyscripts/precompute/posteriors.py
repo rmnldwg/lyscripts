@@ -1,8 +1,13 @@
 """
 Compute posterior state distributions from precomputed priors (see
-:py:mod:`.precompute.priors`) or from drawn samples (see :py:mod:`.sample`). The
-posteriors are computed for a given "scenario" (or many of them), which typically
-define a clinical diagnosis w.r.t. the lymphatic involvement of a patient.
+:py:mod:`.precompute.priors`). The posteriors are computed for a given "scenario" (or
+many of them), which typically define a clinical diagnosis w.r.t. the lymphatic
+involvement of a patient.
+
+Warning:
+    The command skips the computation of the priors if it finds them in the cache. But
+    this cache only accounts for the scenario, *NOT* the samples. So, if the samples
+    change, you need to force a recomputation of the priors (e.g., by deleting them).
 """
 # pylint: disable=logging-fstring-interpolation
 import argparse
@@ -40,15 +45,10 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a `subparsers` instance."""
     parser.add_argument(
-        "-s", "--samples", type=Path, required=False,
-        help="Path to the drawn samples (HDF5 file)."
-    )
-    parser.add_argument(
-        "--priors", type=Path, required=False,
+        "--priors", type=Path, required=True,
         help=(
-            "Path to the prior state distributions (HDF5 file). If samples are "
-            "provided, this will be used as output to store the computed posteriors. "
-            "If no samples are provided, this will be used as input to load the priors."
+            "Path to the precomputed priors (HDF5 file). They must have been "
+            "computed from the same model and scenarios as the posteriors."
         )
     )
     parser.add_argument(
@@ -103,7 +103,6 @@ def compute_posteriors_using_cache(
     model: types.Model,
     scenario: Scenario,
     side: str = "ipsi",
-    samples: np.ndarray | None = None,
     priors_cache: HDF5FileCache | None = None,
     posteriors_cache: HDF5FileCache | None = None,
     progress_desc: str = "Computing posteriors from priors",
@@ -115,6 +114,7 @@ def compute_posteriors_using_cache(
     """
     if isinstance(model, models.Unilateral):
         scenario = scenario.for_side(side)
+
     posteriors_hash = scenario.md5_hash("posteriors")
 
     if posteriors_cache is not None and posteriors_hash in posteriors_cache:
@@ -125,13 +125,17 @@ def compute_posteriors_using_cache(
         logger.warning("No persistent posteriors cache provided.")
         posteriors_cache = {}
 
-    priors = compute_priors_using_cache(
-        model=model,
-        samples=samples,
-        cache=priors_cache,
-        scenario=scenario,
-        progress_desc=progress_desc.replace("posteriors", "priors"),
-    )
+    try:
+        priors = compute_priors_using_cache(
+            model=model,
+            cache=priors_cache,
+            scenario=scenario,
+            progress_desc=progress_desc.replace("posteriors", "priors"),
+        )
+    except ValueError as val_err:
+        msg = "No precomputed priors found for the given scenario."
+        logger.error(msg)
+        raise ValueError(msg) from val_err
 
     kwargs = {"midext": scenario.midext} if isinstance(model, models.Midline) else {}
     posteriors = []
@@ -159,7 +163,6 @@ def main(args: argparse.Namespace) -> None:
 
     params = utils.load_yaml_params(args.params)
     model = utils.create_model(params)
-    samples = utils.load_model_samples(args.samples) if args.samples else None
 
     if args.scenarios is None:
         # create a single scenario from the stdin arguments...
@@ -189,7 +192,6 @@ def main(args: argparse.Namespace) -> None:
             model=model,
             scenario=scenario,
             side=params["model"].get("side", "ipsi"),
-            samples=samples,
             priors_cache=priors_cache,
             posteriors_cache=posteriors_cache,
             progress_desc=f"Computing posteriors for scenario {i + 1}/{num_scens}",
