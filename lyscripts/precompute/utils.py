@@ -24,6 +24,28 @@ def hdf5_dict(attrs: dict[str, Any]) -> dict[str, str]:
     return res
 
 
+def get_modality_subset(diagnosis: dict[str, Any]) -> set[str]:
+    """Get the subset of modalities used in the ``scenario``.
+
+    >>> diagnosis = {
+    ...     "ipsi": {
+    ...         "MRI": {"II": True, "III": False},
+    ...         "PET": {"II": False, "III": True},
+    ...      },
+    ...     "contra": {"MRI": {"II": False, "III": None}},
+    ... }}
+    >>> sorted(get_modality_subset(diagnosis))
+    ['MRI', 'PET']
+    """
+    modality_set = set()
+
+    for side in ["ipsi", "contra"]:
+        if side in diagnosis:
+            modality_set |= set(diagnosis[side].keys())
+
+    return modality_set
+
+
 class HDF5FileCache:
     """HDF5 file acting as a cache for expensive arrays."""
     def __init__(self, file_path: Path) -> None:

@@ -4,7 +4,7 @@ Test the functions of the prevalence prediction submodule.
 import pandas as pd
 import pytest
 
-from lyscripts.predict.prevalences import does_midline_ext_match, get_match_idx
+from lyscripts.predict.prevalences import does_midext_match, get_match_idx
 
 
 def test_get_match_idx():
@@ -50,9 +50,9 @@ def test_does_midline_ext_match():
     })
     keyerr_data = pd.DataFrame({("way", "too", "many", "levels"): [True, False, None]})
 
-    uni_match_none = does_midline_ext_match(uni_data)
-    uni_match = does_midline_ext_match(uni_data, midline_ext=False)
-    midline_match = does_midline_ext_match(midline_data, midline_ext=False)
+    uni_match_none = does_midext_match(uni_data)
+    uni_match = does_midext_match(uni_data, midline_ext=False)
+    midline_match = does_midext_match(midline_data, midline_ext=False)
 
     assert uni_match_none is True, (
         "When matching against `None`, function should always return `True`."
@@ -65,4 +65,4 @@ def test_does_midline_ext_match():
         "Matching midline extension with correct data does not work."
     )
     with pytest.raises(KeyError):
-        _ = does_midline_ext_match(keyerr_data, midline_ext=False)
+        _ = does_midext_match(keyerr_data, midline_ext=False)

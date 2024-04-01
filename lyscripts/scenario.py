@@ -98,13 +98,46 @@ class Scenario:
 
 
     @classmethod
-    def from_namespace(cls, namespace: argparse.Namespace) -> ScenarioT:
-        """Create a scenario from an ``argparse`` namespace."""
+    def from_namespace(
+        cls,
+        namespace: argparse.Namespace,
+        lnls: list[str] | None = None,
+    ) -> ScenarioT:
+        """Create a scenario from an ``argparse`` namespace.
+
+        >>> parser = argparse.ArgumentParser()
+        >>> add_scenario_arguments(parser, for_comp="risks")
+        >>> args = parser.parse_args([
+        ...     "--ipsi-diagnosis", "y", "n",
+        ...     "--contra-involvement", "healthy", "involved",
+        ... ])
+        >>> scenario = Scenario.from_namespace(args, lnls=["II", "III"])
+        >>> scenario.diagnosis    # doctest: +NORMALIZE_WHITESPACE
+        {'ipsi': {'max_llh': {'II': True, 'III': False}},
+         'contra': {'max_llh': {'II': None, 'III': None}}}
+        >>> scenario.involvement
+        {'ipsi': {'II': None, 'III': None}, 'contra': {'II': False, 'III': True}}
+        """
+        if lnls is None:
+            lnls = []
+
         kwargs = {
             field: getattr(namespace, field, value)
             for field, value in cls.fields().items()
         }
-        return cls(**kwargs)
+        scenario = cls(**kwargs)
+
+        for side in ["ipsi", "contra"]:
+            pattern = getattr(namespace, f"{side}_involvement", None) or [None] * len(lnls)
+            tmp = {lnl: val for lnl, val in zip(lnls, pattern)}
+            getattr(scenario, "involvement")[side] = tmp
+
+            pattern = getattr(namespace, f"{side}_diagnosis", None) or [None] * len(lnls)
+            tmp = {lnl: val for lnl, val in zip(lnls, pattern)}
+            mod_name = getattr(namespace, "modality", "max_llh")
+            getattr(scenario, "diagnosis")[side] = {mod_name: tmp}
+
+        return scenario
 
     @classmethod
     def from_params(cls, params: dict[str, Any]) -> list[ScenarioT]:
@@ -248,6 +281,12 @@ def add_scenario_arguments(
         parser.add_argument(
             "--contra-involvement", nargs="+", type=optional_bool,
             help="Involvement to compute quantitty for (contralateral side).",
+        )
+
+    if for_comp == "prevalences":
+        parser.add_argument(
+            "--modality", default="max_llh",
+            help="Modality name to compute predicted and observed prevalence for.",
         )
 
     parser.add_argument(

@@ -62,9 +62,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def compute_priors_using_cache(
     model: types.Model,
+    cache: HDF5FileCache,
     samples: np.ndarray | None = None,
-    cache: HDF5FileCache | None = None,
     scenario: Scenario | None = None,
+    cache_hit_msg: str = "Priors already computed. Skipping.",
     progress_desc: str = "Computing priors from samples",
 ) -> np.ndarray:
     """Compute prior state distributions from the ``samples`` for the ``model``.
@@ -78,13 +79,10 @@ def compute_priors_using_cache(
         scenario = Scenario()
 
     priors_hash = scenario.md5_hash("priors")
-    if cache is not None and priors_hash in cache:
-        logger.info("Priors already computed. Skipping.")
+    if priors_hash in cache:
+        logger.info(cache_hit_msg)
         priors, _ = cache[priors_hash]
         return priors
-    elif cache is None:
-        logger.warning("No persistent priors cache provided.")
-        cache = {}
 
     if samples is None:
         raise ValueError("No samples provided.")
@@ -128,8 +126,8 @@ def main(args: argparse.Namespace):
     for i, scenario in enumerate(scenarios):
         _priors = compute_priors_using_cache(
             model=model,
-            samples=samples,
             cache=priors_cache,
+            samples=samples,
             scenario=scenario,
             progress_desc=f"Computing priors for scenario {i + 1}/{num_scens}",
         )

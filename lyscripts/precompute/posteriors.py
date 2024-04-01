@@ -13,7 +13,6 @@ Warning:
 import argparse
 import logging
 from pathlib import Path
-from typing import Any
 
 import h5py
 import numpy as np
@@ -22,7 +21,7 @@ from rich import progress
 
 from lyscripts import utils
 from lyscripts.precompute.priors import compute_priors_using_cache
-from lyscripts.precompute.utils import HDF5FileCache
+from lyscripts.precompute.utils import HDF5FileCache, get_modality_subset
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
 logger = logging.getLogger(__name__)
@@ -77,34 +76,13 @@ def load_from_hdf5(file_path: Path, name: str) -> np.ndarray:
         return file[name][()]
 
 
-def get_modality_subset(diagnosis: dict[str, Any]) -> set[str]:
-    """Get the subset of modalities used in the ``scenario``.
-
-    >>> diagnosis = {
-    ...     "ipsi": {
-    ...         "MRI": {"II": True, "III": False},
-    ...         "PET": {"II": False, "III": True},
-    ...      },
-    ...     "contra": {"MRI": {"II": False, "III": None}},
-    ... }}
-    >>> sorted(get_modality_subset(diagnosis))
-    ['MRI', 'PET']
-    """
-    modality_set = set()
-
-    for side in ["ipsi", "contra"]:
-        if side in diagnosis:
-            modality_set |= set(diagnosis[side].keys())
-
-    return modality_set
-
-
 def compute_posteriors_using_cache(
     model: types.Model,
     scenario: Scenario,
+    priors_cache: HDF5FileCache,
+    posteriors_cache: HDF5FileCache,
     side: str = "ipsi",
-    priors_cache: HDF5FileCache | None = None,
-    posteriors_cache: HDF5FileCache | None = None,
+    cache_hit_msg: str = "Posteriors already computed. Skipping.",
     progress_desc: str = "Computing posteriors from priors",
 ) -> np.ndarray:
     """Compute posteriors from prior state distributions.
@@ -117,20 +95,17 @@ def compute_posteriors_using_cache(
 
     posteriors_hash = scenario.md5_hash("posteriors")
 
-    if posteriors_cache is not None and posteriors_hash in posteriors_cache:
-        logger.info("Posteriors already computed. Skipping.")
+    if posteriors_hash in posteriors_cache:
+        logger.info(cache_hit_msg)
         posteriors, _ = posteriors_cache[posteriors_hash]
         return posteriors
-    elif posteriors_cache is None:
-        logger.warning("No persistent posteriors cache provided.")
-        posteriors_cache = {}
 
     try:
         priors = compute_priors_using_cache(
             model=model,
             cache=priors_cache,
             scenario=scenario,
-            progress_desc=progress_desc.replace("posteriors", "priors"),
+            cache_hit_msg="Loaded precomputed priors.",
         )
     except ValueError as val_err:
         msg = "No precomputed priors found for the given scenario."
@@ -140,8 +115,8 @@ def compute_posteriors_using_cache(
     kwargs = {"midext": scenario.midext} if isinstance(model, models.Midline) else {}
     posteriors = []
 
-    for i, prior in progress.track(
-        sequence=enumerate(priors),
+    for prior in progress.track(
+        sequence=priors,
         description="[blue]INFO     [/blue]" + progress_desc,
         total=len(priors),
     ):
@@ -158,15 +133,13 @@ def compute_posteriors_using_cache(
 
 def main(args: argparse.Namespace) -> None:
     """Compute posteriors from priors or drawn samples."""
-    if args.samples is None and args.priors is None:
-        raise ValueError("Either --samples or --priors must be provided.")
-
     params = utils.load_yaml_params(args.params)
     model = utils.create_model(params)
+    lnls = list(params["graph"]["lnl"].keys())
 
     if args.scenarios is None:
         # create a single scenario from the stdin arguments...
-        scenarios = [Scenario.from_namespace(args)]
+        scenarios = [Scenario.from_namespace(args, lnls=lnls)]
         num_scens = len(scenarios)
     else:
         # ...or load the scenarios from a YAML file

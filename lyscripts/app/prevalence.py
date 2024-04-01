@@ -248,7 +248,7 @@ def add_current_scenario(
     and :py:func:`.predict.prevalences.generate_predicted_prevalences`.
     """
     num_success, num_total = compute_observed_prevalence(
-        involvement=pattern,
+        diagnosis=pattern,
         data=data,
         lnls=len(model.get_params()),
         **prevs_kwargs,
