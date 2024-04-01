@@ -158,14 +158,15 @@ def compute_observed_prevalence(
     scenario: Scenario,
     mapping: dict[int, str] | Callable[[int], str],
 ):
-    """Extract prevalence of a ``diagnosis`` from the ``data``.
+    """Extract prevalence defined in a ``scenario`` from the ``data``.
 
-    This also considers the ``t_stage`` of the patients. If the ``data`` contains
-    bilateral information, one can choose to factor in whether or not the patient's
-    ``midext`` should be considered as well.
+    ``mapping`` defines how the T-stages in the data are supposed to be mapped to the
+    T-stages defined in the ``scenario``.
 
-    By giving a list of ``lnls``, one can restrict the matching algorithm to only those
-    lymph node levels that are provided via this list.
+    Warning:
+        When computing prevalences for unilateral models, the contralateral diagnosis
+        will still be considered for computing the prevalence in the *data*. But it
+        will not be stored in the HDF5 file.
     """
     modality = get_modality_subset(scenario.diagnosis).pop()
     diagnosis_pattern = {
@@ -211,7 +212,10 @@ def compute_prevalences_using_cache(
     if len(model.get_all_modalities()) != 1:
         raise ValueError("Exactly one modality must be set in the model.")
 
-    modality = get_modality_subset(scenario.diagnosis).pop()
+    try:
+        modality = get_modality_subset(scenario.diagnosis).pop()
+    except KeyError:
+        modality = next(iter(scenario.diagnosis))
 
     if "ipsi" in scenario.diagnosis and "contra" in scenario.diagnosis:
         diagnosis_pattern = {
@@ -314,6 +318,9 @@ def main(args: argparse.Namespace):
             scenario=scenario,
             mapping=params["model"].get("mapping", None),
         )
+
+        # compute the correct hash for unilateral models
+        scenario = scenario.for_side(side) if is_uni else scenario
         scenario_hash = scenario.md5_hash("prevalences")
         with h5py.File(prevalences_cache.file_path, "a") as file:
             file[scenario_hash].attrs["num_match"] = num_match
