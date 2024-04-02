@@ -26,7 +26,7 @@ ScenarioT = TypeVar("ScenarioT", bound="Scenario")
 class Scenario:
     """Class for storing configuration of a scenario.
 
-    This may be used by the :py:mod:`.precompute` and :py:mod:`.predict` modules to
+    This may be used by the :py:mod:`.compute` and :py:mod:`.predict` modules to
     compute priors, posteriors, prevalences, and risks.
     """
     def __init__(
@@ -37,6 +37,8 @@ class Scenario:
         midext: bool | None = None,
         diagnosis: dict[str, dict[str, types.PatternType]] | None = None,
         involvement: dict[str, types.PatternType] | None = None,
+        is_uni: bool = False,
+        side: str = "ipsi",
     ) -> None:
         """Initialize a scenario.
 
@@ -47,8 +49,10 @@ class Scenario:
         self.t_stages_dist = t_stages_dist
         self.mode = mode
         self.midext = midext
-        self.diagnosis = diagnosis or {}
-        self.involvement = involvement or {}
+        self._diagnosis = diagnosis or {}
+        self._involvement = involvement or {}
+        self.is_uni = is_uni
+        self.side = side
 
 
     @classmethod
@@ -102,6 +106,8 @@ class Scenario:
         cls,
         namespace: argparse.Namespace,
         lnls: list[str] | None = None,
+        is_uni: bool = False,
+        side: str = "ipsi",
     ) -> ScenarioT:
         """Create a scenario from an ``argparse`` namespace.
 
@@ -125,6 +131,8 @@ class Scenario:
             field: getattr(namespace, field, value)
             for field, value in cls.fields().items()
         }
+        kwargs["is_uni"] = is_uni
+        kwargs["side"] = side
         scenario = cls(**kwargs)
 
         for side in ["ipsi", "contra"]:
@@ -140,7 +148,12 @@ class Scenario:
         return scenario
 
     @classmethod
-    def from_params(cls, params: dict[str, Any]) -> list[ScenarioT]:
+    def list_from_params(
+        cls,
+        params: dict[str, Any],
+        is_uni: bool = False,
+        side: str = "ipsi",
+    ) -> list[ScenarioT]:
         """Create scenarios from a dictionary of parameters.
 
         >>> params = {
@@ -155,12 +168,14 @@ class Scenario:
         ['late'] HMM
         """
         res = []
+        uni_side_kwargs = {"is_uni": is_uni, "side": side}
         scenarios = params.get("scenarios", [])
         for scenario in scenarios:
             kwargs = {
                 field: scenario.get(field, value)
                 for field, value in cls.fields().items()
             }
+            kwargs.update(uni_side_kwargs)
             res.append(cls(**kwargs))
 
         return res
@@ -197,13 +212,53 @@ class Scenario:
 
         res.update({
             "midext": self.midext,
-            "diagnosis": self.diagnosis,
+            "diagnosis": self._diagnosis,
+            "side": self.side,
+            "is_uni": self.is_uni,
         })
 
         if for_comp == "risks":
-            res["involvement"] = self.involvement
+            res["involvement"] = self._involvement
 
         return res
+
+
+    @property
+    def diagnosis(self) -> dict[str, dict[str, types.PatternType]] | dict[str, types.PatternType]:
+        """Get bi- or unilateral diagosis, depending on attrs ``side`` and ``is_uni``."""
+        if self.is_uni:
+            return self._diagnosis[self.side]
+
+        return self._diagnosis
+
+
+    @property
+    def involvement(self) -> dict[str, types.PatternType] | types.PatternType:
+        """Get bi- or unilateral involvement, depending on attrs ``side`` and ``is_uni``."""
+        if self.is_uni:
+            return self._involvement[self.side]
+
+        return self._involvement
+
+
+    def get_pattern(
+        self,
+        get_from: Literal["involvement", "diagnosis"],
+        modality: str,
+    ) -> dict[str, Any]:
+        """Get an involvement pattern for the given ``modality``."""
+        if get_from == "involvement":
+            pattern = self._involvement
+        else:
+            pattern = {
+                side: self._diagnosis[side][modality]
+                for side in ["ipsi", "contra"]
+            }
+
+        if self.is_uni:
+            return pattern[self.side]
+
+        return pattern
 
 
     def md5_hash(
