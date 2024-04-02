@@ -3,14 +3,14 @@ Predict prevalences of observed involvement pattern using the samples or prior s
 distributions that were previously inferred or computed. These computed prevalences can
 be compared to the prevalence of the respective pattern in the data, if provided.
 
-This may make use of :py:mod:`.predict.priors` to compute and cache the prior state
+This may make use of :py:mod:`.compute.priors` to compute and cache the prior state
 distributions in an HDF5 file. The prevalences themselves are also stored in an HDF5
 file.
 
 Formally, the prevalence is the likelihood of the observed involvement pattern that we
 are interested in, given the model and samples. We compute this by calling the model's
 :py:meth:`~lymph.types.Model.state_dist` method for each of the samples and mutiply
-it with the :py:func:`~lymph.matrix.observation_matrix` to get the likelihood of the
+it with the :py:func:`lymph.matrix.generate_observation` to get the likelihood of the
 observed involvement pattern.
 
 Warning:
@@ -87,15 +87,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
-def does_t_stage_match(data: pd.DataFrame, t_stages: list[str] | None) -> pd.Series:
-    """Return indices of the ``data`` where ``t_stage`` of the patients matches."""
-    t_stage_col = data["tumor", "1", "t_stage"]
-    if t_stages is None:
-        return pd.Series([True] * len(data))
-
-    return t_stage_col.isin(t_stages)
-
-
 def does_midext_match(
     data: pd.DataFrame,
     midext: bool | None = None
@@ -108,23 +99,11 @@ def does_midext_match(
     return midext_col == midext
 
 
-def get_midext_prob(data: pd.DataFrame, t_stage: str) -> float:
-    """Get the prevalence of midline extension from ``data`` for ``t_stage``."""
-    if data.columns.nlevels == 2:
-        return None
-
-    has_matching_t_stage = does_t_stage_match(data, [t_stage])
-    eligible_data = data[has_matching_t_stage]
-    has_matching_midline_ext = does_midext_match(eligible_data, midext=True)
-    matching_data = eligible_data[has_matching_midline_ext]
-    return len(matching_data) / len(eligible_data)
-
-
 def compute_observed_prevalence(
     data: pd.DataFrame,
     scenario: Scenario,
     mapping: dict[int, str] | Callable[[int], str],
-):
+) -> np.ndarray:
     """Extract prevalence defined in a ``scenario`` from the ``data``.
 
     ``mapping`` defines how the T-stages in the data are supposed to be mapped to the
@@ -179,7 +158,7 @@ def compute_prevalences_using_cache(
     scenario: dict[str, Any],
     priors_cache: HDF5FileCache,
     prevalences_cache: HDF5FileCache,
-    cache_hit_msg = "Prevalences already computed. Skipping.",
+    cache_hit_msg: str = "Prevalences already computed. Skipping.",
     progress_desc: str = "Computing prevalences from priors",
 ) -> np.ndarray:
     """Compute prevalences from ``priors``."""

@@ -1,12 +1,12 @@
-.. currentmodule:: lyscripts.precompute.priors
+.. currentmodule:: lyscripts.compute.priors
 
 Prior State Distributions
 =========================
 
-.. automodule:: lyscripts.precompute.priors
+.. automodule:: lyscripts.compute.priors
     :members:
 
 Command Help
 ------------
 
-.. program-output:: lyscripts precompute priors --help
+.. program-output:: lyscripts compute priors --help

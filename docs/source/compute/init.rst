@@ -22,3 +22,4 @@ Submodules
     posteriors
     prevalences
     risks
+    utils
