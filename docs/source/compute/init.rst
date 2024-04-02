@@ -1,15 +1,15 @@
-.. currentmodule:: lyscripts.precompute
+.. currentmodule:: lyscripts.compute
 
 Precomputing Quantitites
 ========================
 
-.. automodule:: lyscripts.precompute
+.. automodule:: lyscripts.compute
     :members:
 
 Command Help
 ------------
 
-.. program-output:: lyscripts precompute --help
+.. program-output:: lyscripts compute --help
 
 
 Submodules
@@ -20,3 +20,5 @@ Submodules
 
     priors
     posteriors
+    prevalences
+    risks

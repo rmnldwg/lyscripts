@@ -19,12 +19,12 @@ Submodules
     :maxdepth: 1
 
     app/init
+    compute/init
     data/init
     decorators
     evaluate
     plot/init
-    precompute/init
-    predict/init
     sample
+    scenario
     temp_schedule
     utils
