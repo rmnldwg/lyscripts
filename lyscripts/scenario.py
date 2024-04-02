@@ -264,6 +264,7 @@ class Scenario:
     def md5_hash(
         self,
         for_comp: Literal["priors", "posteriors", "prevalences", "risks"],
+        length: int = 6,
     ) -> str:
         """Return MD5 hash of the scenario ``for_comp``.
 
@@ -275,7 +276,8 @@ class Scenario:
         >>> scenario.md5_hash("posteriors")
         '7988663ea4474c1c20731cc7cbd01b1e'
         """
-        return hashlib.md5(str(self.as_dict(for_comp)).encode("utf-8")).hexdigest()
+        full_hash = hashlib.md5(str(self.as_dict(for_comp)).encode("utf-8")).hexdigest()
+        return full_hash[:length]
 
 
 def add_scenario_arguments(
