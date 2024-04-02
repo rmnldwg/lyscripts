@@ -3,7 +3,7 @@ Predict prevalences of observed involvement pattern using the samples or prior s
 distributions that were previously inferred or computed. These computed prevalences can
 be compared to the prevalence of the respective pattern in the data, if provided.
 
-This may make use of :py:mod:`.predict.priors` to precompute and cache the prior state
+This may make use of :py:mod:`.predict.priors` to compute and cache the prior state
 distributions in an HDF5 file. The prevalences themselves are also stored in an HDF5
 file.
 
@@ -28,12 +28,12 @@ from typing import Any
 import h5py
 import numpy as np
 import pandas as pd
-from lymph import models, types, utils
+from lymph import models, types
 from rich.progress import track
 
 from lyscripts import utils
-from lyscripts.precompute.priors import compute_priors_using_cache
-from lyscripts.precompute.utils import HDF5FileCache, get_modality_subset
+from lyscripts.compute.priors import compute_priors_using_cache
+from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
 logger = logging.getLogger(__name__)
@@ -56,11 +56,7 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a ``subparsers`` instance."""
     parser.add_argument(
-        "-p", "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file defining the model (YAML)."
-    )
-    parser.add_argument(
-        "--priors", type=Path, required=False,
+        "--priors", type=Path, required=True,
         help=(
             "Path to the prior state distributions (HDF5 file). If samples are "
             "provided, this will be used as output to store the computed posteriors. "
@@ -68,12 +64,16 @@ def _add_arguments(parser: argparse.ArgumentParser):
         )
     )
     parser.add_argument(
-        "-d", "--data", type=Path, required=False,
+        "--prevalences", type=Path, required=True,
+        help="Path to the HDF5 file for storing the computed prevalences."
+    )
+    parser.add_argument(
+        "--data", type=Path, required=False,
         help="Path to the patient data (CSV file)."
     )
     parser.add_argument(
-        "--prevalences", type=Path, required=True,
-        help="Path to the HDF5 file for storing the computed prevalences."
+        "--params", default="./params.yaml", type=Path,
+        help="Path to parameter file defining the model (YAML)."
     )
     parser.add_argument(
         "--scenarios", type=Path, required=False,
@@ -85,39 +85,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
     add_scenario_arguments(parser, for_comp="prevalences")
     parser.set_defaults(run_main=main)
-
-
-def get_match_idx(
-    match_idx,
-    pattern: dict[str, bool | None],
-    data: pd.DataFrame,
-    invert: bool = False,
-) -> pd.Series:
-    """Get indices of rows in the ``data`` where the diagnosis matches the ``pattern``.
-
-    This uses the ``match_idx`` as a starting point and updates it according to the
-    ``pattern``. If ``invert`` is set to ``True``, the function returns the inverted
-    indices.
-
-    >>> pattern = {"II": True, "III": None}
-    >>> data = pd.DataFrame.from_dict({
-    ...     "II":  [True, False],
-    ...     "III": [False, False],
-    ... })
-    >>> get_match_idx(True, pattern, data)
-    0     True
-    1    False
-    Name: II, dtype: bool
-    """
-    for lnl, involvement in data.items():
-        if lnl not in pattern or pattern[lnl] is None:
-            continue
-        if invert:
-            match_idx |= involvement != pattern[lnl]
-        else:
-            match_idx &= involvement == pattern[lnl]
-
-    return match_idx
 
 
 def does_t_stage_match(data: pd.DataFrame, t_stages: list[str] | None) -> pd.Series:
@@ -165,39 +132,46 @@ def compute_observed_prevalence(
 
     Warning:
         When computing prevalences for unilateral models, the contralateral diagnosis
-        will still be considered for computing the prevalence in the *data*. But it
-        will not be stored in the HDF5 file.
+        will still be considered for computing the prevalence in the *data*.
     """
     modality = get_modality_subset(scenario.diagnosis).pop()
-    diagnosis_pattern = {
-        "ipsi": scenario.diagnosis["ipsi"][modality],
-        "contra": scenario.diagnosis["contra"][modality],
-    }
+    diagnosis_pattern = scenario.get_pattern(get_from="diagnosis", modality=modality)
 
-    data["tumor", "1", "t_stage"] = data["tumor", "1", "t_stage"].map(mapping)
-    has_t_stage = does_t_stage_match(data, scenario.t_stages)
+    data.ly.map_t_stage(mapping)
+    has_t_stage = data.ly.t_stage.isin(scenario.t_stages)
     eligible_data = data.loc[has_t_stage].reset_index()
 
     # filter the data by the involvement, which includes the involvement pattern itself
     # and the midline extension status
-    has_midext = does_midext_match(eligible_data, scenario.midext)
-    do_lnls_match = pd.Series([True] * len(eligible_data))
-
-    for side in ["ipsi", "contra"]:
-        do_lnls_match = get_match_idx(
-            do_lnls_match,
-            diagnosis_pattern[side],
-            eligible_data[modality, side],
-        )
+    has_midext = eligible_data.ly.is_midext(scenario.midext)
+    does_pattern_match = eligible_data.ly.match(diagnosis_pattern, modality)
 
     try:
-        matching_data = eligible_data.loc[do_lnls_match & has_midext]
+        matching_data = eligible_data.loc[does_pattern_match & has_midext]
         len_matching_data = len(matching_data)
     except KeyError:
         # return X, X if no actual pattern was selected
         len_matching_data = len(eligible_data)
 
     return len_matching_data, len(eligible_data)
+
+
+def observe_prevalence_using_cache(
+    data: pd.DataFrame,
+    scenario: Scenario,
+    cache: HDF5FileCache,
+    mapping: dict[int, Any] | Callable[[int], Any] = None
+):
+    """Compute and cache the observed prevalence for a given ``scenario``."""
+    num_match, num_total = compute_observed_prevalence(
+        data=data.copy(),
+        scenario=scenario,
+        mapping=mapping,
+    )
+    scenario_hash = scenario.md5_hash("prevalences")
+    with h5py.File(cache.file_path, "a") as file:
+        file[scenario_hash].attrs["num_match"] = num_match
+        file[scenario_hash].attrs["num_total"] = num_total
 
 
 def compute_prevalences_using_cache(
@@ -210,23 +184,13 @@ def compute_prevalences_using_cache(
 ) -> np.ndarray:
     """Compute prevalences from ``priors``."""
     if len(model.get_all_modalities()) != 1:
-        raise ValueError("Exactly one modality must be set in the model.")
-
-    try:
-        modality = get_modality_subset(scenario.diagnosis).pop()
-    except KeyError:
-        modality = next(iter(scenario.diagnosis))
-
-    if "ipsi" in scenario.diagnosis and "contra" in scenario.diagnosis:
-        diagnosis_pattern = {
-            "ipsi": scenario.diagnosis["ipsi"][modality],
-            "contra": scenario.diagnosis["contra"][modality],
-        }
-    else:
-        diagnosis_pattern = scenario.diagnosis[modality]
+        raise ValueError(
+            "Exactly one modality must be set in the model for computing prevalences."
+        )
+    modality = next(iter(model.get_all_modalities()))
+    diagnosis_pattern = scenario.get_pattern(get_from="diagnosis", modality=modality)
 
     prevalences_hash = scenario.md5_hash("prevalences")
-
     if prevalences_hash in prevalences_cache:
         logger.info(cache_hit_msg)
         prevalences, _ = prevalences_cache[prevalences_hash]
@@ -237,10 +201,10 @@ def compute_prevalences_using_cache(
             model=model,
             cache=priors_cache,
             scenario=scenario,
-            cache_hit_msg="Loaded precomputed priors.",
+            cache_hit_msg="Loaded computed priors.",
         )
     except ValueError as val_err:
-        msg = "No precomputed priors found for the given scenario."
+        msg = "No computed priors found for the given scenario."
         logger.error(msg)
         raise ValueError(msg) from val_err
 
@@ -272,26 +236,29 @@ def main(args: argparse.Namespace):
     """Function to run the risk prediction routine."""
     params = utils.load_yaml_params(args.params)
     model = utils.create_model(params)
-    is_uni = isinstance(model, models.Unilateral)
-    side = params["model"].get("side", "ipsi")
     lnls = list(params["graph"]["lnl"].keys())
-    data = utils.load_patient_data(args.data)
+    data = utils.load_patient_data(args.data) if args.data is not None else None
 
     if args.scenarios is None:
         # create a single scenario from the stdin arguments...
-        scenarios = [Scenario.from_namespace(args, lnls=lnls)]
+        scenarios = [Scenario.from_namespace(
+            namespace=args,
+            lnls=lnls,
+            is_uni=isinstance(model, models.Unilateral),
+            side=params["model"].get("side", "ipsi"),
+        )]
         num_scens = len(scenarios)
     else:
         # ...or load the scenarios from a YAML file
-        scenarios = Scenario.from_params(utils.load_yaml_params(args.scenarios))
+        scenarios = Scenario.list_from_params(
+            params=utils.load_yaml_params(args.scenarios),
+            is_uni=isinstance(model, models.Unilateral),
+            side=params["model"].get("side", "ipsi"),
+        )
         num_scens = len(scenarios)
         logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
 
-    if args.priors is None:
-        logger.warning("No persistent priors cache provided.")
-        priors_cache = {}
-    else:
-        priors_cache = HDF5FileCache(args.priors)
+    priors_cache = HDF5FileCache(args.priors)
     prevalences_cache = HDF5FileCache(args.prevalences)
 
     for i, scenario in enumerate(scenarios):
@@ -301,30 +268,25 @@ def main(args: argparse.Namespace):
             subset=get_modality_subset(scenario.diagnosis),
             clear=True,
         )
-        if len(model.get_all_modalities()) != 1:
-            raise ValueError("Exactly one modality necessary for computing prevalences.")
 
         _predicted_prevalences = compute_prevalences_using_cache(
             model=model,
-            scenario=scenario.for_side(side) if is_uni else scenario,
+            scenario=scenario,
             priors_cache=priors_cache,
             prevalences_cache=prevalences_cache,
             progress_desc=f"Computing prevalences for scenario {i+1}/{num_scens}",
         )
 
-        logger.info(f"Computing observed prevalence for scenario {i+1}/{num_scens}.")
-        num_match, num_total = compute_observed_prevalence(
-            data=data.copy(),
+        if data is None:
+            continue
+
+        logger.info(f"Compute observed prevalence for scenario {i+1}/{num_scens}.")
+        observe_prevalence_using_cache(
+            data=data,
             scenario=scenario,
+            cache=prevalences_cache,
             mapping=params["model"].get("mapping", None),
         )
-
-        # compute the correct hash for unilateral models
-        scenario = scenario.for_side(side) if is_uni else scenario
-        scenario_hash = scenario.md5_hash("prevalences")
-        with h5py.File(prevalences_cache.file_path, "a") as file:
-            file[scenario_hash].attrs["num_match"] = num_match
-            file[scenario_hash].attrs["num_total"] = num_total
 
 
 if __name__ == "__main__":

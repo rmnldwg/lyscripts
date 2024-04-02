@@ -1,12 +1,12 @@
 """
-With the commands of this module, a user may precompute prior and posterior state
+With the commands of this module, a user may compute prior and posterior state
 distributions from drawn samples of a model. This can in turn speed up the computation
 of risks and prevalences.
 """
 import argparse
 from pathlib import Path
 
-from lyscripts.precompute import posteriors, priors
+from lyscripts.compute import posteriors, prevalences, priors, risks
 
 
 def _add_parser(
@@ -23,3 +23,5 @@ def _add_parser(
     subparsers = parser.add_subparsers()
     priors._add_parser(subparsers, help_formatter=parser.formatter_class)
     posteriors._add_parser(subparsers, help_formatter=parser.formatter_class)
+    prevalences._add_parser(subparsers, help_formatter=parser.formatter_class)
+    risks._add_parser(subparsers, help_formatter=parser.formatter_class)

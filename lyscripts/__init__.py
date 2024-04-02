@@ -9,19 +9,11 @@ import argparse
 import logging
 import re
 
+import pandas as pd
 import rich
 from rich_argparse import RichHelpFormatter
 
-from lyscripts import (
-    app,
-    data,
-    evaluate,
-    plot,
-    precompute,
-    predict,
-    sample,
-    temp_schedule,
-)
+from lyscripts import app, compute, data, evaluate, plot, sample, temp_schedule
 from lyscripts._version import version
 from lyscripts.utils import CustomRichHandler, console
 
@@ -33,6 +25,9 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 
 # nopycln: file
 
+# activate copy on write in pandas.
+# See https://pandas.pydata.org/docs/user_guide/copy_on_write.html
+pd.options.mode.copy_on_write = True
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -115,11 +110,10 @@ def main():
     # the individual scripts add `ArgumentParser` instances and their arguments to
     # this `subparsers` object
     app._add_parser(subparsers, help_formatter=parser.formatter_class)
+    compute._add_parser(subparsers, help_formatter=parser.formatter_class)
     data._add_parser(subparsers, help_formatter=parser.formatter_class)
     evaluate._add_parser(subparsers, help_formatter=parser.formatter_class)
     plot._add_parser(subparsers, help_formatter=parser.formatter_class)
-    precompute._add_parser(subparsers, help_formatter=parser.formatter_class)
-    predict._add_parser(subparsers, help_formatter=parser.formatter_class)
     sample._add_parser(subparsers, help_formatter=parser.formatter_class)
     temp_schedule._add_parser(subparsers, help_formatter=parser.formatter_class)
 

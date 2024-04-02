@@ -43,7 +43,7 @@ CIRCL = "[bold blue]∘[/bold blue]"
 WARN = "[bold yellow]Δ[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
 
-LymphModel = models.Unilateral | models.Bilateral | models.Midline
+
 console = Console()
 
 
@@ -126,7 +126,7 @@ def graph_from_config(graph_params: dict) -> dict[tuple[str, str], list[str]]:
 
 
 def add_tstage_marg(
-    model: LymphModel,
+    model: types.Model,
     t_stages: list[str],
     first_binom_prob: float,
     max_time: int,
@@ -141,7 +141,7 @@ def add_tstage_marg(
 
 
 @deprecated(reason="Use new config file version.")
-def _create_model_from_v0(params: dict[str, Any]) -> LymphModel:
+def _create_model_from_v0(params: dict[str, Any]) -> types.Model:
     """Create a model instance as defined by some YAML params."""
     if "graph" in params:
         graph = graph_from_config(params["graph"])

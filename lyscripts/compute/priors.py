@@ -1,9 +1,12 @@
 """
-Given samples drawn during an MCMC round, precompute the (prior) state distribution for
+Given samples drawn during an MCMC round, compute the (prior) state distribution for
 each sample. This may then later on be used to compute risks and prevalences more
 quickly.
 
-The computed priors are stored in an HDF5 file under the key ``mode + t_stage``.
+The computed priors are stored in an HDF5 file under a hash key of the scenario they
+were computed for. This scenario consists of the T-stages it was computed for and the
+distribution that was used to marginalize over them, as well as the model's computation
+mode (hidden Markov model or Bayesian network).
 """
 import argparse
 import logging
@@ -14,7 +17,7 @@ from lymph import types
 from rich import progress
 
 from lyscripts import utils
-from lyscripts.precompute.utils import HDF5FileCache
+from lyscripts.compute.utils import HDF5FileCache
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
 logger = logging.getLogger(__name__)
@@ -37,16 +40,16 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a ``subparsers`` instance."""
     parser.add_argument(
-        "-s", "--samples", type=Path, required=True,
+        "--samples", type=Path, required=True,
         help="Path to the drawn samples (HDF5 file)."
     )
     parser.add_argument(
-        "-p", "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file defining the model (YAML)."
+        "--priors", type=Path, required=True,
+        help="Path to file for storing the computed prior distributions."
     )
     parser.add_argument(
-        "--priors", default="./priors.hdf5", type=Path,
-        help="Path to file for storing the computed prior distributions."
+        "--params", type=Path, required=True,
+        help="Path to parameter file defining the model (YAML)."
     )
     parser.add_argument(
         "--scenarios", type=Path, required=False,
@@ -106,7 +109,7 @@ def compute_priors_using_cache(
 
 
 def main(args: argparse.Namespace):
-    """Precompute the prior state distribution for each sample."""
+    """compute the prior state distribution for each sample."""
     params = utils.load_yaml_params(args.params)
 
     if args.scenarios is None:
@@ -115,7 +118,7 @@ def main(args: argparse.Namespace):
         num_scens = len(scenarios)
     else:
         # ...or load the scenarios from a YAML file
-        scenarios = Scenario.from_params(utils.load_yaml_params(args.scenarios))
+        scenarios = Scenario.list_from_params(utils.load_yaml_params(args.scenarios))
         num_scens = len(scenarios)
         logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
 

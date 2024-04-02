@@ -4,8 +4,8 @@ Script to run doctests in the modules of `lyscripts`.
 import doctest
 
 from lyscripts import utils
+from lyscripts.compute import prevalences, risks
 from lyscripts.plot import corner, histograms, thermo_int
-from lyscripts.predict import prevalences, risks
 
 if __name__ == "__main__":
     doctest.testmod(utils, verbose=True)

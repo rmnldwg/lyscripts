@@ -4,7 +4,8 @@ Test the functions of the prevalence prediction submodule.
 import pandas as pd
 import pytest
 
-from lyscripts.predict.prevalences import does_midext_match, get_match_idx
+from lyscripts.compute.prevalences import does_midext_match
+from lyscripts.data.accessor import get_match_idx
 
 
 def test_get_match_idx():

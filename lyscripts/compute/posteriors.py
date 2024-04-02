@@ -1,8 +1,12 @@
 """
-Compute posterior state distributions from precomputed priors (see
-:py:mod:`.precompute.priors`). The posteriors are computed for a given "scenario" (or
+Compute posterior state distributions from computed priors (see
+:py:mod:`.compute.priors`). The posteriors are computed for a given "scenario" (or
 many of them), which typically define a clinical diagnosis w.r.t. the lymphatic
 involvement of a patient.
+
+In the resulting HDF5 file, the posteriors are stored under MD5 hashes of the
+corresponding scenarios, similar to the priors. But the posteriors take into account
+more information.
 
 Warning:
     The command skips the computation of the priors if it finds them in the cache. But
@@ -14,14 +18,13 @@ import argparse
 import logging
 from pathlib import Path
 
-import h5py
 import numpy as np
 from lymph import models, types
 from rich import progress
 
 from lyscripts import utils
-from lyscripts.precompute.priors import compute_priors_using_cache
-from lyscripts.precompute.utils import HDF5FileCache, get_modality_subset
+from lyscripts.compute.priors import compute_priors_using_cache
+from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
 logger = logging.getLogger(__name__)
@@ -46,17 +49,17 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--priors", type=Path, required=True,
         help=(
-            "Path to the precomputed priors (HDF5 file). They must have been "
+            "Path to the computed priors (HDF5 file). They must have been "
             "computed from the same model and scenarios as the posteriors."
         )
     )
     parser.add_argument(
-        "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file defining the model (YAML)."
-    )
-    parser.add_argument(
         "--posteriors", type=Path, required=True,
         help="Path to file for storing the computed posterior distributions."
+    )
+    parser.add_argument(
+        "--params", type=Path, required=True,
+        help="Path to parameter file defining the model (YAML)."
     )
     parser.add_argument(
         "--scenarios", type=Path, required=False,
@@ -70,18 +73,11 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(run_main=main)
 
 
-def load_from_hdf5(file_path: Path, name: str) -> np.ndarray:
-    """Load an array from an HDF5 file."""
-    with h5py.File(file_path, mode="r") as file:
-        return file[name][()]
-
-
 def compute_posteriors_using_cache(
     model: types.Model,
     scenario: Scenario,
-    priors_cache: HDF5FileCache,
+    priors_cache: HDF5FileCache | None,
     posteriors_cache: HDF5FileCache,
-    side: str = "ipsi",
     cache_hit_msg: str = "Posteriors already computed. Skipping.",
     progress_desc: str = "Computing posteriors from priors",
 ) -> np.ndarray:
@@ -90,9 +86,6 @@ def compute_posteriors_using_cache(
     This will call the ``model`` method :py:meth:`~lymph.types.Model.posterior_state_dist`
     for each of the ``priors``, given the specified ``diagnosis`` pattern.
     """
-    if isinstance(model, models.Unilateral):
-        scenario = scenario.for_side(side)
-
     posteriors_hash = scenario.md5_hash("posteriors")
 
     if posteriors_hash in posteriors_cache:
@@ -105,10 +98,10 @@ def compute_posteriors_using_cache(
             model=model,
             cache=priors_cache,
             scenario=scenario,
-            cache_hit_msg="Loaded precomputed priors.",
+            cache_hit_msg="Loaded computed priors.",
         )
     except ValueError as val_err:
-        msg = "No precomputed priors found for the given scenario."
+        msg = "No computed priors found for the given scenario."
         logger.error(msg)
         raise ValueError(msg) from val_err
 
@@ -139,19 +132,24 @@ def main(args: argparse.Namespace) -> None:
 
     if args.scenarios is None:
         # create a single scenario from the stdin arguments...
-        scenarios = [Scenario.from_namespace(args, lnls=lnls)]
+        scenarios = [Scenario.from_namespace(
+            namespace=args,
+            lnls=lnls,
+            is_uni=isinstance(model, models.Unilateral),
+            side=params["model"].get("side", "ipsi"),
+        )]
         num_scens = len(scenarios)
     else:
         # ...or load the scenarios from a YAML file
-        scenarios = Scenario.from_params(utils.load_yaml_params(args.scenarios))
+        scenarios = Scenario.list_from_params(
+            params=utils.load_yaml_params(args.scenarios),
+            is_uni=isinstance(model, models.Unilateral),
+            side=params["model"].get("side", "ipsi"),
+        )
         num_scens = len(scenarios)
         logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
 
-    if args.priors is None:
-        logger.warning("No persistent priors cache provided.")
-        priors_cache = {}
-    else:
-        priors_cache = HDF5FileCache(args.priors)
+    priors_cache = HDF5FileCache(args.priors)
     posteriors_cache = HDF5FileCache(args.posteriors)
 
     for i, scenario in enumerate(scenarios):
@@ -164,7 +162,6 @@ def main(args: argparse.Namespace) -> None:
         _posteriors = compute_posteriors_using_cache(
             model=model,
             scenario=scenario,
-            side=params["model"].get("side", "ipsi"),
             priors_cache=priors_cache,
             posteriors_cache=posteriors_cache,
             progress_desc=f"Computing posteriors for scenario {i + 1}/{num_scens}",

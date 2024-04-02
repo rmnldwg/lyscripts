@@ -17,15 +17,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
-from lymph import models
+from lymph import models, types
 
-from lyscripts.plot.utils import COLOR_CYCLE, Histogram, Posterior, draw
-from lyscripts.predict.prevalences import (  # generate_predicted_prevalences,
+from lyscripts.compute.prevalences import (  # generate_predicted_prevalences,
     compute_observed_prevalence,
 )
-from lyscripts.predict.utils import complete_pattern, reduce_pattern
+from lyscripts.compute.utils import complete_pattern, reduce_pattern
+from lyscripts.plot.utils import COLOR_CYCLE, Histogram, Posterior, draw
 from lyscripts.utils import (
-    LymphModel,
     create_model,
     load_model_samples,
     load_patient_data,
@@ -169,7 +168,7 @@ def interactive_pattern(
 
 def interactive_additional_params(
     streamlit: ModuleType,
-    model: LymphModel,
+    model: types.Model,
     data: pd.DataFrame,
     samples: np.ndarray,
 ) -> dict[str, Any]:
@@ -235,7 +234,7 @@ def reset(session_state: dict[str, Any]):
 def add_current_scenario(
     session_state: dict[str, Any],
     pattern: dict[str, dict[str, bool]],
-    model: LymphModel,
+    model: types.Model,
     samples: np.ndarray,
     data: pd.DataFrame,
     prevs_kwargs: dict[str, Any] | None = None,

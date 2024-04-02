@@ -39,6 +39,9 @@ def get_modality_subset(diagnosis: dict[str, Any]) -> set[str]:
     """
     modality_set = set()
 
+    if "ipsi" not in diagnosis and "contra" not in diagnosis:
+        return modality_set | set(diagnosis.keys())
+
     for side in ["ipsi", "contra"]:
         if side in diagnosis:
             modality_set |= set(diagnosis[side].keys())
@@ -74,3 +77,63 @@ class HDF5FileCache:
     def __contains__(self, key: bytes | str) -> bool:
         with h5py.File(self.file_path, "a") as file:
             return key in file
+
+
+def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, bool]]:
+    """Reduce a ``pattern`` by removing all entries that are ``None``.
+
+    This way, it should be completely recoverable by the ``complete_pattern`` function
+    but be shorter to store.
+
+    Example:
+
+    >>> full = {
+    ...     "ipsi": {"I": None, "II": True, "III": None},
+    ...     "contra": {"I": None, "II": None, "III": None},
+    ... }
+    >>> reduce_pattern(full)
+    {'ipsi': {'II': True}}
+    """
+    tmp_pattern = pattern.copy()
+    reduced_pattern = {}
+    for side in ["ipsi", "contra"]:
+        if not all(v is None for v in tmp_pattern[side].values()):
+            reduced_pattern[side] = {}
+            for lnl, val in tmp_pattern[side].items():
+                if val is not None:
+                    reduced_pattern[side][lnl] = val
+
+    return reduced_pattern
+
+
+def complete_pattern(
+    pattern: dict[str, dict[str, bool]] | None,
+    lnls: list[str],
+) -> dict[str, dict[str, bool]]:
+    """Make sure the provided involvement ``pattern`` is correct.
+
+    For each side of the neck, and for each of the ``lnls`` this should in the end
+    contain ``True``, ``False`` or ``None``.
+
+    Example:
+    >>> pattern = {"ipsi": {"II": True}}
+    >>> lnls = ["II", "III"]
+    >>> complete_pattern(pattern, lnls)
+    {'ipsi': {'II': True, 'III': None}, 'contra': {'II': None, 'III': None}}
+    """
+    if pattern is None:
+        pattern = {}
+
+    for side in ["ipsi", "contra"]:
+        if side not in pattern:
+            pattern[side] = {}
+
+        for lnl in lnls:
+            if lnl not in pattern[side]:
+                pattern[side][lnl] = None
+            elif pattern[side][lnl] is None:
+                continue
+            else:
+                pattern[side][lnl] = bool(pattern[side][lnl])
+
+    return pattern
