@@ -102,7 +102,7 @@ class Histogram:
 
 
 @dataclass
-class Posterior:
+class BetaPosterior:
     """Class for storing plot configs for a Beta posterior."""
     num_success: int
     num_total: int
@@ -203,7 +203,7 @@ def get_label(attrs) -> str:
 
 
 def get_xlims(
-    contents: list[Histogram | Posterior],
+    contents: list[Histogram | BetaPosterior],
     percent_lims: tuple[float] = (10., 10.),
 ) -> tuple[float]:
     """
@@ -223,7 +223,7 @@ def get_xlims(
 
 def draw(
     axes: MPLAxes,
-    contents: list[Histogram | Posterior],
+    contents: list[Histogram | BetaPosterior],
     percent_lims: tuple[float] = (10., 10.),
     xlims: tuple[float] | None = None,
     hist_kwargs: dict[str, Any] | None = None,
@@ -243,7 +243,7 @@ def draw(
     Both these keyword arguments can be overwritten by what the individual ``contents``
     have defined.
     """
-    if not all(isinstance(c, (Histogram, Posterior)) for c in contents):
+    if not all(isinstance(c, (Histogram, BetaPosterior)) for c in contents):
         raise TypeError("Contents must be `Histogram` or `Posterior` instances")
 
     if xlims is None:
@@ -272,7 +272,7 @@ def draw(
             tmp_hist_kwargs = default_hist_kwargs.copy()
             tmp_hist_kwargs.update(content.kwargs)
             axes.hist(content.values, **tmp_hist_kwargs)
-        elif isinstance(content, Posterior):
+        elif isinstance(content, BetaPosterior):
             tmp_plot_kwargs = default_plot_kwargs.copy()
             tmp_plot_kwargs["label"] = f"{content.num_success} / {content.num_total}"
             tmp_plot_kwargs.update(content.kwargs)

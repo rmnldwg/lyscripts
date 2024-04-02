@@ -23,7 +23,7 @@ from lyscripts.compute.prevalences import (  # generate_predicted_prevalences,
     compute_observed_prevalence,
 )
 from lyscripts.compute.utils import complete_pattern, reduce_pattern
-from lyscripts.plot.utils import COLOR_CYCLE, Histogram, Posterior, draw
+from lyscripts.plot.utils import COLOR_CYCLE, BetaPosterior, Histogram, draw
 from lyscripts.utils import (
     create_model,
     load_model_samples,
@@ -238,7 +238,7 @@ def add_current_scenario(
     samples: np.ndarray,
     data: pd.DataFrame,
     prevs_kwargs: dict[str, Any] | None = None,
-) -> list[Histogram | Posterior]:
+) -> list[Histogram | BetaPosterior]:
     """Compute prevalence of ``pattern`` as seem in ``data`` and predicted by ``model``.
 
     This uses a set of ``samples``. The results are then stored in the ``contents``
@@ -264,7 +264,7 @@ def add_current_scenario(
         computed_prevs[i] = prevalence
 
     next_color = next(COLOR_CYCLE)
-    beta_posterior = Posterior(num_success, num_total, kwargs={"color": next_color})
+    beta_posterior = BetaPosterior(num_success, num_total, kwargs={"color": next_color})
     histogram = Histogram(computed_prevs, kwargs={"color": next_color})
 
     session_state["contents"].append(beta_posterior)

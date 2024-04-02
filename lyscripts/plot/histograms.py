@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 
 from lyscripts.plot.utils import (
     COLOR_CYCLE,
+    BetaPosterior,
     Histogram,
-    Posterior,
     draw,
     get_size,
     save_figure,
@@ -80,7 +80,7 @@ def main(args: argparse.Namespace):
         ))
         logger.info(f"Added histogram {name} to figure")
         try:
-            contents.append(Posterior.from_hdf5(
+            contents.append(BetaPosterior.from_hdf5(
                 filename=args.input,
                 dataname=name,
                 color=color,

@@ -34,6 +34,7 @@ from rich.progress import track
 from lyscripts import utils
 from lyscripts.compute.priors import compute_priors_using_cache
 from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
+from lyscripts.data import accessor  # nopycln: import
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
 logger = logging.getLogger(__name__)
