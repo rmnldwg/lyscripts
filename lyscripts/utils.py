@@ -210,11 +210,11 @@ def assign_modalities(
     ...     ("lnl", "II"): ["III"],
     ...     ("lnl", "III"): [],
     ... })
-    >>> assign_modalities(from_config, model)
+    >>> assign_modalities(model, from_config)
     >>> model.get_all_modalities()   # doctest: +NORMALIZE_WHITESPACE
     {'CT': Clinical(spec=0.76, sens=0.81, is_trinary=False),
      'MRI': Pathological(spec=0.63, sens=0.86, is_trinary=False)}
-    >>> assign_modalities(from_config, model, subset=["CT"])
+    >>> assign_modalities(model, from_config, subset=["CT"])
     >>> model.get_all_modalities()   # doctest: +NORMALIZE_WHITESPACE
     {'CT': Clinical(spec=0.76, sens=0.81, is_trinary=False)}
     """

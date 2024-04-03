@@ -162,7 +162,7 @@ class Scenario:
         ...         {"t_stages": ["late"], "mode": "HMM"},
         ...     ]
         ... }
-        >>> for scenario in Scenario.from_params(params):
+        >>> for scenario in Scenario.list_from_params(params):
         ...     print(scenario.t_stages, scenario.mode)
         ['early'] BN
         ['late'] HMM
@@ -272,9 +272,9 @@ class Scenario:
         >>> scenario.as_dict("priors")
         {'mode': 'BN', 't_stages': ['early'], 't_stages_dist': array([1.])}
         >>> scenario.md5_hash("priors")
-        '49f9cb2f5c33982395e723d7d9f71f41'
-        >>> scenario.md5_hash("posteriors")
-        '7988663ea4474c1c20731cc7cbd01b1e'
+        '49f9cb'
+        >>> scenario.md5_hash("posteriors", length=12)
+        '2cd686a7fbad'
         """
         full_hash = hashlib.md5(str(self.as_dict(for_comp)).encode("utf-8")).hexdigest()
         return full_hash[:length]

@@ -33,7 +33,7 @@ def get_modality_subset(diagnosis: dict[str, Any]) -> set[str]:
     ...         "PET": {"II": False, "III": True},
     ...      },
     ...     "contra": {"MRI": {"II": False, "III": None}},
-    ... }}
+    ... }
     >>> sorted(get_modality_subset(diagnosis))
     ['MRI', 'PET']
     """
