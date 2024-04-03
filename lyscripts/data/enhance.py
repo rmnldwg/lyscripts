@@ -290,7 +290,7 @@ def main(args: argparse.Namespace):
                         patient, side, lnl, available_mods
                     )
                     for cons in args.consensus:
-                        consensus[cons, side, lnl].iloc[p] = CONSENSUS_FUNCS[cons](
+                        consensus.loc[p, (cons, side, lnl)] = CONSENSUS_FUNCS[cons](
                             observations, available_mods.values()
                         )
                 report_progress.update(enhance_task, advance=1)
