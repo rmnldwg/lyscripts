@@ -20,13 +20,13 @@ def test_get_match_idx():
     lnls = list(oneside_pattern.keys())
 
     matching_idxs = get_match_idx(
-        True, oneside_pattern, three_patients, lnls, invert=False
+        True, oneside_pattern, three_patients, invert=False
     )
     inverted_matching_idxs = get_match_idx(
-        False, oneside_pattern, three_patients, lnls, invert=True
+        False, oneside_pattern, three_patients, invert=True
     )
     ignorant_matching_idxs = get_match_idx(
-        True, ignorant_pattern, three_patients, lnls, invert=False
+        True, ignorant_pattern, three_patients, invert=False
     )
 
     assert all(
@@ -45,25 +45,15 @@ def test_does_midline_ext_match():
     Test the function that returns indices of a `DataFrame` where the midline
     extension matches.
     """
-    uni_data = pd.DataFrame({("two", "levels"): [True, False, None]})
     midline_data = pd.DataFrame({
-        ("info", "tumor", "midline_extension"): [True, False, None]
+        ("tumor", "1", "extension"): [True, False, None]
     })
     keyerr_data = pd.DataFrame({("way", "too", "many", "levels"): [True, False, None]})
 
-    uni_match_none = does_midext_match(uni_data)
-    uni_match = does_midext_match(uni_data, midline_ext=False)
-    midline_match = does_midext_match(midline_data, midline_ext=False)
+    midline_match = does_midext_match(midline_data, midext=False)
 
-    assert uni_match_none is True, (
-        "When matching against `None`, function should always return `True`."
-    )
-    assert uni_match is True, (
-        "Data with two-level header should always match, "
-        "because they don't have midline data."
-    )
     assert all(midline_match == pd.Series([False, True, False])), (
         "Matching midline extension with correct data does not work."
     )
     with pytest.raises(KeyError):
-        _ = does_midext_match(keyerr_data, midline_ext=False)
+        _ = does_midext_match(keyerr_data, midext=False)
