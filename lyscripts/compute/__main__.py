@@ -1,7 +1,7 @@
 import argparse
 
 from lyscripts import RichDefaultHelpFormatter, exit_cli
-from lyscripts.predict import prevalences, risks
+from lyscripts.compute import posteriors, prevalences, priors, risks
 
 # I need another __main__ guard here, because otherwise pdoc tries to run this
 if __name__ == "__main__":
@@ -15,8 +15,10 @@ if __name__ == "__main__":
 
     # the individual scripts add `ArgumentParser` instances and their arguments to
     # this `subparsers` object
-    risks._add_parser(subparsers, help_formatter=parser.formatter_class)
+    priors._add_parser(subparsers, help_formatter=parser.formatter_class)
+    posteriors._add_parser(subparsers, help_formatter=parser.formatter_class)
     prevalences._add_parser(subparsers, help_formatter=parser.formatter_class)
+    risks._add_parser(subparsers, help_formatter=parser.formatter_class)
 
     args = parser.parse_args()
     args.run_main(args)

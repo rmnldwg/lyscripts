@@ -31,38 +31,38 @@ COLOR_CYCLE = cycle(COLORS.values())
 CM_PER_INCH = 2.54
 
 
-def _floor_at_decimal(value: float, decimal: int) -> float:
-    """
-    Compute the floor of `value` for the specified `decimal`, which is the distance
-    to the right of the decimal point. May be negative.
+def floor_at_decimal(value: float, decimal: int) -> float:
+    """Compute the floor of ``value`` for the specified ``decimal``.
+
+    Essentially, this is the distance to the right of the decimal point. May be negative.
     """
     power = 10**decimal
     return np.floor(power * value) / power
 
-def _ceil_at_decimal(value: float, decimal: int) -> float:
-    """
-    Compute the ceiling of `value` for the specified `decimal`, which is the distance
-    to the right of the decimal point. May be negative.
-    """
-    return - _floor_at_decimal(-value, decimal)
 
-def _floor_to_step(value: float, step: float) -> float:
+def ceil_at_decimal(value: float, decimal: int) -> float:
+    """Compute the ceiling of ``value`` for the specified ``decimal``
+
+    Analog to :py:func:`._floot_at_decimal`, this is the distance to the right of the
+    decimal point. May be negative.
     """
-    Compute the next closest value on a ladder of stepsize `step` that is below `value`.
-    """
+    return - floor_at_decimal(-value, decimal)
+
+
+def floor_to_step(value: float, step: float) -> float:
+    """Compute next closest value on ladder of stepsize ``step`` that is below ``value``."""
     return (value // step) * step
 
-def _ceil_to_step(value: float, step: float) -> float:
-    """
-    Compute the next closest value on a ladder of stepsize `step` that is above `value`.
-    """
-    return _floor_to_step(value, step) + step
+
+def ceil_to_step(value: float, step: float) -> float:
+    """Compute next closest value on ladder of stepsize ``step`` that is above ``value``."""
+    return floor_to_step(value, step) + step
 
 
-def _clean_and_check(filename: str | Path) -> Path:
-    """
-    Check if file with `filename` exists. If not, raise error, otherwise return
-    cleaned `PosixPath`.
+def clean_and_check(filename: str | Path) -> Path:
+    """Check if file with ``filename`` exists.
+
+    If not, raise error, otherwise return cleaned ``PosixPath``.
     """
     filepath = Path(filename)
     if not filepath.exists():
@@ -85,7 +85,7 @@ class Histogram:
     @classmethod
     def from_hdf5(cls, filename, dataname, scale: float = 100., **kwargs):
         """Create a histogram from an HDF5 file."""
-        filename = _clean_and_check(filename)
+        filename = clean_and_check(filename)
         with h5py.File(filename, mode="r") as h5file:
             dataset = h5file[dataname]
             if "label" not in kwargs:
@@ -100,8 +100,9 @@ class Histogram:
         """Compute the point where `percent` of the values are to the right."""
         return np.percentile(self.values, 100. - percent)
 
+
 @dataclass
-class Posterior:
+class BetaPosterior:
     """Class for storing plot configs for a Beta posterior."""
     num_success: int
     num_total: int
@@ -111,7 +112,7 @@ class Posterior:
     @classmethod
     def from_hdf5(cls, filename, dataname, scale: float = 100., **kwargs) -> None:
         """Initialize data container for Beta posteriors from HDF5 file."""
-        filename = _clean_and_check(filename)
+        filename = clean_and_check(filename)
         with h5py.File(filename, mode="r") as h5file:
             dataset = h5file[dataname]
             try:
@@ -138,7 +139,7 @@ class Posterior:
         )
 
     def left_percentile(self, percent: float) -> float:
-        """Return the point where the CDF reaches `percent`."""
+        """Return the point where the CDF reaches ``percent``."""
         return sp.stats.beta.ppf(
             percent / 100.,
             a=self.num_success+1,
@@ -147,7 +148,7 @@ class Posterior:
         )
 
     def right_percentile(self, percent: float) -> float:
-        """Return the point where 100% minus the CDF equals `percent`."""
+        """Return the point where 100% minus the CDF equals ``percent``."""
         return sp.stats.beta.ppf(
             1. - (percent / 100.),
             a=self.num_success+1,
@@ -158,11 +159,14 @@ class Posterior:
 
 def get_size(width="single", unit="cm", ratio="golden"):
     """
-    Return a tuple of figure sizes in inches, as the `matplotlib` keyword argument
-    `figsize` expects it. This figure size is computed from a `width`, in the `unit` of
-    centimeters by default, and a `ratio` which is set to the golden ratio by default.
+    Return a tuple of figure sizes in inches.
+
+    This is provided as the ``matplotlib`` keyword argument ``figsize`` expects it.
+    This figure size is computed from a ``width``, in the ``unit`` of centimeters by
+    default, and a ``ratio`` which is set to the golden ratio by default.
 
     Examples:
+
     >>> get_size(width="single", ratio="golden")
     (3.937007874015748, 2.4332557935820445)
     >>> get_size(width="full", ratio=2.)
@@ -184,7 +188,7 @@ def get_size(width="single", unit="cm", ratio="golden"):
 
 
 def get_label(attrs) -> str:
-    """Extract label of a histogram from the HDF5 `attrs` object of the dataset."""
+    """Extract label of a histogram from the HDF5 ``attrs`` object of the dataset."""
     label = []
     transforms = {
         "label": str,
@@ -199,11 +203,11 @@ def get_label(attrs) -> str:
 
 
 def get_xlims(
-    contents: list[Histogram | Posterior],
+    contents: list[Histogram | BetaPosterior],
     percent_lims: tuple[float] = (10., 10.),
 ) -> tuple[float]:
     """
-    Compute the `xlims` of a plot containing histograms and probability density
+    Compute the ``xlims`` of a plot containing histograms and probability density
     functions by considering their smallest and largest percentiles.
     """
     left_percentiles = np.array(
@@ -219,27 +223,27 @@ def get_xlims(
 
 def draw(
     axes: MPLAxes,
-    contents: list[Histogram | Posterior],
+    contents: list[Histogram | BetaPosterior],
     percent_lims: tuple[float] = (10., 10.),
     xlims: tuple[float] | None = None,
     hist_kwargs: dict[str, Any] | None = None,
     plot_kwargs: dict[str, Any] | None = None,
 ) -> MPLAxes:
     """
-    Draw histograms and Beta posterior from `contents` into `axes`.
+    Draw histograms and Beta posterior from ``contents`` into ``axes``.
 
     The limits of the x-axis is computed to be the smallest and largest left and right
-    percentile of all provided `contents` respectively via the `percent_lims` tuple.
+    percentile of all provided ``contents`` respectively via the ``percent_lims`` tuple.
 
-    The `hist_kwargs` define general settings that will be applied to all histograms.
-    One additional key `'nbins'` may be used to adjust only the numbers, not the spacing
-    of the histogram bins.
-    Similarly, `plot_kwargs` adjusts the default settings for the Beta posteriors.
+    The ``hist_kwargs`` define general settings that will be applied to all histograms.
+    One additional key ``'nbins'`` may be used to adjust only the numbers, not the
+    spacing of the histogram bins.
+    Similarly, ``plot_kwargs`` adjusts the default settings for the Beta posteriors.
 
-    Both these keyword arguments can be overwritten by what the individual `contents`
+    Both these keyword arguments can be overwritten by what the individual ``contents``
     have defined.
     """
-    if not all(isinstance(c, (Histogram, Posterior)) for c in contents):
+    if not all(isinstance(c, (Histogram, BetaPosterior)) for c in contents):
         raise TypeError("Contents must be `Histogram` or `Posterior` instances")
 
     if xlims is None:
@@ -268,7 +272,7 @@ def draw(
             tmp_hist_kwargs = default_hist_kwargs.copy()
             tmp_hist_kwargs.update(content.kwargs)
             axes.hist(content.values, **tmp_hist_kwargs)
-        elif isinstance(content, Posterior):
+        elif isinstance(content, BetaPosterior):
             tmp_plot_kwargs = default_plot_kwargs.copy()
             tmp_plot_kwargs["label"] = f"{content.num_success} / {content.num_total}"
             tmp_plot_kwargs.update(content.kwargs)
@@ -281,7 +285,7 @@ def draw(
 @log_state()
 @check_input_file_exists
 def use_mpl_stylesheet(file_path: str | Path):
-    """Load a `.mplstyle` stylesheet from `file_path`."""
+    """Load a ``.mplstyle`` stylesheet from ``file_path``."""
     plt.style.use(file_path)
 
 
@@ -292,6 +296,6 @@ def save_figure(
     figure: Figure,
     formats: list[str] | None,
 ):
-    """Save a `figure` to `output_path` in every one of the provided `formats`."""
+    """Save a ``figure`` to ``output_path`` in every one of the provided ``formats``."""
     for frmt in formats:
         figure.savefig(output_path.with_suffix(f".{frmt}"))

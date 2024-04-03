@@ -1,7 +1,21 @@
 """
 Test the core utility functions of the package.
 """
-from lyscripts.utils import flatten, get_modalities_subset
+import pytest
+from lymph import models
+
+from lyscripts.utils import (
+    create_model,
+    flatten,
+    get_modalities_subset,
+    load_yaml_params,
+)
+
+
+@pytest.fixture
+def params_v1() -> dict:
+    """Fixture loading the `test_parmams_v1.yaml` file."""
+    return load_yaml_params("./tests/test_params_v1.yaml")
 
 
 def test_flatten():
@@ -42,3 +56,22 @@ def test_get_modalities_subset():
 
     actual_subset = get_modalities_subset(modalities, selected)
     assert actual_subset == exp_subset, "Extraction of modalities did not work."
+
+
+def test_create_model(params_v1):
+    """Test the creation of a model."""
+    model = create_model(params_v1)
+    assert isinstance(model, models.Midline), "Model has wrong type"
+    assert model.use_mixing, "Model should use mixing"
+    assert not model.use_central, "Model should not use central"
+    assert model.use_midext_evo, "Model should use midext evolution"
+    assert "early" in model.get_all_distributions(), "Early distribution is missing"
+    assert not model.get_distribution("early").is_updateable, "Early distribution should not be updateable"
+    assert "late" in model.get_all_distributions(), "Late distribution is missing"
+    assert model.get_distribution("late").is_updateable, "Late distribution should be updateable"
+    assert "CT" in model.get_all_modalities(), "CT modality is missing"
+    assert model.get_modality("CT").spec == 0.76, "CT modality has wrong specificity"
+    assert model.get_modality("CT").sens == 0.81, "CT modality has wrong sensitivity"
+    assert "FNA" in model.get_all_modalities(), "MRI modality is missing"
+    assert model.get_modality("FNA").spec == 0.98, "MRI modality has wrong specificity"
+    assert model.get_modality("FNA").sens == 0.80, "MRI modality has wrong sensitivity"

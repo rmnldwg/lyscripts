@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 
 from lyscripts.plot.utils import (
     COLOR_CYCLE,
+    BetaPosterior,
     Histogram,
-    Posterior,
     draw,
     get_size,
     save_figure,
@@ -25,9 +25,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -38,10 +36,7 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
-    """
+    """Add arguments to the parser."""
     parser.add_argument(
         "input", type=Path,
         help="File path of the computed risks or prevalences (HDF5)"
@@ -72,32 +67,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def main(args: argparse.Namespace):
-    """
-    The CLI's signature (can be asked for via `lyscripts plot histograms
-    --help`) defines the function and its arguments in the following way:
-
-    ```
-    USAGE: lyscripts plot histograms [-h] [--names NAMES [NAMES ...]] [--title TITLE]
-                                     [--bins BINS] [--mplstyle MPLSTYLE]
-                                     input output
-
-    Plot computed risks and prevalences into a beautiful histogram.
-
-    POSITIONAL ARGUMENTS:
-        input                 File path of the computed risks or prevalences (HDF5)
-        output                Output path for the plot
-
-    OPTIONAL ARGUMENTS:
-        -h, --help            show this help message and exit
-        --names NAMES [NAMES ...]
-                              List of names of computed risks/prevalences to combine
-                              into one plot (default: None)
-        --title TITLE         Title of the plot (default: None)
-        --bins BINS           Number of bins to put the computed values into (default:
-                              60)
-        --mplstyle MPLSTYLE   Path to the MPL stylesheet (default: ./.mplstyle)
-    ```
-    """
+    """Function to run the histogram plotting."""
     use_mpl_stylesheet(args.mplstyle)
 
     contents = []
@@ -110,7 +80,7 @@ def main(args: argparse.Namespace):
         ))
         logger.info(f"Added histogram {name} to figure")
         try:
-            contents.append(Posterior.from_hdf5(
+            contents.append(BetaPosterior.from_hdf5(
                 filename=args.input,
                 dataname=name,
                 color=color,

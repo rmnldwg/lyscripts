@@ -1,5 +1,7 @@
 """
-Generate synthetic patient data for testing and validation purposes.
+Calls the synthetic data generating methods of the `lymph`_ package models.
+
+.. _lymph: https://lymph-model.readthedocs.io
 """
 # pylint: disable=logging-fstring-interpolation
 import argparse
@@ -10,7 +12,7 @@ import emcee
 import numpy as np
 
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.utils import create_model_from_config, load_yaml_params
+from lyscripts.utils import create_model, load_yaml_params
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +21,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an ``ArgumentParser`` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -32,10 +32,7 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
-    """
+    """Add arguments to the parser."""
     parser.add_argument(
         "num", type=int,
         help="Number of synthetic patient records to generate",
@@ -69,37 +66,9 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def main(args: argparse.Namespace):
-    """
-    The CLI's help for this subcommand (`lyscripts generate --help`) shows:
-
-    ```
-    USAGE: lyscripts data generate [-h] [--params PARAMS]
-                                   [--set-theta SET_THETA [SET_THETA ...] |
-                                   --load-theta {mean,max_llh}] [--samples SAMPLES]
-                                   num output
-
-    Generate synthetic patient data for testing and validation purposes.
-
-    POSITIONAL ARGUMENTS:
-      num                   Number of synthetic patient records to generate
-      output                Path where to store the generated synthetic data
-
-    OPTIONAL ARGUMENTS:
-      -h, --help            show this help message and exit
-      --params PARAMS       Parameter file containing model specifications (default:
-                            ./params.yaml)
-      --set-theta SET_THETA [SET_THETA ...]
-                            Set the spread probs and parameters for time
-                            marginalization by hand (default: None)
-      --load-theta {mean,max_llh}
-                            Use either the mean or the maximum likelihood estimate
-                            from drawn samples (default: mean)
-      --samples SAMPLES     Path to the samples if a method to load them was chosen
-                            (default: ./models/samples.hdf5)
-    ```
-    """
+    """Run the data generation."""
     params = load_yaml_params(args.params)
-    model = create_model_from_config(params)
+    model = create_model(params)
     ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
 
     if args.set_theta is not None:

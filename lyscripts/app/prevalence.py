@@ -1,9 +1,11 @@
 """
-A `streamlit` app for computing, displaying and reproducing prevalence estimates.
+A `streamlit`_ app for computing, displaying, and reproducing prevalence estimates.
 
 The primary goal with this little GUI is that one can quickly draft some data &
 prediction comparisons visually and then copy & paste the configuration in YAML format
-that is necessary to reproduce this via the `lyscripts.predict.prevalences` script.
+that is necessary to reproduce this via the :py:mod:`.predict.prevalences` script.
+
+.. _streamlit: https://streamlit.io/
 """
 import argparse
 import sys
@@ -15,18 +17,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
-from lymph import models
+from lymph import models, types
 
-from lyscripts.plot.utils import COLOR_CYCLE, Histogram, Posterior, draw
-from lyscripts.predict.prevalences import (
+from lyscripts.compute.prevalences import (  # generate_predicted_prevalences,
     compute_observed_prevalence,
-    generate_predicted_prevalences,
 )
-from lyscripts.predict.utils import complete_pattern, reduce_pattern
+from lyscripts.compute.utils import complete_pattern, reduce_pattern
+from lyscripts.plot.utils import COLOR_CYCLE, BetaPosterior, Histogram, draw
 from lyscripts.utils import (
-    LymphModel,
-    create_model_from_config,
-    load_hdf5_samples,
+    create_model,
+    load_model_samples,
     load_patient_data,
     load_yaml_params,
 )
@@ -36,9 +36,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add a parser to ``subparsers`` and call :py:func:`_add_arguments` with it."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -49,8 +47,9 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this `streamlit` app.
+    """Add arguments needed to run this `streamlit`_ app.
+
+    .. _streamlit: https://streamlit.io/
     """
     parser.add_argument(
         "--message", type=str,
@@ -61,13 +60,13 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def launch_streamlit(*_args, discard_args_idx: int = 3, **_kwargs):
-    """
-    Regardless of the entry point into this script, this function will start
-    `streamlit` and pass on the provided command line arguments.
+    """Start the `streamlit`_ app with the given arguments.
 
-    It will discard all entries in the `sys.argv` that come before the
-    `discard_args_idx`, because this also usually contains e.g. the name of the current
-    file that might not be relevant to the streamlit app.
+    It will discard all entries in the ``sys.argv`` that come before the
+    ``discard_args_idx``, because this also usually contains e.g. the name of the
+    current file that might not be relevant to the streamlit app.
+
+    .. _streamlit: https://streamlit.io/
     """
     try:
         from streamlit.web.cli import main as st_main
@@ -106,17 +105,14 @@ def _get_midline_ext_label(selected: bool | None = None) -> str:
 
 
 def interactive_load(streamlit):
-    """
-    Load the YAML file defining the parameters, the CSV file with the patient data
-    and the HDF5 file with the drawn model samples interactively.
-    """
+    """Load YAML parameters, CSV patient data, and HDF5 samples interactively."""
     params_file = streamlit.file_uploader(
         label="YAML params file",
         type=["yaml", "yml"],
         help="Parameter YAML file containing configurations w.r.t. the model etc.",
     )
     params = load_yaml_params(params_file)
-    model = create_model_from_config(params)
+    model = create_model(params)
     is_unilateral = isinstance(model, models.Unilateral)
 
     streamlit.write("---")
@@ -127,7 +123,7 @@ def interactive_load(streamlit):
         help="CSV spreadsheet containing lymphatic patterns of progression",
     )
     header_rows = [0,1] if is_unilateral else [0,1,2]
-    patient_data = load_patient_data(data_file, header_rows=header_rows)
+    patient_data = load_patient_data(data_file, header=header_rows)
 
     streamlit.write("---")
 
@@ -136,7 +132,7 @@ def interactive_load(streamlit):
         type=["hdf5", "hdf", "h5"],
         help="HDF5 file containing the samples."
     )
-    samples = load_hdf5_samples(samples_file)
+    samples = load_model_samples(samples_file)
 
     return model, patient_data, samples
 
@@ -147,9 +143,9 @@ def interactive_pattern(
     lnls: list[str],
     side: str
 ) -> dict[str, bool]:
-    """
-    Create a `streamlit` panel for all specified `lnls` in one `side` of a patient's
-    neck to specify the lymphatic pattern of interest, which is then returned.
+    """Create a `streamlit`_ panel for specifying an involvement pattern.
+
+    Fill this panel with radio buttons for each of the ``lnls`` of the given ``side``.
     """
     streamlit.subheader(f"{side}lateral")
     side_pattern = {}
@@ -172,12 +168,13 @@ def interactive_pattern(
 
 def interactive_additional_params(
     streamlit: ModuleType,
-    model: LymphModel,
+    model: types.Model,
     data: pd.DataFrame,
     samples: np.ndarray,
 ) -> dict[str, Any]:
-    """
-    Allow the user to select T-category, midline extension and whether to invert the
+    """Add other selectors to the `streamlit`_ panel.
+
+    Allows the user to select T-category, midline extension and whether to invert the
     computed prevalence (meaning computing $1 - p$, when $p$ is the prevalence).
 
     The respective controls are presented next to each other in three dedicated columns.
@@ -226,7 +223,10 @@ def interactive_additional_params(
 
 
 def reset(session_state: dict[str, Any]):
-    """Reset `streamlit` session state."""
+    """Reset `streamlit`_ session state.
+
+    .. _streamlit: https://streamlit.io/
+    """
     for key in session_state.keys():
         del session_state[key]
 
@@ -234,20 +234,20 @@ def reset(session_state: dict[str, Any]):
 def add_current_scenario(
     session_state: dict[str, Any],
     pattern: dict[str, dict[str, bool]],
-    model: LymphModel,
+    model: types.Model,
     samples: np.ndarray,
     data: pd.DataFrame,
     prevs_kwargs: dict[str, Any] | None = None,
-) -> list[Histogram | Posterior]:
-    """
-    Compute the prevalence of a `pattern` as observed in the `data` and as predicted
-    by the `model` (using a set of `samples`). The results are then stored in the
-    `contents` list ready to be plotted. The `prevs_kwargs` are directly passed on to
-    the functions `lyscripts.predict.prevalences.compute_observed_prevalence`
-    and `lyscripts.predict.prevalences.generate_predicted_prevalences`.
+) -> list[Histogram | BetaPosterior]:
+    """Compute prevalence of ``pattern`` as seem in ``data`` and predicted by ``model``.
+
+    This uses a set of ``samples``. The results are then stored in the ``contents``
+    list ready to be plotted. The ``prevs_kwargs`` are directly passed on to
+    the functions :py:func:`.predict.prevalences.compute_observed_prevalence`
+    and :py:func:`.predict.prevalences.generate_predicted_prevalences`.
     """
     num_success, num_total = compute_observed_prevalence(
-        pattern=pattern,
+        diagnosis=pattern,
         data=data,
         lnls=len(model.get_params()),
         **prevs_kwargs,
@@ -264,7 +264,7 @@ def add_current_scenario(
         computed_prevs[i] = prevalence
 
     next_color = next(COLOR_CYCLE)
-    beta_posterior = Posterior(num_success, num_total, kwargs={"color": next_color})
+    beta_posterior = BetaPosterior(num_success, num_total, kwargs={"color": next_color})
     histogram = Histogram(computed_prevs, kwargs={"color": next_color})
 
     session_state["contents"].append(beta_posterior)
@@ -276,9 +276,9 @@ def add_current_scenario(
 
 
 def main(args: argparse.Namespace):
-    """
-    The main function that contains the `streamlit` code and main functionality.
-    """
+    """The main function that contains the `streamlit`_ code and functionality.
+
+    .. _streamlit: https://streamlit.io/"""
     import streamlit as st
 
     st.title("Prevalence")

@@ -6,76 +6,87 @@ Originally, I wanted to test that the sampling procedure is reproducible, but th
 
 Maybe I am doing something wrong...
 """
+# pylint: disable=redefined-outer-name
 import numpy as np
-import pandas as pd
 import pytest
-from emcee.backends import Backend, HDFBackend
+from emcee import EnsembleSampler, backends
+from lymph import types
 
-from lyscripts.sample import run_mcmc_with_burnin
-from lyscripts.utils import (
-    LymphModel,
-    create_model_from_config,
-    load_patient_data,
-    load_yaml_params,
-)
+from lyscripts.sample import get_starting_state, run_burnin
+from lyscripts.utils import create_model, load_patient_data, load_yaml_params
 
 
 @pytest.fixture
 def params() -> dict:
-    """Fixture providing stored `test_params.yaml` file."""
-    return load_yaml_params("./tests/test_params.yaml")
+    """Fixture providing stored `test_sample_params.yaml` file."""
+    return load_yaml_params("./tests/test_sample_params.yaml")
 
 
 @pytest.fixture
-def model(params: dict) -> LymphModel:
+def model(params: dict) -> types.Model:
     """Model fixture from parameters."""
-    return create_model_from_config(params)
+    return create_model(params)
 
 
 @pytest.fixture
-def data(model: LymphModel) -> pd.DataFrame:
+def loaded_model(model: types.Model) -> types.Model:
     """Get synthetically generated data from disk."""
-    return load_patient_data("./tests/test_data.csv")
+    data = load_patient_data("./tests/test_data.csv")
+    model.load_patient_data(data)
+    return model
 
 
 @pytest.fixture
-def backend() -> Backend:
-    """Provide a non-persistent backend to store samples during the test run."""
-    return Backend()
-
-
-@pytest.fixture
-def stored_hdf5_backend() -> HDFBackend:
+def hdf5_backend(tmp_path) -> backends.HDFBackend:
     """Load previously sampled backend for comparison."""
-    return HDFBackend("./tests/test_backend.hdf5", read_only=True)
+    return backends.HDFBackend(tmp_path / "tmp.hdf5")
 
 
-def test_sampling(
-    model: LymphModel,
-    data: pd.DataFrame,
-    params: dict,
-    backend: Backend,
-    stored_hdf5_backend: HDFBackend,
-):
-    """Test the basic sampling function."""
-    model.load_patient_data(data, mapping=lambda x: x)
-    ndim = len(model.get_params())
-    nwalker = ndim * params["sampling"]["walkers_per_dim"]
-
-    def log_prob_fn(theta: np.ndarray) -> float:
-        """The log-probability function to sample from."""
-        return model.likelihood(given_param_args=theta)
-
-    np.random.seed(128)
-    info = run_mcmc_with_burnin(
-        nwalker, ndim, log_prob_fn,
-        persistent_backend=backend,
-        nsteps=params["sampling"]["nsteps"],
-        burnin=params["sampling"]["burnin"],
-        keep_burnin=False,
-        npools=0,
+@pytest.fixture
+def sampler(model: types.Model, hdf5_backend: backends.HDFBackend) -> EnsembleSampler:
+    """Construct a sampler for the model."""
+    np.random.seed(42)
+    ndim = model.get_num_dims()
+    nwalkers = ndim * 10
+    return EnsembleSampler(
+        nwalkers=nwalkers,
+        ndim=ndim,
+        log_prob_fn=model.likelihood,
+        backend=hdf5_backend,
     )
 
-    actual_chain = backend.get_chain(flat=True)
-    expected_chain = stored_hdf5_backend.get_chain(flat=True)
-    assert np.all(np.isclose(actual_chain, expected_chain)), "Chain was not reproduced"
+
+def test_burnin(sampler: EnsembleSampler):
+    """Test the burnin function."""
+    burnin_history = run_burnin(
+        sampler=sampler,
+        burnin=100,
+        check_interval=10,
+    )
+    assert sampler.iteration == 100, "Burnin di not run 100 iterations."
+    assert len(burnin_history.steps) == 10, "Burnin history does not have 10 entries."
+    assert np.all(
+        np.array([
+            0.7147557514447068, 0.9227188150264771,
+            0.2629624184410706, 0.6001184115584288,
+        ])
+        == sampler.get_last_sample().coords[0]
+    ), "Not reproducible."
+
+
+def test_get_starting_state(sampler: EnsembleSampler):
+    """Test if the starting state can be retrieved."""
+    state = get_starting_state(sampler)
+    with pytest.raises(AttributeError):
+        sampler.get_last_sample()
+    assert state.shape == (sampler.nwalkers, sampler.ndim), "State has wrong shape."
+
+    _ = run_burnin(
+        sampler=sampler,
+        burnin=10,
+        check_interval=2,
+    )
+    assert np.all(
+        get_starting_state(sampler).coords
+        == sampler.get_last_sample().coords
+    ), "State is not the same."

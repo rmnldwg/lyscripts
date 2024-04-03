@@ -9,11 +9,11 @@ import numpy as np
 import pytest
 
 from lyscripts.plot.utils import (
+    BetaPosterior,
     Histogram,
-    Posterior,
-    _ceil_to_step,
-    _floor_to_step,
+    ceil_to_step,
     draw,
+    floor_to_step,
     get_size,
     save_figure,
 )
@@ -35,7 +35,7 @@ def test_floor_to_step():
 
     comp_res = np.zeros_like(exp_res)
     for i, (num, step) in enumerate(zip(numbers, steps)):
-        comp_res[i] = _floor_to_step(num, step)
+        comp_res[i] = floor_to_step(num, step)
 
     assert all(np.isclose(comp_res, exp_res)), "Floor to step did not work properly."
 
@@ -48,7 +48,7 @@ def test_ceil_to_step():
 
     comp_res = np.zeros_like(exp_res)
     for i, (num, step) in enumerate(zip(numbers, steps)):
-        comp_res[i] = _ceil_to_step(num, step)
+        comp_res[i] = ceil_to_step(num, step)
 
     assert all(np.isclose(comp_res, exp_res)), "Ceil to step did not work properly."
 
@@ -99,8 +99,8 @@ def test_posterior_cls(beta_samples):
     x_10 = np.linspace(0., 10., 100)
     x_100 = np.linspace(0., 100., 100)
 
-    post_from_str = Posterior.from_hdf5(filename=str_filename, dataname="beta")
-    post_from_path = Posterior.from_hdf5(
+    post_from_str = BetaPosterior.from_hdf5(filename=str_filename, dataname="beta")
+    post_from_path = BetaPosterior.from_hdf5(
         filename=path_filename,
         dataname="beta",
         scale=10.,
@@ -108,7 +108,7 @@ def test_posterior_cls(beta_samples):
     )
 
     with pytest.raises(FileNotFoundError):
-        Posterior.from_hdf5(filename=non_existent_filename, dataname="does_not_matter")
+        BetaPosterior.from_hdf5(filename=non_existent_filename, dataname="does_not_matter")
 
     assert post_from_str.num_success == post_from_path.num_success == 20, (
         "Number of successes not correctly extracted"
@@ -139,7 +139,7 @@ def test_draw(beta_samples):
     filename = Path(beta_samples)
     dataname = "beta"
     hist = Histogram.from_hdf5(filename, dataname)
-    post = Posterior.from_hdf5(filename, dataname)
+    post = BetaPosterior.from_hdf5(filename, dataname)
     fig, ax = plt.subplots()
     ax = draw(axes=ax, contents=[hist, post], percent_lims=(2.,2.))
     ax.legend()

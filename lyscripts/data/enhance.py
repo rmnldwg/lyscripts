@@ -1,9 +1,9 @@
 """
 Enhance a LyProX-style CSV dataset in two ways:
 
-1. Add consensus diagnoses based on all available modalities using on of two methods:
-`max_llh` infers the most likely true state of involvement given only the available
-diagnoses. `rank` uses the available diagnositc modalities and ranks them based on
+1. Add consensus diagnosis based on all available modalities using on of two methods:
+``max_llh`` infers the most likely true state of involvement given only the available
+diagnosis. ``rank`` uses the available diagnositc modalities and ranks them based on
 their respective sensitivity and specificity.
 
 2. Complete sub- & super-level fields. This means that if a dataset reports LNLs IIa
@@ -25,10 +25,10 @@ from lyscripts.data.utils import save_table_to_csv
 from lyscripts.decorators import log_state
 from lyscripts.utils import (
     CustomProgress,
+    console,
     get_modalities_subset,
     load_patient_data,
     load_yaml_params,
-    report,
 )
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
@@ -39,9 +39,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add a parser to the ``subparsers`` action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -52,10 +50,7 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
-    and run the respective main function when chosen.
-    """
+    """Add arguments to the parser."""
     parser.add_argument(
         "input", type=Path,
         help="Path to a LyProX-style CSV file"
@@ -96,8 +91,7 @@ def get_sublvl_values(
     sub_ids: list[str],
 ):
     """
-    Get the values of sublevels (e.g. 'IIa' and 'IIb') for a given LNL and a
-    dataframe.
+    Get values of sublevels (e.g. 'IIa' and 'IIb') for an ``lnl`` and ``data_frame``.
     """
     has_sublvls = all(lnl+sub in data_frame for sub in sub_ids)
     if not has_sublvls:
@@ -112,10 +106,11 @@ def infer_superlvl_from_sublvls(
     lnls_with_sub: list[str],
     sublvls: list[str] | None = None,
 ) -> pd.DataFrame:
-    """
-    Infer the involvement state of all `lnls_with_sub`, i.e. LNLs where sub-levels were
-    reported, for each patient in the `table`. Do this for all defined `modalities` and
-    take into account all specified `sublvls`.
+    """Infer the involvement state of all ``lnls_with_sub``
+
+    I.e., infer the involvement of all LNLs where sub-levels were reported, for each
+    patient in the ``table``. Do this for all defined ``modalities`` and take into
+    account all specified ``sublvls``.
 
     This means that if e.g. sub-LNL IIa reports involvement and sub-LNL IIb shows no
     sign of metastasis, this method will infer that the superlevel II must be involved
@@ -158,9 +153,9 @@ def get_lnl_observations(
     lnl: str,
     modalities: list[str],
 ) -> tuple[bool]:
-    """
-    Collect the observations for an `lnl` from every one of the available `modalities`
-    in a tuple. Do this for one `side` of the neck of a particular `patient`.
+    """Collect observations for ``lnl`` from every one of the ``modalities`` in a tuple.
+
+    This is done for one ``side`` of the neck of a particular ``patient``.
     """
     observations = ()
 
@@ -177,28 +172,22 @@ def get_lnl_observations(
 
 @lru_cache
 def has_all_none(obs_tuple: tuple[np.ndarray]):
-    """
-    Check if all entries in the observation tuple are ``None``.
-    """
+    """Check if all entries in the observation tuple are ``None``."""
     return all(obs is None for obs in obs_tuple)
+
 
 @lru_cache
 def or_consensus(obs_tuple: tuple[np.ndarray]):
-    """
-    Compute the consensus of different diagnostic modalities by computing the
-    logical OR.
-    """
+    """Compute the logical ``OR`` consensus of different diagnostic modalities."""
     if has_all_none(obs_tuple):
         return None
 
     return any(obs_tuple)
 
+
 @lru_cache
 def and_consensus(obs_tuple: tuple[np.ndarray]):
-    """
-    Compute the consensus of different diagnostic modalities by computing the
-    logical AND.
-    """
+    """Compute the logical ``AND`` consensus of different diagnostic modalities."""
     if has_all_none(obs_tuple):
         return None
 
@@ -206,26 +195,13 @@ def and_consensus(obs_tuple: tuple[np.ndarray]):
         any(not(obs) if obs is not None else None for obs in obs_tuple)
     )
 
+
 @lru_cache
 def maxllh_consensus(
     obs_tuple: tuple[np.ndarray],
     modalities_spsn: tuple[list[float]]
 ):
-    """
-    Compute the consensus of different diagnostic modalities using their
-    respective specificity & sensitivity.
-
-    Args:
-        obs_tuple: Tuple with the involvement (``True``, ``False`` or
-            ``None``).
-        modalities_spsn: Tuple with 2-element lists of the specificity &
-            sensitivity of the modalities corresponding to the diagnoses in the
-            parameter ``obs_tuple``.
-
-    Returns:
-        The most likely true state according to the consensus from the
-        diagnoses provided.
-    """
+    """Compute the maximum likelihood consensus of different diagnostic modalities."""
     if has_all_none(obs_tuple):
         return None
 
@@ -243,25 +219,13 @@ def maxllh_consensus(
     healthy_vs_involved = np.array([healthy_llh, involved_llh])
     return bool(np.argmax(healthy_vs_involved))
 
+
 @lru_cache
 def rank_consensus(
     obs_tuple: tuple[np.ndarray],
     modalities_spsn: tuple[list[float]]
 ):
-    """
-    Compute the consensus of different diagnostic modalities using a ranking
-    based on sensitivity & specificity.
-
-    Args:
-        obs_tuple: Tuple with the involvement (``True``, ``False`` or
-            ``None``).
-        modalities_spsn: Tuple with 2-element lists of the specificity &
-            sensitivity of the modalities corresponding to the diagnoses in the
-            parameter ``obs_tuple``.
-
-    Returns:
-        The most likely true state based on the ranking.
-    """
+    """Compute the ranked consensus of different diagnostic modalities."""
     if has_all_none(obs_tuple):
         return None
 
@@ -288,52 +252,7 @@ CONSENSUS_FUNCS = {
 
 
 def main(args: argparse.Namespace):
-    """
-    Below is the help output (call with `lyscripts enhance --help`)
-
-    ```
-    USAGE: lyscripts data enhance [-h]
-                                  [-c {max_llh,rank,logic_or,logic_and} [{max_llh,rank,logic_or,logic_and} ...]]
-                                  [-p PARAMS]
-                                  [--modalities MODALITIES [MODALITIES ...]]
-                                  [--sublvls SUBLVLS [SUBLVLS ...]]
-                                  [--lnls-with-sub LNLS_WITH_SUB [LNLS_WITH_SUB ...]]
-                                  input output
-
-    Enhance a LyProX-style CSV dataset in two ways:
-
-    1. Add consensus diagnoses based on all available modalities using on of two
-    methods: `max_llh` infers the most likely true state of involvement given only the
-    available diagnoses. `rank` uses the available diagnositc modalities and ranks
-    them based on their respective sensitivity and specificity.
-
-    2. Complete sub- & super-level fields. This means that if a dataset reports LNLs
-    IIa and IIb separately, this script will add the column for LNL II and fill it
-    with the correct values. Conversely, if e.g. LNL II is reported to be healthy, we
-    can assume the sublevels IIa and IIb would have been reported as healthy, too.
-
-    POSITIONAL ARGUMENTS:
-      input                 Path to a LyProX-style CSV file
-      output                Destination for LyProX-style output file including the
-                            consensus
-
-    OPTIONAL ARGUMENTS:
-      -h, --help            show this help message and exit
-      -c, --consensus {max_llh,rank,logic_or,logic_and} [{max_llh,rank,logic_or,logic_and} ...]
-                            Choose consensus method(s) (default: ['max_llh'])
-      -p, --params PARAMS   Path to parameter file (default: params.yaml)
-      --modalities MODALITIES [MODALITIES ...]
-                            List of modalities for enhancement. Must be defined in
-                            `params.yaml` (default: ['CT', 'MRI', 'PET', 'FNA',
-                            'diagnostic_consensus', 'pathology', 'pCT'])
-      --sublvls SUBLVLS [SUBLVLS ...]
-                            Indicate what kinds of sublevels exist (default: ['a',
-                            'b'])
-      --lnls-with-sub LNLS_WITH_SUB [LNLS_WITH_SUB ...]
-                            List of LNLs where sublevel reporting has been performed
-                            or is common (default: ['I', 'II', 'V'])
-    ```
-    """
+    """Main function for the ``enhance`` command."""
     input_table = load_patient_data(args.input)
     params = load_yaml_params(args.params)
 
@@ -358,7 +277,7 @@ def main(args: argparse.Namespace):
         )
     )
 
-    with CustomProgress(console=report) as report_progress:
+    with CustomProgress(console=console) as report_progress:
         enhance_task = report_progress.add_task(
             description=f"Compute {args.consensus} consensus of modalities...",
             total=2 * len(input_table),
@@ -371,7 +290,7 @@ def main(args: argparse.Namespace):
                         patient, side, lnl, available_mods
                     )
                     for cons in args.consensus:
-                        consensus[cons, side, lnl].iloc[p] = CONSENSUS_FUNCS[cons](
+                        consensus.loc[p, (cons, side, lnl)] = CONSENSUS_FUNCS[cons](
                             observations, available_mods.values()
                         )
                 report_progress.update(enhance_task, advance=1)

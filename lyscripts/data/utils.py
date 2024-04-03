@@ -11,5 +11,5 @@ from lyscripts.decorators import check_output_dir_exists, log_state
 @log_state()
 @check_output_dir_exists
 def save_table_to_csv(output_path: Path, table: pd.DataFrame):
-    """Save a `pd.DataFrame` to `output_path`."""
+    """Save a ``table`` to ``output_path``."""
     table.to_csv(output_path, index=None)

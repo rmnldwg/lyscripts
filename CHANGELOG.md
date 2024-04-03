@@ -2,6 +2,133 @@
 
 All notable changes to this project will be documented in this file.
 
+<a name="1.0.0.a1"></a>
+## [1.0.0.a1] - 2024-04-03
+
+This prerelease finishes updating the code to the new [`lymph`] package API. It also features a rewrite of the commands to predict and compute e.g. risks and prevalences.
+
+[`lymph`]: https://lymph-model.readthedocs.io
+
+
+### Bug Fixes
+
+- ⚠ **BREAKING** Use modern lydata cols for t_stage matching.
+- Wrong lnls in predict prevalences.
+- ⚠ **BREAKING** Update prevalence prediction to new lymph API.
+- (**sample**) Match T-stage mapping with lymph API.\
+  The lymph model now accepts callables and dicts as T-stage mapping (but
+  not `None`). I can hence simply pass the dictionary from the config to
+  the loading function.
+- (**data**) Stop dtype change during `concat`.\
+  When a `DataFrame` with no `NaN`s was joined with one consisting _only_
+  of `NaN`s, then it forced some weird kind of dtype conversion onty the
+  respective column. Now, dtypes are converted _before_ the concatenation,
+  fixing that issue.
+- (**sample**) Skip 0 iter convergence check.
+- (**sample**) Missing import.
+- (**sample**) Only pass `side` to unilateral model.
+- (**sample**) Display converged message nicely.
+- (**utils**) Correct default args for `get_chain()`.
+- Wrong posterior shape.
+- (**predict**) Even out some bugs.
+- Don't pycln accessor import.
+- (**data**) Enhance failed due to copy on write.
+
+### Documentation
+
+- Start with basic sphinx setup.
+- Start organizing top-level cmds with sphinx.
+- Include all modules in docs.
+- Update docstrings to reST format.
+- Add document files for precompute subcmd.
+- Allow links to lymph docs.
+- Fix `temp_schedule` docstring.
+- Shorten titles.
+- (**predict**) Update prevalence module docstring.
+- Refactor docs for new `compute` subcommand.
+- Fix typos and missing modules.
+
+### Features
+
+- (**data**) Add simple data filter command. Fixes [#51].
+- Customize log handler for better filename.
+- (**sample**) Allow custom T-stage mapping.
+- (**sample**) Allow to load `side` data.
+- (**utils**) Allow `Unilateral.binary` in params.
+- (**sample**) Display time elapsed during burnin.
+- (**predict**) Add cmd to precompute state dists.
+- (**precompute**) Add `priors` cmd. Related [#54].\
+  This allows precomputing the state distributions of all three
+  implemented lymph models.
+- (**utils**) Allow keywords in modalities def.\
+  One may now use a dict with keys `spec`, `sens`, and `kind` to define a
+  modality in the YAML params.
+- (**post**) Compute for multiple scenarios.\
+  One may now compute the posteriors for a list of defined scenarios.
+- Add class for storing scenarios.
+- (**precompute**) Priors from list of scenarios.
+- (**predict**) Finish prevalences cmd.
+- (**data**) Implement custom pandas accessor.
+- (**scenario**) Track laterality as well.
+- (**compute**) Risk works with lymph v1, too, now.
+
+### Testing
+
+- (**data**) Ensure new joining works correctly.
+- (**sample**) Check some sampling methods.
+- Fix typos in tests.
+- Update failing tests.
+
+### Build
+
+- Bump lymph-model to v1.0.
+- Bump lymph version & add sphinx deps.
+
+### Change
+
+- ⚠ **BREAKING** (**sample**) Reimplement sampling command.
+- (**precompute**) Use HDF5 cache. Fixes [#54].\
+  The `priors` and `posteriors` commands now use a simple `HDF5FileCache`
+  to avoid recomputing either of those quantities unnecessarily.
+- (**precompute**) Make recursive. Related [#54].\
+  The computation of priors and posteriors is now somewhat recursive. This
+  will allow us to just call one function and it will automatically
+  compute the priors, posteriors, and risks if necessary.
+- (**prevs**) Start on updated `prevalences` cmd.
+- Replace 'diagnose' & bump lymph to 1.2.0.
+- (**precompute**) Posteriors only from priors.\
+  Posteriors now require priors and cannot compute priors "along the way"
+  from given samples. This is to make it clear which is an input file and
+  which an output file. Otherwise, caching would have been even trickier.
+- (**scenario**) Shorten hash to 6 digits.
+
+### Ci
+
+- Add readthedocs config file.
+- Remove pdoc action.
+
+### Merge
+
+- Branch 'main' into 'dev'.
+- Branch '51-filter-command' into 'dev'.
+- Branch '53-use-sphinx-for-documentation' into 'dev'.
+- Branch '54-add-precompute-commands' into 'dev'.
+
+### Refac
+
+- (**sample**) Better progress tracking.
+- (**precompute**) Comp state dist in own submod.
+- (**utils**) Move funcs out of `precompute`.
+- Bundle adding scneario args to parser.
+- (**compute**) Predict & precompute -> compute.\
+  The `predict` and `precompute` commands are now bundled under the
+  subcommand `compute`.
+
+
+### Remove
+
+- ⚠ **BREAKING** Midline_ext in create_patient_row for now.
+
 
 <a name="1.0.0.a0"></a>
 ## [1.0.0.a0] - 2023-12-20
@@ -350,7 +477,8 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a0...HEAD
+[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a1...HEAD
+[1.0.0.a1]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a0...1.0.0.a1
 [1.0.0.a0]: https://github.com/rmnldwg/lyscripts/compare/0.7.3...1.0.0.a0
 [0.7.3]: https://github.com/rmnldwg/lyscripts/compare/0.7.2...0.7.3
 [0.7.2]: https://github.com/rmnldwg/lyscripts/compare/0.7.1...0.7.2
@@ -395,6 +523,8 @@ returns `None` instead. Fixes [#11]
 [#41]: https://github.com/rmnldwg/lyscripts/issues/41
 [#44]: https://github.com/rmnldwg/lyscripts/issues/44
 [#45]: https://github.com/rmnldwg/lyscripts/issues/45
+[#51]: https://github.com/rmnldwg/lyscripts/issues/51
+[#54]: https://github.com/rmnldwg/lyscripts/issues/54
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich`]: https://rich.readthedocs.io/en/latest/

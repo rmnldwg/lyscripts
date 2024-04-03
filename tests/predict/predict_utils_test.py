@@ -1,7 +1,7 @@
 """
 Test utilities of the predict submodule.
 """
-from lyscripts.predict.utils import complete_pattern
+from lyscripts.compute.utils import complete_pattern
 
 
 def test_clean_pattern():
