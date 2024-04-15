@@ -91,6 +91,8 @@ def clean_header(
     num_header_rows: int,
 ) -> pd.DataFrame:
     """Rename the header cells in the ``table``."""
+    table = table.copy()
+
     for col in range(num_cols):
         for row in range(num_header_rows):
             table.rename(
