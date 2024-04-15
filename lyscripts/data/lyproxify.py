@@ -300,7 +300,7 @@ def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
 
 def main(args: argparse.Namespace):
     """Run the lyproxify main function."""
-    raw: pd.DataFrame = load_patient_data(args.input)
+    raw: pd.DataFrame = load_patient_data(args.input, header=args.header_rows)
     raw = clean_header(raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows))
 
     cols_to_drop = raw.columns[args.drop_cols]
