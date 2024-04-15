@@ -103,12 +103,9 @@ def clean_header(
 
 
 def get_instruction_depth(nested_column_map: dict[tuple, dict[str, Any]]) -> int:
-    """
-    Get the depth at which the column mapping instructions are nested.
+    """Get the depth at which the column mapping instructions are nested.
 
     Instructions are a dictionary that contains either a 'func' or 'default' key.
-
-    Example:
 
     >>> nested_column_map = {"patient": {"age": {"func": int}}}
     >>> get_instruction_depth(nested_column_map)
@@ -139,13 +136,11 @@ def generate_markdown_docs(
     depth: int = 0,
     indent_len: int = 4,
 ) -> str:
-    """
-    Generate a markdown nested, ordered list as documentation for the column map.
+    """Generate a markdown nested, ordered list as documentation for the column map.
 
     A key in the doctionary is supposed to be documented, when its value is a dictionary
     containing a ``"__doc__"`` key.
 
-    Example:
     >>> nested_column_map = {
     ...     "patient": {
     ...         "__doc__": "some patient info",
@@ -178,8 +173,7 @@ def transform_to_lyprox(
     raw: pd.DataFrame,
     column_map: dict[tuple, dict[str, Any]]
 ) -> pd.DataFrame:
-    """
-    Transform ``raw`` data frame into table that can be uploaded directly to `LyProX`_.
+    """Transform ``raw`` data frame into table that can be uploaded directly to `LyProX`_.
 
     To do so, it uses instructions in the `colum_map` dictionary, that needs to have
     a particular structure:
@@ -247,8 +241,7 @@ def transform_to_lyprox(
 
 @log_state()
 def leftright_to_ipsicontra(data: pd.DataFrame):
-    """
-    Change absolute side reporting to tumor-relative.
+    """Change absolute side reporting to tumor-relative.
 
     Transform reporting of LNL involvement by absolute side (right & left) to a
     reporting relative to the tumor (ipsi- & contralateral). The table ``data`` should
@@ -277,12 +270,11 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
 
 @log_state()
 def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
-    """
-    Exclude patients in the ``raw`` data based on a list of what to ``exclude``. This
-    list contains tuples ``(column, check)``. The ``check`` function will then exclude
-    any patients from the cohort where ``check(raw[column])`` evaluates to ``True``.
+    """Exclude patients in the ``raw`` data based on a list of what to ``exclude``.
 
-    Example:
+    The ``exclude`` list contains tuples ``(column, check)``. The ``check`` function
+    will then exclude any patients from the cohort where ``check(raw[column])``
+    evaluates to ``True``.
 
     >>> exclude = [("age", lambda s: s > 50)]
     >>> table = pd.DataFrame({
