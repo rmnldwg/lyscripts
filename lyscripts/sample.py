@@ -234,6 +234,15 @@ def run_sampling(
         continue
 
 
+class DummyPool:
+    """Dummy class to allow for no multiprocessing."""
+    def __enter__(self):
+        return None
+
+    def __exit__(self, *args):
+        pass
+
+
 def main(args: argparse.Namespace) -> None:
     """Main function to run the MCMC sampling."""
     # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
@@ -261,7 +270,12 @@ def main(args: argparse.Namespace) -> None:
     hdf5_backend = initialize_backend(args.output, nwalkers, ndim)
     moves_mix = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
 
-    with Pool(args.cores) as pool:
+    if args.cores == 0:
+        real_or_dummy_pool = DummyPool()
+    else:
+        real_or_dummy_pool = Pool(args.cores)
+
+    with real_or_dummy_pool as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers, ndim, log_prob_fn,
             moves=moves_mix,
