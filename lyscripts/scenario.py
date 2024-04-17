@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import inspect
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from typing import Any, Literal, TypeVar
 
 import numpy as np
@@ -23,36 +24,42 @@ from lyscripts.utils import optional_bool
 ScenarioT = TypeVar("ScenarioT", bound="Scenario")
 
 
+SCENARIO_PROPERTY_DEFAULTS = {
+    "t_stages_dist": lambda: np.array([1.]),
+    "involvement": dict,
+    "diagnosis": dict,
+}
+
+
+@dataclass
 class Scenario:
-    """Class for storing configuration of a scenario.
+    """Dataclass for storing configuration of a scenario.
 
     This may be used by the :py:mod:`.compute` and :py:mod:`.predict` modules to
     compute priors, posteriors, prevalences, and risks.
     """
-    def __init__(
-        self,
-        t_stages: list[int | str] | None = None,
-        t_stages_dist: Iterable[float] | None = None,
-        mode: Literal["BN", "HMM"] = "HMM",
-        midext: bool | None = None,
-        diagnosis: dict[str, dict[str, types.PatternType]] | None = None,
-        involvement: dict[str, types.PatternType] | None = None,
-        is_uni: bool = False,
-        side: str = "ipsi",
-    ) -> None:
-        """Initialize a scenario.
+    t_stages: list[int | str] = field(default_factory=lambda: ["early"])
+    t_stages_dist: list[float] | np.ndarray = field(default_factory=lambda: [1.])
+    mode: Literal["BN", "HMM"] = "HMM"
+    midext: bool | None = None
+    diagnosis: dict[str, dict[str, types.PatternType]]
+    involvement: dict[str, types.PatternType]
+    is_uni: bool = False
+    side: str = "ipsi"
 
-        If ``t_stages`` is set to ``None``, the scenario will be initialized with the
-        default value ``["early"]``.
-        """
-        self.t_stages = t_stages or ["early"]
-        self.t_stages_dist = t_stages_dist
-        self.mode = mode
-        self.midext = midext
-        self._diagnosis = diagnosis or {}
-        self._involvement = involvement or {}
-        self.is_uni = is_uni
-        self.side = side
+
+    def __post_init__(self) -> None:
+        """Declate default value of properties."""
+        # NOTE: We need to use `self._t_stages_dist` here, because the setter of
+        # `t_stages_dist` will be called with `property` as value in the `__init__`.
+        if isinstance(self._t_stages_dist, property):
+            self._t_stages_dist = SCENARIO_PROPERTY_DEFAULTS["t_stages_dist"]()
+
+        if isinstance(self.diagnosis, property):
+            self.diagnosis = SCENARIO_PROPERTY_DEFAULTS["diagnosis"]()
+
+        if isinstance(self.involvement, property):
+            self.involvement = SCENARIO_PROPERTY_DEFAULTS["involvement"]()
 
 
     @classmethod
@@ -60,11 +67,11 @@ class Scenario:
         """Return a list of fields that may make up a scenario."""
         params = inspect.signature(cls).parameters
         res = {}
-        for field, param in params.items():
+        for f, param in params.items():
             if param.default == inspect.Parameter.empty:
-                res[field] = None
+                res[f] = None
             else:
-                res[field] = param.default
+                res[f] = param.default
         return res
 
     @property
@@ -248,6 +255,10 @@ class Scenario:
 
         return self._diagnosis
 
+    @diagnosis.setter
+    def diagnosis(self, value: dict[str, dict[str, types.PatternType]]) -> None:
+        self._diagnosis = value
+
 
     @property
     def involvement(self) -> dict[str, types.PatternType] | types.PatternType:
@@ -256,6 +267,10 @@ class Scenario:
             return self._involvement[self.side]
 
         return self._involvement
+
+    @involvement.setter
+    def involvement(self, value: dict[str, types.PatternType]) -> None:
+        self._involvement = value
 
 
     def get_pattern(
