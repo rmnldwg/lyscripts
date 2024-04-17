@@ -148,6 +148,28 @@ class Scenario:
         return scenario
 
     @classmethod
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        **kwargs,
+    ) -> ScenarioT:
+        """Create a scenario from a dictionary.
+
+        >>> data = {
+        ...     "t_stages": ["early"],
+        ...     "mode": "BN",
+        ... }
+        >>> scenario = Scenario.from_dict(data)
+        >>> scenario.t_stages, scenario.mode
+        (['early'], 'BN')
+        """
+        init_kwargs = {
+            field: kwargs.get(field, data.get(field, value))
+            for field, value in cls.fields().items()
+        }
+        return cls(**init_kwargs)
+
+    @classmethod
     def list_from_params(
         cls,
         params: dict[str, Any],
@@ -171,12 +193,7 @@ class Scenario:
         uni_side_kwargs = {"is_uni": is_uni, "side": side}
         scenarios = params.get("scenarios", [])
         for scenario in scenarios:
-            kwargs = {
-                field: scenario.get(field, value)
-                for field, value in cls.fields().items()
-            }
-            kwargs.update(uni_side_kwargs)
-            res.append(cls(**kwargs))
+            res.append(cls.from_dict(scenario, **uni_side_kwargs))
 
         return res
 
