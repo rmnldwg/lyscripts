@@ -114,6 +114,9 @@ def compute_observed_prevalence(
         When computing prevalences for unilateral models, the contralateral diagnosis
         will still be considered for computing the prevalence in the *data*.
     """
+    # when looking at the data, we always consider both sides
+    scenario = scenario.from_dict(scenario.as_dict("prevalences"), is_uni=False)
+
     modality = get_modality_subset(scenario.diagnosis).pop()
     diagnosis_pattern = scenario.get_pattern(get_from="diagnosis", modality=modality)
 
