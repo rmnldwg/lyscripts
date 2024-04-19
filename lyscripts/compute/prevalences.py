@@ -115,10 +115,14 @@ def compute_observed_prevalence(
         will still be considered for computing the prevalence in the *data*.
     """
     # when looking at the data, we always consider both sides
-    scenario = scenario.from_dict(scenario.as_dict("prevalences"), is_uni=False)
+    is_uni = scenario.is_uni
+    scenario.is_uni = False
 
     modality = get_modality_subset(scenario.diagnosis).pop()
     diagnosis_pattern = scenario.get_pattern(get_from="diagnosis", modality=modality)
+
+    # reset `is_uni` to the original value. Otherwise hash computation will fail.
+    scenario.is_uni = is_uni
 
     data.ly.map_t_stage(mapping)
     has_t_stage = data.ly.t_stage.isin(scenario.t_stages)
