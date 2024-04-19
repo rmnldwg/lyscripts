@@ -34,6 +34,8 @@ dependencies = [
     "pyyaml",
     "lymph-model >= 1.2, < 2",
     "deprecated < 2",
+    "joblib >= 1.4, < 2",
+    "dacite >= 1.8, < 2",
 ]
 dynamic = ["version"]
 
