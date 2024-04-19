@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+from dacite import Config  # nopycln: import
 from dacite import from_dict as dc_from_dict  # nopycln: import
 from lymph import models
 from lymph.types import GraphDictType, Model, PatternType
@@ -186,43 +187,60 @@ def load_and_add_data(
 
 
 @dataclass
+class InvolvementConfig:
+    """Config that defines an ipsi- and contralateral involvement pattern."""
+    ipsi: PatternType = field(default_factory=dict)
+    contra: PatternType = field(default_factory=dict)
+
+@dataclass
+class DiagnosisConfig:
+    """Defines an ipsi- and contralateral diagnosis pattern."""
+    ipsi: dict[str, PatternType] = field(default_factory=dict)
+    contra: dict[str, PatternType] = field(default_factory=dict)
+
+
+@dataclass
 class ScenarioConfig:
     """Define a scenario for which quantities may be computed.
 
-    >>> scenario = dc_from_dict(Scenario, {
-    ...     "t_stages": [1, 2, 3],
-    ...     "t_stages_dist": [0.2, 0.5, 0.3],
+    >>> ScenarioConfig(t_stages=["early", "late"])    # doctest: +NORMALIZE_WHITESPACE
+    ScenarioConfig(t_stages=['early', 'late'],
+                   t_stages_dist=[0.5, 0.5],
+                   midext=None,
+                   mode='HMM',
+                   involvement=InvolvementConfig(ipsi={}, contra={}),
+                   diagnosis=DiagnosisConfig(ipsi={}, contra={}))
+    >>> scenario = dc_from_dict(ScenarioConfig, {
+    ...     "t_stages": [1, 2, 3, 4],
+    ...     "t_stages_dist": [4., 1.],
     ... })
-    >>> scenario == Scenario(t_stages=[1, 2, 3], t_stages_dist=[0.2, 0.5, 0.3])
+    >>> scenario == ScenarioConfig(t_stages=[1, 2, 3, 4], t_stages_dist=[0.4, 0.3, 0.2, 0.1])
     True
     """
     t_stages: list[int | str]
-    t_stages_dist: list[float]
+    t_stages_dist: list[float] = field(default_factory=lambda: [1.])
     midext: bool | None = None
     mode: Literal["HMM", "BN"] = "HMM"
-    involvement: dict[Literal["ipsi", "contra"], PatternType] = field(
-        default_factory=lambda: {"ipsi": {}, "contra": {}},
-    )
-    diagnosis: dict[Literal["ipsi", "contra"], dict[str, PatternType]] = field(
-        default_factory=lambda: {"ipsi": {}, "contra": {}},
-    )
+    involvement: InvolvementConfig = field(default_factory=InvolvementConfig)
+    diagnosis: DiagnosisConfig = field(default_factory=DiagnosisConfig)
 
     def __post_init__(self):
         """Validate the ``involvement`` and ``diagnosis`` patterns."""
-        pass
+        self.interpolate()
+        self.normalize()
 
-    def get_t_stages_dist(self) -> list[float] | np.ndarray:
-        """Safely return the distribution of T stages.
-
-        This includes interpolating the distribution to the number of T-stages stored
-        in ``t_stages`` and normalizing it to sum to 1.
-        """
+    def interpolate(self):
+        """Interpolate the distribution to the number of ``t_stages``."""
         if len(self.t_stages) != len(self.t_stages_dist):
             new_x = np.linspace(0., 1., len(self.t_stages))
             old_x = np.linspace(0., 1., len(self.t_stages_dist))
-            self.t_stages_dist = np.interp(new_x, old_x, self.t_stages_dist)
+            # cast to list to make ``__eq__`` work
+            self.t_stages_dist = np.interp(new_x, old_x, self.t_stages_dist).tolist()
 
+    def normalize(self):
+        """Normalize the distribution to sum to 1."""
         if not np.isclose(np.sum(self.t_stages_dist), 1.):
-            self.t_stages_dist = np.array(self.t_stages_dist) / np.sum(self.t_stages_dist)
-
-        return self.t_stages_dist
+            self.t_stages_dist = (
+                np.array(self.t_stages_dist)
+                / np.sum(self.t_stages_dist)
+            ).tolist()   # cast to list to make ``__eq__`` work
