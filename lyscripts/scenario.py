@@ -86,6 +86,13 @@ class Scenario:
                 default = self._defaults(field.name)
                 setattr(self, field.name, default)
 
+        if not self.is_uni:
+            for side in ["ipsi", "contra"]:
+                if not side in self.diagnosis:
+                    self.diagnosis[side] = {}
+                if not side in self.involvement:
+                    self.involvement[side] = {}
+
 
     @classmethod
     def fields(cls) -> dict[str, Any]:
@@ -196,10 +203,13 @@ class Scenario:
         >>> data = {
         ...     "t_stages": ["early"],
         ...     "mode": "BN",
+        ...     "diagnosis": {"ipsi": {"max_llh": {"II": True, "III": False}}},
         ... }
         >>> scenario = Scenario.from_dict(data)
         >>> scenario.t_stages, scenario.mode
         (['early'], 'BN')
+        >>> scenario.diagnosis
+        {'ipsi': {'max_llh': {'II': True, 'III': False}}, 'contra': {}}
         """
         init_kwargs = {
             field: kwargs.get(field, data.get(field, value))
@@ -306,12 +316,12 @@ class Scenario:
             pattern = self._involvement
         else:
             pattern = {
-                side: self._diagnosis[side][modality]
+                side: self._diagnosis.get(side, {}).get(modality, {})
                 for side in ["ipsi", "contra"]
             }
 
         if self.is_uni:
-            return pattern[self.side]
+            return pattern.get(self.side, {})
 
         return pattern
 
