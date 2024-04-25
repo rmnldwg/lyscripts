@@ -126,15 +126,12 @@ def compute_observed_prevalence(
 
     data.ly.map_t_stage(mapping)
     has_t_stage = data.ly.t_stage.isin(scenario.t_stages)
-    eligible_data = data.loc[has_t_stage].reset_index()
-
-    # filter the data by the involvement, which includes the involvement pattern itself
-    # and the midline extension status
-    has_midext = eligible_data.ly.is_midext(scenario.midext)
+    has_midext = data.ly.is_midext(scenario.midext)
+    eligible_data = data.loc[has_t_stage & has_midext].reset_index()
     does_pattern_match = eligible_data.ly.match(diagnosis_pattern, modality)
 
     try:
-        matching_data = eligible_data.loc[does_pattern_match & has_midext]
+        matching_data = eligible_data.loc[does_pattern_match]
         len_matching_data = len(matching_data)
     except KeyError:
         # return X, X if no actual pattern was selected
@@ -195,7 +192,8 @@ def compute_prevalences_using_cache(
         logger.error(msg)
         raise ValueError(msg) from val_err
 
-    kwargs = {"midext": scenario.midext} if isinstance(model, models.Midline) else {}
+    is_midline = isinstance(model, models.Midline)
+    kwargs = {"midext": scenario.midext} if is_midline else {}
     prevalences = []
 
     for prior in track(
@@ -208,11 +206,21 @@ def compute_prevalences_using_cache(
         # intended use of the method. But as long as exactly one modality is set in
         # the model, this should work as expected, because then the observation matrix
         # is square and the `obs_dist` has the same shape as the `state_dist`.
-        prevalences.append(model.marginalize(
+        prev = model.marginalize(
             involvement=diagnosis_pattern,
             given_state_dist=obs_dist,
             **kwargs,
-        ))
+        )
+        if is_midline:
+            # divide by the marginal likelihood of the midline extension status. This
+            # is necessary because although we trat midline extension as a random
+            # variable, it *is* part of a scenario.
+            prev /= model.marginalize(
+                involvement=None,
+                given_state_dist=obs_dist,
+                **kwargs,
+            )
+        prevalences.append(prev)
 
     prevalences = np.stack(prevalences)
     prevalences_cache[prevalences_hash] = (prevalences, scenario.as_dict("prevalences"))
