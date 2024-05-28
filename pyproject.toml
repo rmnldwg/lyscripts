@@ -76,6 +76,9 @@ local_scheme = "no-local-version"
 [tool.setuptools.dynamic]
 version = {attr = "lyscripts._version.version"}
 
+[tool.pytest.ini_options]
+testpaths = "."
+
 [tool.isort]
 line_length = 79
 multi_line_output = 3

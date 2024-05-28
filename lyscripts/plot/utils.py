@@ -4,7 +4,7 @@ Utility functions for the plotting commands.
 from dataclasses import dataclass, field
 from itertools import cycle
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import h5py
 import matplotlib.pyplot as plt
@@ -72,25 +72,35 @@ def clean_and_check(filename: str | Path) -> Path:
     return filepath
 
 
+HistogramT = TypeVar("HistogramT", bound="Histogram")
+
 @dataclass
 class Histogram:
     """Class containing data for plotting a histogram."""
     values: np.ndarray
-    scale: float = field(default=100.)
+    scale: float = 100.
+    offset: float = 0.
     kwargs: dict[str, Any] = field(default_factory=lambda: {})
 
     def __post_init__(self) -> None:
-        self.values = self.scale * self.values
+        self.values = self.scale * self.values + self.offset
 
     @classmethod
-    def from_hdf5(cls, filename, dataname, scale: float = 100., **kwargs):
+    def from_hdf5(
+        cls: type[HistogramT],
+        filename: str | Path,
+        dataname: str,
+        scale: float = 100.,
+        offset: float = 0.,
+        **kwargs,
+    ) -> HistogramT:
         """Create a histogram from an HDF5 file."""
         filename = clean_and_check(filename)
         with h5py.File(filename, mode="r") as h5file:
             dataset = h5file[dataname]
             if "label" not in kwargs:
                 kwargs["label"] = get_label(dataset.attrs)
-            return cls(values=dataset[:], scale=scale, kwargs=kwargs)
+            return cls(values=dataset[:], scale=scale, offset=offset, kwargs=kwargs)
 
     def left_percentile(self, percent: float) -> float:
         """Compute the point where `percent` of the values are to the left."""
@@ -101,16 +111,26 @@ class Histogram:
         return np.percentile(self.values, 100. - percent)
 
 
+BetaPosteriorT = TypeVar("BetaPosteriorT", bound="BetaPosterior")
+
 @dataclass
 class BetaPosterior:
     """Class for storing plot configs for a Beta posterior."""
     num_success: int
     num_total: int
-    scale: float = field(default=100.)
+    scale: float = 100.
+    offset: float = 0.
     kwargs: dict[str, Any] = field(default_factory=lambda: {})
 
     @classmethod
-    def from_hdf5(cls, filename, dataname, scale: float = 100., **kwargs) -> None:
+    def from_hdf5(
+        cls: type[BetaPosteriorT],
+        filename: str | Path,
+        dataname: str,
+        scale: float = 100.,
+        offset: float = 0.,
+        **kwargs,
+    ) -> BetaPosteriorT:
         """Initialize data container for Beta posteriors from HDF5 file."""
         filename = clean_and_check(filename)
         with h5py.File(filename, mode="r") as h5file:
@@ -123,10 +143,11 @@ class BetaPosterior:
                     "Dataset does not contain observed prevalence data"
                 ) from key_err
 
-        return cls(num_success, num_total, scale=scale, kwargs=kwargs)
+        return cls(num_success, num_total, scale=scale, offset=offset, kwargs=kwargs)
 
     @property
     def num_fail(self):
+        """Return the number of failures, i.e. the totals minus the successes."""
         return self.num_total - self.num_success
 
     def pdf(self, x: np.ndarray) -> np.ndarray:
@@ -135,7 +156,8 @@ class BetaPosterior:
             x,
             a=self.num_success+1,
             b=self.num_fail+1,
-            scale=self.scale
+            loc=self.offset,
+            scale=self.scale,
         )
 
     def left_percentile(self, percent: float) -> float:
@@ -158,14 +180,11 @@ class BetaPosterior:
 
 
 def get_size(width="single", unit="cm", ratio="golden"):
-    """
-    Return a tuple of figure sizes in inches.
+    """Return a tuple of figure sizes in inches.
 
     This is provided as the ``matplotlib`` keyword argument ``figsize`` expects it.
     This figure size is computed from a ``width``, in the ``unit`` of centimeters by
     default, and a ``ratio`` which is set to the golden ratio by default.
-
-    Examples:
 
     >>> get_size(width="single", ratio="golden")
     (3.937007874015748, 2.4332557935820445)
@@ -224,13 +243,12 @@ def get_xlims(
 def draw(
     axes: MPLAxes,
     contents: list[Histogram | BetaPosterior],
-    percent_lims: tuple[float] = (10., 10.),
+    percent_lims: tuple[float, float] = (10., 10.),
     xlims: tuple[float] | None = None,
     hist_kwargs: dict[str, Any] | None = None,
     plot_kwargs: dict[str, Any] | None = None,
 ) -> MPLAxes:
-    """
-    Draw histograms and Beta posterior from ``contents`` into ``axes``.
+    """Draw histograms and Beta posterior from ``contents`` into ``axes``.
 
     The limits of the x-axis is computed to be the smallest and largest left and right
     percentile of all provided ``contents`` respectively via the ``percent_lims`` tuple.

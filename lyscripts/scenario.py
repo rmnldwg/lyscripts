@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import inspect
 from collections.abc import Iterable
+from dataclasses import dataclass, field, fields
 from typing import Any, Literal, TypeVar
 
 import numpy as np
@@ -20,39 +21,77 @@ from lymph import types
 
 from lyscripts.utils import optional_bool
 
+
+class UninitializedProperty(Exception):
+    """Raise when a uninitialized property of a dataclass is accessed.
+
+    If a field of a dataclass is also a property, then the dataclass will call the
+    property's setter during ``__init__`` with the ``proprety`` object as the value
+    (at least if nothing is provided to the constructor).
+
+    Thus, I will not allow setting a ``propoerty`` as the value and raise this exception
+    in the getter when no private attribute is found.
+    """
+
 ScenarioT = TypeVar("ScenarioT", bound="Scenario")
 
-
+@dataclass
 class Scenario:
-    """Class for storing configuration of a scenario.
+    """Dataclass for storing configuration of a scenario.
 
     This may be used by the :py:mod:`.compute` and :py:mod:`.predict` modules to
     compute priors, posteriors, prevalences, and risks.
     """
-    def __init__(
-        self,
-        t_stages: list[int | str] | None = None,
-        t_stages_dist: Iterable[float] | None = None,
-        mode: Literal["BN", "HMM"] = "HMM",
-        midext: bool | None = None,
-        diagnosis: dict[str, dict[str, types.PatternType]] | None = None,
-        involvement: dict[str, types.PatternType] | None = None,
-        is_uni: bool = False,
-        side: str = "ipsi",
-    ) -> None:
-        """Initialize a scenario.
+    t_stages: list[int | str] = field(default_factory=lambda: ["early"])
+    t_stages_dist: list[float] | np.ndarray
+    mode: Literal["BN", "HMM"] = "HMM"
+    midext: bool | None = None
+    diagnosis: dict[str, dict[str, types.PatternType]]
+    involvement: dict[str, types.PatternType]
+    is_uni: bool = False
+    side: str = "ipsi"
 
-        If ``t_stages`` is set to ``None``, the scenario will be initialized with the
-        default value ``["early"]``.
+
+    @staticmethod
+    def _defaults(property_name: str) -> Any:
+        """Return the default value for a property.
+
+        >>> scenario = Scenario()
+        >>> scenario.t_stages_dist
+        array([1.])
+        >>> scenario.diagnosis
+        {'ipsi': {}, 'contra': {}}
+        >>> scenario = Scenario(is_uni=True)
+        >>> scenario.involvement
+        {}
         """
-        self.t_stages = t_stages or ["early"]
-        self.t_stages_dist = t_stages_dist
-        self.mode = mode
-        self.midext = midext
-        self._diagnosis = diagnosis or {}
-        self._involvement = involvement or {}
-        self.is_uni = is_uni
-        self.side = side
+        return {
+            "t_stages_dist": np.array([1.]),
+            "involvement": {"ipsi": {}, "contra": {}},
+            "diagnosis": {"ipsi": {}, "contra": {}},
+        }[property_name]
+
+
+    def __post_init__(self) -> None:
+        """Declate default value of properties.
+
+        >>> scenario = Scenario(t_stages=['a', 'b'], t_stages_dist=[0.1, 0.9])
+        >>> scenario.t_stages_dist
+        array([0.1, 0.9])
+        """
+        for field in fields(self):
+            try:
+                _ = getattr(self, field.name)
+            except UninitializedProperty:
+                default = self._defaults(field.name)
+                setattr(self, field.name, default)
+
+        if not self.is_uni:
+            for side in ["ipsi", "contra"]:
+                if not side in self.diagnosis:
+                    self.diagnosis[side] = {}
+                if not side in self.involvement:
+                    self.involvement[side] = {}
 
 
     @classmethod
@@ -60,11 +99,11 @@ class Scenario:
         """Return a list of fields that may make up a scenario."""
         params = inspect.signature(cls).parameters
         res = {}
-        for field, param in params.items():
+        for f, param in params.items():
             if param.default == inspect.Parameter.empty:
-                res[field] = None
+                res[f] = None
             else:
-                res[field] = param.default
+                res[f] = param.default
         return res
 
     @property
@@ -85,20 +124,26 @@ class Scenario:
         >>> scenario.t_stages_dist
         array([0.125, 0.875])
         """
+        if not hasattr(self, "_t_stages_dist"):
+            raise UninitializedProperty("t_stages_dist")
+
         if self._t_stages_dist is None:
-            return np.ones(len(self.t_stages)) / len(self.t_stages)
+            self._t_stages_dist = self._defaults("t_stages_dist")
 
         if len(self._t_stages_dist) != len(self.t_stages):
             new_x = np.linspace(0., 1., len(self.t_stages))
             old_x = np.linspace(0., 1., len(self._t_stages_dist))
             self._t_stages_dist = np.interp(new_x, old_x, self._t_stages_dist)
-            self._t_stages_dist /= self._t_stages_dist.sum()
+
+        if not np.isclose(np.sum(self._t_stages_dist), 1.):
+            self._t_stages_dist /= np.sum(self._t_stages_dist)
 
         return np.array(self._t_stages_dist)
 
     @t_stages_dist.setter
     def t_stages_dist(self, value: Iterable[float]) -> None:
-        self._t_stages_dist = value
+        if not isinstance(value, property):
+            self._t_stages_dist = value
 
 
     @classmethod
@@ -138,14 +183,39 @@ class Scenario:
         for side in ["ipsi", "contra"]:
             pattern = getattr(namespace, f"{side}_involvement", None) or [None] * len(lnls)
             tmp = {lnl: val for lnl, val in zip(lnls, pattern)}
-            getattr(scenario, "involvement")[side] = tmp
+            scenario._involvement[side] = tmp
 
             pattern = getattr(namespace, f"{side}_diagnosis", None) or [None] * len(lnls)
             tmp = {lnl: val for lnl, val in zip(lnls, pattern)}
             mod_name = getattr(namespace, "modality", "max_llh")
-            getattr(scenario, "diagnosis")[side] = {mod_name: tmp}
+            scenario._diagnosis[side] = {mod_name: tmp}
 
         return scenario
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        **kwargs,
+    ) -> ScenarioT:
+        """Create a scenario from a dictionary.
+
+        >>> data = {
+        ...     "t_stages": ["early"],
+        ...     "mode": "BN",
+        ...     "diagnosis": {"ipsi": {"max_llh": {"II": True, "III": False}}},
+        ... }
+        >>> scenario = Scenario.from_dict(data)
+        >>> scenario.t_stages, scenario.mode
+        (['early'], 'BN')
+        >>> scenario.diagnosis
+        {'ipsi': {'max_llh': {'II': True, 'III': False}}, 'contra': {}}
+        """
+        init_kwargs = {
+            field: kwargs.get(field, data.get(field, value))
+            for field, value in cls.fields().items()
+        }
+        return cls(**init_kwargs)
 
     @classmethod
     def list_from_params(
@@ -171,30 +241,9 @@ class Scenario:
         uni_side_kwargs = {"is_uni": is_uni, "side": side}
         scenarios = params.get("scenarios", [])
         for scenario in scenarios:
-            kwargs = {
-                field: scenario.get(field, value)
-                for field, value in cls.fields().items()
-            }
-            kwargs.update(uni_side_kwargs)
-            res.append(cls(**kwargs))
+            res.append(cls.from_dict(scenario, **uni_side_kwargs))
 
         return res
-
-
-    def for_side(self, side: Literal["ipsi", "contra"]) -> ScenarioT:
-        """Return the side-specific part of the scenario.
-
-        >>> scenario = Scenario(involvement={"ipsi": {"II": True}})
-        >>> scenario.involvement
-        {'ipsi': {'II': True}}
-        >>> scenario.for_side("ipsi").involvement
-        {'II': True}
-        """
-        cls = type(self)
-        kwargs = {field: getattr(self, field) for field in cls.fields()}
-        kwargs["involvement"] = kwargs["involvement"].get(side, {})
-        kwargs["diagnosis"] = kwargs["diagnosis"].get(side, {})
-        return cls(**kwargs)
 
 
     def as_dict(
@@ -212,13 +261,13 @@ class Scenario:
 
         res.update({
             "midext": self.midext,
-            "diagnosis": self._diagnosis,
+            "diagnosis": self.diagnosis,
             "side": self.side,
             "is_uni": self.is_uni,
         })
 
         if for_comp == "risks":
-            res["involvement"] = self._involvement
+            res["involvement"] = self.involvement
 
         return res
 
@@ -226,19 +275,35 @@ class Scenario:
     @property
     def diagnosis(self) -> dict[str, dict[str, types.PatternType]] | dict[str, types.PatternType]:
         """Get bi- or unilateral diagosis, depending on attrs ``side`` and ``is_uni``."""
+        if not hasattr(self, "_diagnosis"):
+            raise UninitializedProperty("diagnosis")
+
         if self.is_uni:
             return self._diagnosis[self.side]
 
         return self._diagnosis
 
+    @diagnosis.setter
+    def diagnosis(self, value: dict[str, dict[str, types.PatternType]]) -> None:
+        if not isinstance(value, property):
+            self._diagnosis = value
+
 
     @property
     def involvement(self) -> dict[str, types.PatternType] | types.PatternType:
         """Get bi- or unilateral involvement, depending on attrs ``side`` and ``is_uni``."""
+        if not hasattr(self, "_involvement"):
+            raise UninitializedProperty("involvement")
+
         if self.is_uni:
             return self._involvement[self.side]
 
         return self._involvement
+
+    @involvement.setter
+    def involvement(self, value: dict[str, types.PatternType]) -> None:
+        if not isinstance(value, property):
+            self._involvement = value
 
 
     def get_pattern(
@@ -251,12 +316,12 @@ class Scenario:
             pattern = self._involvement
         else:
             pattern = {
-                side: self._diagnosis[side][modality]
+                side: self._diagnosis.get(side, {}).get(modality, {})
                 for side in ["ipsi", "contra"]
             }
 
         if self.is_uni:
-            return pattern[self.side]
+            return pattern.get(self.side, {})
 
         return pattern
 
@@ -274,7 +339,7 @@ class Scenario:
         >>> scenario.md5_hash("priors")
         '49f9cb'
         >>> scenario.md5_hash("posteriors", length=12)
-        '2cd686a7fbad'
+        '1194fd880d47'
         """
         full_hash = hashlib.md5(str(self.as_dict(for_comp)).encode("utf-8")).hexdigest()
         return full_hash[:length]
@@ -357,5 +422,6 @@ def add_scenario_arguments(
 
 
 if __name__ == "__main__":
+    scenario = Scenario(t_stages=['a', 'b'], t_stages_dist=[0.2, 0.8])
     import doctest
     doctest.testmod()
