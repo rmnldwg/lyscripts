@@ -2,6 +2,147 @@
 
 All notable changes to this project will be documented in this file.
 
+<a name="1.0.0.a2"></a>
+## [1.0.0.a2] - 2024-04-28
+
+### 🚀 Features
+
+- *(sample)* Allow no multiprocessing (0 cores)
+- *(scenario)* Add `from_dict` classmethod
+- *(plot)* Add `offset` to hist and beta dist
+
+### 🐛 Bug Fixes
+
+- Use correct heaer rows, fixes [#57]
+- *(compute)* Observe bilateral prevalence
+- *(scenario)* Dataclass with prpoerty issue
+- Ensure sides in scenario diagnose/involvement
+- *(compute)* Correct obs and pred prevalences
+
+### 📚 Documentation
+
+- *(data)* Refactor lyproxify docstrings
+- Update badge to link to RTD, fixes [#53]
+
+### 🧪 Testing
+
+- Fix testing setup & add new histogram test
+
+### Change
+
+- *(data)* Make copy before edit in-place
+- *(scenario)* Make scenario dataclass
+
+### Merge
+
+- Branch '57-lyproxify-loads-wrong-number-of-header-rows' into 'dev'
+
+
+<a name="1.0.0.a1"></a>
+## [1.0.0.a1] - 2024-04-03
+
+### 🚀 Features
+
+- *(data)* Add simple data filter command, fixes [#51]
+- Customize log handler for better filename
+- *(sample)* Allow custom T-stage mapping
+- *(sample)* Allow to load `side` data
+- *(utils)* Allow `Unilateral.binary` in params
+- *(sample)* Display time elapsed during burnin
+- *(predict)* Add cmd to precompute state dists
+- *(post)* Start with posterior cmd (WIP)
+- *(precompute)* Add `priors` cmd, related to [#54]
+- *(precompute)* Work on posterior (WIP)
+- *(utils)* Allow keywords in modalities def
+- *(post)* Compute for multiple scenarios
+- *(predict)* Update prevalences cmd (WIP)
+- Add class for storing scenarios
+- *(precompute)* Priors from list of scenarios
+- *(predict)* Finish prevalences cmd
+- *(data)* Implement custom pandas accessor
+- *(scenario)* Track laterality as well
+- *(compute)* Risk works with lymph v1, too, now
+
+### 🐛 Bug Fixes
+
+- [**breaking**] Use modern lydata cols for t_stage matching
+- Wrong lnls in predict prevalences
+- [**breaking**] Update prev prediction to new lymph API
+- *(sample)* Match T-stage mapping with lymph API
+- *(data)* Stop dtype change during `concat`
+- *(sample)* Skip 0 iter convergence check
+- *(sample)* Missing import
+- *(sample)* Only pass `side` to unilateral model
+- *(sample)* Display converged message nicely
+- *(utils)* Correct default args for `get_chain()`
+- Wrong posterior shape
+- *(predict)* Even out some bugs
+- Don't pycln accessor import
+- *(data)* Enhance failed due to copy on write
+
+### 📚 Documentation
+
+- Start with basic sphinx setup
+- Start organizing top-level cmds with sphinx
+- Include all modules in docs
+- Update docstrings to reST format
+- Add document files for precompute subcmd
+- Allow links to lymph docs
+- Fix `temp_schedule` docstring
+- Shorten titles
+- *(predict)* Update prevalence module docstring
+- Refactor docs for new `compute` subcommand
+- Fix typos and missing modules
+
+### 🧪 Testing
+
+- *(data)* Ensure new joining works correctly
+- *(sample)* Check some sampling methods
+- Fix typos in tests
+- Update failing tests
+
+### ⚙️ Miscellaneous Tasks
+
+- Add readthedocs config file
+- Remove pdoc action
+- Update changelog
+
+### Build
+
+- Bump lymph-model to v1.0
+- Bump lymph version & add sphinx deps
+
+### Change
+
+- *(sample)* [**breaking**] Start on new sample command (WIP)
+- *(sample)* [**breaking**] Reimplement sampling command
+- *(precompute)* Use HDF5 cache
+- *(precompute)* Make recursive. Related: [#54]
+- *(prevs)* Start on updated `prevalences` cmd
+- Replace 'diagnose' & bump lymph to 1.2.0
+- Simplify scenario handling (WIP)
+- *(precompute)* Posteriors only from priors
+- *(scenario)* Shorten hash to 6 digits
+
+### Merge
+
+- Branch 'main' into 'dev'
+- Branch '51-filter-command' into 'dev'
+- Branch '53-use-sphinx-for-documentation' into 'dev'
+- Branch '54-add-precompute-commands' into 'dev'
+
+### Refac
+
+- *(sample)* Better progress tracking
+- *(precompute)* Comp state dist in own submod
+- *(utils)* Move funcs out of `precompute`
+- Bundle adding scneario args to parser
+- *(compute)* Predict & precompute -> compute
+
+### Remove
+
+- [**breaking**] Midline_ext in create_patient_row for now
+
 
 <a name="1.0.0.a0"></a>
 ## [1.0.0.a0] - 2023-12-20
@@ -350,7 +491,9 @@ returns `None` instead. Fixes [#11]
 <a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[Unreleased]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a0...HEAD
+[unreleased]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a2...HEAD
+[1.0.0.a2]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a1...1.0.0.a2
+[1.0.0.a1]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a0...1.0.0.a1
 [1.0.0.a0]: https://github.com/rmnldwg/lyscripts/compare/0.7.3...1.0.0.a0
 [0.7.3]: https://github.com/rmnldwg/lyscripts/compare/0.7.2...0.7.3
 [0.7.2]: https://github.com/rmnldwg/lyscripts/compare/0.7.1...0.7.2
@@ -395,6 +538,10 @@ returns `None` instead. Fixes [#11]
 [#41]: https://github.com/rmnldwg/lyscripts/issues/41
 [#44]: https://github.com/rmnldwg/lyscripts/issues/44
 [#45]: https://github.com/rmnldwg/lyscripts/issues/45
+[#51]: https://github.com/rmnldwg/lyscripts/issues/51
+[#53]: https://github.com/rmnldwg/lyscripts/issues/53
+[#54]: https://github.com/rmnldwg/lyscripts/issues/54
+[#57]: https://github.com/rmnldwg/lyscripts/issues/57
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich`]: https://rich.readthedocs.io/en/latest/
