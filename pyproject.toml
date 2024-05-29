@@ -32,8 +32,8 @@ dependencies = [
     "rich",
     "rich-argparse",
     "pyyaml",
-    "lymph-model >= 1.2, < 2",
-    "deprecated < 2",
+    "lymph-model >= 1.2.1",
+    "deprecated",
 ]
 dynamic = ["version"]
 
