@@ -107,7 +107,7 @@ class AbstractDistribution:
     @property
     def label(self) -> str:
         """Return the label of the histogram."""
-        return self.kwargs.get("label", self._get_label())
+        return self.kwargs.get("label", None) or self._get_label()
 
 
 @dataclass(kw_only=True)
@@ -146,12 +146,13 @@ class Histogram(AbstractDistribution):
 
     def draw(self, axes: MPLAxes, **defaults) -> Any:
         """Draw the histogram into the provided ``axes``."""
-        range = axes.get_xlim()
+        xlim = axes.get_xlim()
 
         hist_kwargs = defaults["hist"].copy()
         hist_kwargs.update(self.kwargs)
+        hist_kwargs["label"] = self.label
 
-        return axes.hist(self.values, range=range, **hist_kwargs)
+        return axes.hist(self.values, range=xlim, **hist_kwargs)
 
 
 @dataclass(kw_only=True)
@@ -226,17 +227,18 @@ class BetaPosterior(AbstractDistribution):
             scale=self.scale,
         )
 
-    def draw(self, axes: MPLAxes, **defaults) -> Any:
+    def draw(self, axes: MPLAxes, resolution: int = 300, **defaults) -> Any:
         """Draw the Beta posterior into the provided ``axes``.
 
         Returns a handle and a label for the legend.
         """
         left, right = axes.get_xlim()
-        x = np.linspace(left, right, 300)
+        x = np.linspace(left, right, resolution)
         y = self.pdf(x)
 
         plot_kwargs = defaults["plot"].copy()
         plot_kwargs.update(self.kwargs)
+        plot_kwargs["label"] = self.label
 
         return axes.plot(x, y, **plot_kwargs)
 
