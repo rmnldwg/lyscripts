@@ -13,8 +13,6 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
-from matplotlib.lines import Line2D
-from matplotlib.patches import Polygon
 
 from lyscripts.decorators import (
     check_input_file_exists,
@@ -146,15 +144,14 @@ class Histogram(AbstractDistribution):
         """Compute the point where `percent` of the values are to the right."""
         return np.percentile(self.values, 100.0 - percent)
 
-    def draw(self, axes: MPLAxes, **defaults) -> tuple[Polygon, str]:
+    def draw(self, axes: MPLAxes, **defaults) -> Any:
         """Draw the histogram into the provided ``axes``."""
         range = axes.get_xlim()
 
         hist_kwargs = defaults["hist"].copy()
         hist_kwargs.update(self.kwargs)
 
-        *_, handle = axes.hist(self.values, range=range, **hist_kwargs)
-        return handle[0], self.label
+        return axes.hist(self.values, range=range, **hist_kwargs)
 
 
 @dataclass(kw_only=True)
@@ -229,7 +226,7 @@ class BetaPosterior(AbstractDistribution):
             scale=self.scale,
         )
 
-    def draw(self, axes: MPLAxes, **defaults) -> tuple[Line2D, str]:
+    def draw(self, axes: MPLAxes, **defaults) -> Any:
         """Draw the Beta posterior into the provided ``axes``.
 
         Returns a handle and a label for the legend.
@@ -241,8 +238,7 @@ class BetaPosterior(AbstractDistribution):
         plot_kwargs = defaults["plot"].copy()
         plot_kwargs.update(self.kwargs)
 
-        handle, = axes.plot(x, y, **plot_kwargs)
-        return handle, self.label
+        return axes.plot(x, y, **plot_kwargs)
 
 
 def get_size(width="single", unit="cm", ratio="golden"):
@@ -343,23 +339,49 @@ def draw(
             "density": True,
             "histtype": "stepfilled",
             "alpha": 0.7,
+            "bins": 50,
         },
         "plot": {},
     }
     default_kwargs["hist"].update(hist_kwargs or {})
     default_kwargs["plot"].update(plot_kwargs or {})
 
-    handles, labels = [], []
-
     for content in contents:
-        handle, label = content.draw(axes, **default_kwargs)
-        handles.append(handle)
-        labels.append(label)
-
-    legend = axes.legend(handles, labels)
-    axes.add_artist(legend)
+        content.draw(axes, **default_kwargs)
 
     return axes
+
+
+def split_legends(
+    axes: MPLAxes,
+    titles: list[str],
+    locs: list[tuple[float, float]],
+    **kwargs,
+) -> None:
+    """Separate labels in ``axes`` into separate legends with ``titles`` at ``locs``."""
+    legend_kwargs = {
+        "title_fontsize": "small",
+        "labelspacing": 0.1,
+        "loc": "upper left",
+    }
+    legend_kwargs.update(kwargs)
+
+    handles, labels = axes.get_legend_handles_labels()
+    labels_per_legend = len(labels) // len(titles)
+
+    for i, (title, loc) in enumerate(zip(titles, locs, strict=True)):
+        start = i * labels_per_legend
+        stop = (i + 1) * labels_per_legend if i < len(titles) - 1 else None
+        idx = slice(start, stop)
+
+        legend = axes.legend(
+            handles[idx],
+            labels[idx],
+            bbox_to_anchor=loc,
+            title=title,
+            **legend_kwargs,
+        )
+        axes.add_artist(legend)
 
 
 @log_state()
