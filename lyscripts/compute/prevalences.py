@@ -1,4 +1,5 @@
-"""
+"""Prevalence prediction module.
+
 Predict prevalences of observed involvement pattern using the samples or prior state
 distributions that were previously inferred or computed. These computed prevalences can
 be compared to the prevalence of the respective pattern in the data, if provided.
@@ -103,7 +104,7 @@ def does_midext_match(
 def compute_observed_prevalence(
     data: pd.DataFrame,
     scenario: Scenario,
-    mapping: dict[int, str] | Callable[[int], str],
+    mapping: dict[int, str] | Callable[[int], str] | None = None,
 ) -> np.ndarray:
     """Extract prevalence defined in a ``scenario`` from the ``data``.
 
@@ -124,7 +125,9 @@ def compute_observed_prevalence(
     # reset `is_uni` to the original value. Otherwise hash computation will fail.
     scenario.is_uni = is_uni
 
-    data.ly.map_t_stage(mapping)
+    if mapping is not None:
+        data.ly.map_t_stage(mapping)
+
     has_t_stage = data.ly.t_stage.isin(scenario.t_stages)
     has_midext = data.ly.is_midext(scenario.midext)
     eligible_data = data.loc[has_t_stage & has_midext].reset_index()
