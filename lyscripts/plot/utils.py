@@ -107,7 +107,7 @@ class AbstractDistribution:
     @property
     def label(self) -> str:
         """Return the label of the histogram."""
-        return self.kwargs.get("label", None) or self._get_label()
+        return self.kwargs.get("label", self._get_label())
 
 
 @dataclass(kw_only=True)
@@ -150,7 +150,9 @@ class Histogram(AbstractDistribution):
 
         hist_kwargs = defaults["hist"].copy()
         hist_kwargs.update(self.kwargs)
-        hist_kwargs["label"] = self.label
+
+        if self.label is not None:
+            hist_kwargs["label"] = self.label
 
         return axes.hist(self.values, range=xlim, **hist_kwargs)
 
@@ -238,7 +240,9 @@ class BetaPosterior(AbstractDistribution):
 
         plot_kwargs = defaults["plot"].copy()
         plot_kwargs.update(self.kwargs)
-        plot_kwargs["label"] = self.label
+
+        if self.label is not None:
+            plot_kwargs["label"] = self.label
 
         return axes.plot(x, y, **plot_kwargs)
 
