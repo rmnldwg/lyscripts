@@ -26,10 +26,10 @@ class UninitializedProperty(Exception):
     """Raise when a uninitialized property of a dataclass is accessed.
 
     If a field of a dataclass is also a property, then the dataclass will call the
-    property's setter during ``__init__`` with the ``proprety`` object as the value
+    property's setter during ``__init__`` with the ``property`` object as the value
     (at least if nothing is provided to the constructor).
 
-    Thus, I will not allow setting a ``propoerty`` as the value and raise this exception
+    Thus, I will not allow setting a ``property`` as the value and raise this exception
     in the getter when no private attribute is found.
     """
 
@@ -42,6 +42,7 @@ class Scenario:
     This may be used by the :py:mod:`.compute` and :py:mod:`.predict` modules to
     compute priors, posteriors, prevalences, and risks.
     """
+
     t_stages: list[int | str] = field(default_factory=lambda: ["early"])
     t_stages_dist: list[float] | np.ndarray
     mode: Literal["BN", "HMM"] = "HMM"

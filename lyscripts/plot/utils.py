@@ -148,7 +148,7 @@ class Histogram(AbstractDistribution):
         """Draw the histogram into the provided ``axes``."""
         xlim = axes.get_xlim()
 
-        hist_kwargs = defaults["hist"].copy()
+        hist_kwargs = defaults.get("hist", {}).copy()
         hist_kwargs.update(self.kwargs)
 
         if self.label is not None:
@@ -238,7 +238,7 @@ class BetaPosterior(AbstractDistribution):
         x = np.linspace(left, right, resolution)
         y = self.pdf(x)
 
-        plot_kwargs = defaults["plot"].copy()
+        plot_kwargs = defaults.get("plot", {}).copy()
         plot_kwargs.update(self.kwargs)
 
         if self.label is not None:
