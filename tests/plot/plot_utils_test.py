@@ -176,7 +176,6 @@ def test_draw(beta_samples):
     post = BetaPosterior.from_hdf5(filename, dataname)
     fig, ax = plt.subplots()
     ax = draw(axes=ax, contents=[hist, post], percent_lims=(2.,2.))
-    ax.legend()
     return fig
 
 

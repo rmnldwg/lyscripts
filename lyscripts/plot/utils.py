@@ -1,17 +1,18 @@
-"""
-Utility functions for the plotting commands.
-"""
+"""Utility functions for the plotting commands."""
+
+from __future__ import annotations
+
+from abc import abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from itertools import cycle
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
-from matplotlib.axes._axes import Axes as MPLAxes
-from matplotlib.figure import Figure
 
 from lyscripts.decorators import (
     check_input_file_exists,
@@ -19,13 +20,17 @@ from lyscripts.decorators import (
     log_state,
 )
 
+if TYPE_CHECKING:
+    from matplotlib.axes._axes import Axes as MPLAxes
+    from matplotlib.figure import Figure
+
 # define USZ colors
 COLORS = {
-    "blue": '#005ea8',
-    "orange": '#f17900',
-    "green": '#00afa5',
-    "red": '#ae0060',
-    "gray": '#c5d5db',
+    "blue": "#005ea8",
+    "orange": "#f17900",
+    "green": "#00afa5",
+    "red": "#ae0060",
+    "gray": "#c5d5db",
 }
 COLOR_CYCLE = cycle(COLORS.values())
 CM_PER_INCH = 2.54
@@ -41,12 +46,12 @@ def floor_at_decimal(value: float, decimal: int) -> float:
 
 
 def ceil_at_decimal(value: float, decimal: int) -> float:
-    """Compute the ceiling of ``value`` for the specified ``decimal``
+    """Compute the ceiling of ``value`` for the specified ``decimal``.
 
     Analog to :py:func:`._floot_at_decimal`, this is the distance to the right of the
     decimal point. May be negative.
     """
-    return - floor_at_decimal(-value, decimal)
+    return -floor_at_decimal(-value, decimal)
 
 
 def floor_to_step(value: float, step: float) -> float:
@@ -66,34 +71,63 @@ def clean_and_check(filename: str | Path) -> Path:
     """
     filepath = Path(filename)
     if not filepath.exists():
-        raise FileNotFoundError(
-            f"File with the name {filename} does not exist at {filepath.resolve()}"
-        )
+        msg = f"File with the name {filename} does not exist at {filepath.resolve()}"
+        raise FileNotFoundError(msg)
     return filepath
 
 
-HistogramT = TypeVar("HistogramT", bound="Histogram")
+AbstractDistributionT = TypeVar("AbstractDistributionT", bound="AbstractDistribution")
 
-@dataclass
-class Histogram:
-    """Class containing data for plotting a histogram."""
-    values: np.ndarray
-    scale: float = 100.
-    offset: float = 0.
+@dataclass(kw_only=True)
+class AbstractDistribution:
+    """Abstract class for distributions that should be plotted."""
+
+    scale: float = 100.0
+    offset: float = 0.0
     kwargs: dict[str, Any] = field(default_factory=lambda: {})
 
-    def __post_init__(self) -> None:
+    @abstractmethod
+    def draw(self, axes: MPLAxes) -> MPLAxes:
+        """Draw the distribution into the provided ``axes``."""
+        ...
+
+    @abstractmethod
+    def left_percentile(self, percent: float) -> float:
+        """Compute the point where ``percent`` of the values are to the left."""
+        ...
+
+    @abstractmethod
+    def right_percentile(self, percent: float) -> float:
+        """Compute the point where ``percent`` of the values are to the right."""
+        ...
+
+    def _get_label(self) -> str:
+        """Compute label for when ``kwargs`` does not contain one."""
+
+    @property
+    def label(self) -> str:
+        """Return the label of the histogram."""
+        return self.kwargs.get("label", self._get_label())
+
+
+@dataclass(kw_only=True)
+class Histogram(AbstractDistribution):
+    """Class containing data for plotting a histogram."""
+
+    values: np.ndarray
+
+    def __post_init__(self) -> None:  # noqa: D105
         self.values = self.scale * self.values + self.offset
 
     @classmethod
     def from_hdf5(
-        cls: type[HistogramT],
+        cls: type[Histogram],
         filename: str | Path,
         dataname: str,
-        scale: float = 100.,
-        offset: float = 0.,
+        scale: float = 100.0,
+        offset: float = 0.0,
         **kwargs,
-    ) -> HistogramT:
+    ) -> Histogram:
         """Create a histogram from an HDF5 file."""
         filename = clean_and_check(filename)
         with h5py.File(filename, mode="r") as h5file:
@@ -108,29 +142,37 @@ class Histogram:
 
     def right_percentile(self, percent: float) -> float:
         """Compute the point where `percent` of the values are to the right."""
-        return np.percentile(self.values, 100. - percent)
+        return np.percentile(self.values, 100.0 - percent)
+
+    def draw(self, axes: MPLAxes, **defaults) -> Any:
+        """Draw the histogram into the provided ``axes``."""
+        xlim = axes.get_xlim()
+
+        hist_kwargs = defaults["hist"].copy()
+        hist_kwargs.update(self.kwargs)
+
+        if self.label is not None:
+            hist_kwargs["label"] = self.label
+
+        return axes.hist(self.values, range=xlim, **hist_kwargs)
 
 
-BetaPosteriorT = TypeVar("BetaPosteriorT", bound="BetaPosterior")
-
-@dataclass
-class BetaPosterior:
+@dataclass(kw_only=True)
+class BetaPosterior(AbstractDistribution):
     """Class for storing plot configs for a Beta posterior."""
+
     num_success: int
     num_total: int
-    scale: float = 100.
-    offset: float = 0.
-    kwargs: dict[str, Any] = field(default_factory=lambda: {})
 
     @classmethod
     def from_hdf5(
-        cls: type[BetaPosteriorT],
+        cls: type[BetaPosterior],
         filename: str | Path,
         dataname: str,
-        scale: float = 100.,
-        offset: float = 0.,
+        scale: float = 100.0,
+        offset: float = 0.0,
         **kwargs,
-    ) -> BetaPosteriorT:
+    ) -> BetaPosterior:
         """Initialize data container for Beta posteriors from HDF5 file."""
         filename = clean_and_check(filename)
         with h5py.File(filename, mode="r") as h5file:
@@ -143,7 +185,16 @@ class BetaPosterior:
                     "Dataset does not contain observed prevalence data"
                 ) from key_err
 
-        return cls(num_success, num_total, scale=scale, offset=offset, kwargs=kwargs)
+        return cls(
+            num_success=num_success,
+            num_total=num_total,
+            scale=scale,
+            offset=offset,
+            kwargs=kwargs,
+        )
+
+    def _get_label(self) -> str:
+        return f"data: {self.num_success} of {self.num_total}"
 
     @property
     def num_fail(self):
@@ -154,8 +205,8 @@ class BetaPosterior:
         """Compute the probability density function."""
         return sp.stats.beta.pdf(
             x,
-            a=self.num_success+1,
-            b=self.num_fail+1,
+            a=self.num_success + 1,
+            b=self.num_fail + 1,
             loc=self.offset,
             scale=self.scale,
         )
@@ -163,20 +214,37 @@ class BetaPosterior:
     def left_percentile(self, percent: float) -> float:
         """Return the point where the CDF reaches ``percent``."""
         return sp.stats.beta.ppf(
-            percent / 100.,
-            a=self.num_success+1,
-            b=self.num_fail+1,
+            percent / 100.0,
+            a=self.num_success + 1,
+            b=self.num_fail + 1,
             scale=self.scale,
         )
 
     def right_percentile(self, percent: float) -> float:
         """Return the point where 100% minus the CDF equals ``percent``."""
         return sp.stats.beta.ppf(
-            1. - (percent / 100.),
-            a=self.num_success+1,
-            b=self.num_fail+1,
+            1.0 - (percent / 100.0),
+            a=self.num_success + 1,
+            b=self.num_fail + 1,
             scale=self.scale,
         )
+
+    def draw(self, axes: MPLAxes, resolution: int = 300, **defaults) -> Any:
+        """Draw the Beta posterior into the provided ``axes``.
+
+        Returns a handle and a label for the legend.
+        """
+        left, right = axes.get_xlim()
+        x = np.linspace(left, right, resolution)
+        y = self.pdf(x)
+
+        plot_kwargs = defaults["plot"].copy()
+        plot_kwargs.update(self.kwargs)
+
+        if self.label is not None:
+            plot_kwargs["label"] = self.label
+
+        return axes.plot(x, y, **plot_kwargs)
 
 
 def get_size(width="single", unit="cm", ratio="golden"):
@@ -206,35 +274,36 @@ def get_size(width="single", unit="cm", ratio="golden"):
     return (width, height)
 
 
-def get_label(attrs) -> str:
+def get_label(attrs: Mapping) -> str:
     """Extract label of a histogram from the HDF5 ``attrs`` object of the dataset."""
     label = []
     transforms = {
         "label": str,
         "modality": str,
         "t_stage": str,
-        "midline_ext": lambda x: "ext" if x else "noext"
+        "midline_ext": lambda x: "ext" if x else "noext",
     }
-    for key,func in transforms.items():
+    for key, func in transforms.items():
         if key in attrs and attrs[key] is not None:
             label.append(func(attrs[key]))
     return " | ".join(label)
 
 
 def get_xlims(
-    contents: list[Histogram | BetaPosterior],
-    percent_lims: tuple[float] = (10., 10.),
+    contents: AbstractDistributionT,
+    percent_lims: tuple[float] = (10.0, 10.0),
 ) -> tuple[float]:
-    """
+    """Get the x-axis limits for a plot containing multiple distribution.
+
     Compute the ``xlims`` of a plot containing histograms and probability density
     functions by considering their smallest and largest percentiles.
     """
     left_percentiles = np.array(
-        [c.left_percentile(percent_lims[0]) for c in contents]
+        [c.left_percentile(percent_lims[0]) for c in contents],
     )
     left_lim = np.min(left_percentiles)
     right_percentiles = np.array(
-        [c.right_percentile(percent_lims[0]) for c in contents]
+        [c.right_percentile(percent_lims[0]) for c in contents],
     )
     right_lim = np.max(right_percentiles)
     return left_lim, right_lim
@@ -242,8 +311,8 @@ def get_xlims(
 
 def draw(
     axes: MPLAxes,
-    contents: list[Histogram | BetaPosterior],
-    percent_lims: tuple[float, float] = (10., 10.),
+    contents: list[AbstractDistribution],
+    percent_lims: tuple[float, float] = (10.0, 10.0),
     xlims: tuple[float] | None = None,
     hist_kwargs: dict[str, Any] | None = None,
     plot_kwargs: dict[str, Any] | None = None,
@@ -261,43 +330,64 @@ def draw(
     Both these keyword arguments can be overwritten by what the individual ``contents``
     have defined.
     """
-    if not all(isinstance(c, (Histogram, BetaPosterior)) for c in contents):
-        raise TypeError("Contents must be `Histogram` or `Posterior` instances")
+    if not all(isinstance(c, AbstractDistribution) for c in contents):
+        raise TypeError("Contents must be subclasses of `AbstractDistribution`")
 
-    if xlims is None:
-        xlims = get_xlims(contents, percent_lims)
-    elif len(xlims) != 2 or xlims[0] > xlims[-1]:
+    xlims = xlims or get_xlims(contents, percent_lims)
+
+    if len(xlims) != 2 or xlims[0] > xlims[-1]:
         raise ValueError("`xlims` must be tuple of two increasing values")
 
-    x = np.linspace(*xlims, 300)
+    axes.set_xlim(*xlims)
 
-    hist_kwargs = {} if hist_kwargs is None else hist_kwargs
-    nbins = hist_kwargs.pop("nbins", 60)
-    default_hist_kwargs = {
-        "density": True,
-        "bins": np.linspace(*xlims, nbins),
-        "histtype": "stepfilled",
-        "alpha": 0.7,
+    default_kwargs = {
+        "hist": {
+            "density": True,
+            "histtype": "stepfilled",
+            "alpha": 0.7,
+            "bins": 50,
+        },
+        "plot": {},
     }
-    default_hist_kwargs.update(hist_kwargs)
-
-    plot_kwargs = {} if plot_kwargs is None else plot_kwargs
-    default_plot_kwargs = {}
-    default_plot_kwargs.update(plot_kwargs)
+    default_kwargs["hist"].update(hist_kwargs or {})
+    default_kwargs["plot"].update(plot_kwargs or {})
 
     for content in contents:
-        if isinstance(content, Histogram):
-            tmp_hist_kwargs = default_hist_kwargs.copy()
-            tmp_hist_kwargs.update(content.kwargs)
-            axes.hist(content.values, **tmp_hist_kwargs)
-        elif isinstance(content, BetaPosterior):
-            tmp_plot_kwargs = default_plot_kwargs.copy()
-            tmp_plot_kwargs["label"] = f"{content.num_success} / {content.num_total}"
-            tmp_plot_kwargs.update(content.kwargs)
-            axes.plot(x, content.pdf(x), **tmp_plot_kwargs)
+        content.draw(axes, **default_kwargs)
 
-    axes.set_xlim(*xlims)
     return axes
+
+
+def split_legends(
+    axes: MPLAxes,
+    titles: list[str],
+    locs: list[tuple[float, float]],
+    **kwargs,
+) -> None:
+    """Separate labels in ``axes`` into separate legends with ``titles`` at ``locs``."""
+    legend_kwargs = {
+        "title_fontsize": "small",
+        "labelspacing": 0.1,
+        "loc": "upper left",
+    }
+    legend_kwargs.update(kwargs)
+
+    handles, labels = axes.get_legend_handles_labels()
+    labels_per_legend = len(labels) // len(titles)
+
+    for i, (title, loc) in enumerate(zip(titles, locs, strict=True)):
+        start = i * labels_per_legend
+        stop = (i + 1) * labels_per_legend if i < len(titles) - 1 else None
+        idx = slice(start, stop)
+
+        legend = axes.legend(
+            handles[idx],
+            labels[idx],
+            bbox_to_anchor=loc,
+            title=title,
+            **legend_kwargs,
+        )
+        axes.add_artist(legend)
 
 
 @log_state()
