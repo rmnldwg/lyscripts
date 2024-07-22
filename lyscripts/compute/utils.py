@@ -1,6 +1,5 @@
-"""
-Utilities for precomputing the priors and posteriors.
-"""
+"""Utilities for precomputing the priors and posteriors."""
+
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +50,7 @@ def get_modality_subset(diagnosis: dict[str, Any]) -> set[str]:
 
 class HDF5FileCache:
     """HDF5 file acting as a cache for expensive arrays."""
+
     def __init__(self, file_path: Path) -> None:
         """Initialize the cache with the given ``file_path``."""
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -86,13 +86,14 @@ def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, b
     but be shorter to store.
 
     Example:
-
+    -------
     >>> full = {
     ...     "ipsi": {"I": None, "II": True, "III": None},
     ...     "contra": {"I": None, "II": None, "III": None},
     ... }
     >>> reduce_pattern(full)
     {'ipsi': {'II': True}}
+
     """
     tmp_pattern = pattern.copy()
     reduced_pattern = {}
@@ -116,10 +117,12 @@ def complete_pattern(
     contain ``True``, ``False`` or ``None``.
 
     Example:
+    -------
     >>> pattern = {"ipsi": {"II": True}}
     >>> lnls = ["II", "III"]
     >>> complete_pattern(pattern, lnls)
     {'ipsi': {'II': True, 'III': None}, 'contra': {'II': None, 'III': None}}
+
     """
     if pattern is None:
         pattern = {}

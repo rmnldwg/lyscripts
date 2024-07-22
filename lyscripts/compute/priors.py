@@ -1,5 +1,4 @@
-"""
-Given samples drawn during an MCMC round, compute the (prior) state distribution for
+"""Given samples drawn during an MCMC round, compute the (prior) state distribution for
 each sample. This may then later on be used to compute risks and prevalences more
 quickly.
 
@@ -8,6 +7,7 @@ were computed for. This scenario consists of the T-stages it was computed for an
 distribution that was used to marginalize over them, as well as the model's computation
 mode (hidden Markov model or Bayesian network).
 """
+
 import argparse
 import logging
 from pathlib import Path
@@ -40,23 +40,31 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a ``subparsers`` instance."""
     parser.add_argument(
-        "--samples", type=Path, required=True,
-        help="Path to the drawn samples (HDF5 file)."
+        "--samples",
+        type=Path,
+        required=True,
+        help="Path to the drawn samples (HDF5 file).",
     )
     parser.add_argument(
-        "--priors", type=Path, required=True,
-        help="Path to file for storing the computed prior distributions."
+        "--priors",
+        type=Path,
+        required=True,
+        help="Path to file for storing the computed prior distributions.",
     )
     parser.add_argument(
-        "--params", type=Path, required=True,
-        help="Path to parameter file defining the model (YAML)."
+        "--params",
+        type=Path,
+        required=True,
+        help="Path to parameter file defining the model (YAML).",
     )
     parser.add_argument(
-        "--scenarios", type=Path, required=False,
+        "--scenarios",
+        type=Path,
+        required=False,
         help=(
             "Path to a YAML file containing a `scenarios` key with a list of "
             "diagnosis scenarios to compute the posteriors for."
-        )
+        ),
     )
 
     add_scenario_arguments(parser, for_comp="priors")
@@ -98,10 +106,12 @@ def compute_priors_using_cache(
         total=len(samples),
     ):
         model.set_params(*sample)
-        priors.append(sum(
-            model.state_dist(t_stage=t, mode=scenario.mode) * p
-            for t, p in zip(scenario.t_stages, scenario.t_stages_dist)
-        ))
+        priors.append(
+            sum(
+                model.state_dist(t_stage=t, mode=scenario.mode) * p
+                for t, p in zip(scenario.t_stages, scenario.t_stages_dist, strict=False)
+            )
+        )
 
     priors = np.stack(priors)
     cache[priors_hash] = (priors, scenario.as_dict("priors"))
@@ -109,7 +119,7 @@ def compute_priors_using_cache(
 
 
 def main(args: argparse.Namespace):
-    """compute the prior state distribution for each sample."""
+    """Compute the prior state distribution for each sample."""
     params = utils.load_yaml_params(args.params)
 
     if args.scenarios is None:

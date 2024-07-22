@@ -1,7 +1,7 @@
-"""
-Filter a datset according to some common criteria, like tumor location, subsite,
+"""Filter a datset according to some common criteria, like tumor location, subsite,
 T-category, etc.
 """
+
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
@@ -44,19 +44,20 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments to the parser."""
     parser.add_argument(
-        "input", type=Path,
-        help="The path to the full dataset to split."
+        "input", type=Path, help="The path to the full dataset to split."
     )
     parser.add_argument(
-        "output", type=Path,
-        help="Folder to store the split CSV files in."
+        "output", type=Path, help="Folder to store the split CSV files in."
     )
 
     for prefix in ["include", "exclude"]:
         for filter_by in ["locations", "subsites", "t_categories"]:
             parser.add_argument(
-                f"--{prefix}-{filter_by}", default=None, type=str, nargs="+",
-                help=f"If provided, {prefix} patients with the given tumor {filter_by}."
+                f"--{prefix}-{filter_by}",
+                default=None,
+                type=str,
+                nargs="+",
+                help=f"If provided, {prefix} patients with the given tumor {filter_by}.",
             )
 
     parser.set_defaults(run_main=main)

@@ -1,11 +1,10 @@
-"""
-This module contains frequently used functions and decorators that are used throughout
-the subcommands to load e.g. YAML specifications or model definitions.
+"""Frequently used functions & decorators to load e.g. YAML specs or model definitions.
 
 It also contains helpers for reporting the script's progress via a slightly customized
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
-occuring issues to the right place.
+occurring issues to the right place.
 """
+
 import warnings
 from logging import LogRecord
 from pathlib import Path
@@ -31,10 +30,12 @@ from lyscripts.decorators import (
 try:
     import streamlit
     from streamlit.runtime.scriptrunner import get_script_run_ctx
+
     streamlit.status = streamlit.spinner
 except ImportError:
+
     def get_script_run_ctx() -> bool:
-        """A mock for the `get_script_run_ctx` function of `streamlit`."""
+        """Mock the `get_script_run_ctx` function of `streamlit`."""
         return None
 
 
@@ -48,13 +49,12 @@ console = Console()
 
 
 class LyScriptsWarning(Warning):
-    """
-    Exception that can be raised by methods if they want the `LyScriptsReport` instance
-    to not stop and print a traceback, but display some message appropriately.
+    """Propagate messages through the `report_state` decorator.
 
-    Essentially, this is a way for decorated functions to propagate messages through
-    the `report_state` decorator.
+    This exception can be raised by methods if they want the `LyScriptsReport` instance
+    to not stop and print a traceback, but display some message appropriately.
     """
+
     def __init__(self, *args: object, level: str = "info") -> None:
         """Extract the `level` of the message (can be "info", "warning" or "error")."""
         self.level = level
@@ -63,13 +63,15 @@ class LyScriptsWarning(Warning):
 
 
 def is_streamlit_running() -> bool:
-    """Checks if code is running inside a `streamlit` app."""
+    """Check if code is running inside a `streamlit` app."""
     return get_script_run_ctx() is not None
 
 
 class CustomProgress(Progress):
     """Small wrapper around rich's `Progress` initializing my custom columns."""
-    def __init__( self, **kwargs: dict):
+
+    def __init__(self, **kwargs: dict):
+        """Initialize the `Progress` instance with custom columns."""
         columns = [
             SpinnerColumn(finished_text=CHECK),
             *Progress.get_default_columns(),
@@ -80,6 +82,7 @@ class CustomProgress(Progress):
 
 class CustomRichHandler(RichHandler):
     """Uses `func_filepath` from the `extra` dict to modify `pathname`."""
+
     def emit(self, record: LogRecord) -> None:
         """Emit a log record."""
         if (
@@ -97,13 +100,15 @@ class CustomRichHandler(RichHandler):
 
 
 def binom_pmf(support: list[int] | np.ndarray, p: float = 0.5):
-    """Binomial PMF"""
+    """Binomial PMF."""
     max_time = len(support) - 1
-    if p > 1. or p < 0.:
+    if p > 1.0 or p < 0.0:
         raise ValueError("Binomial prob must be btw. 0 and 1")
-    q = 1. - p
-    binom_coeff = factorial(max_time) / (factorial(support) * factorial(max_time - support))
-    return binom_coeff * p**support * q**(max_time - support)
+    q = 1.0 - p
+    binom_coeff = factorial(max_time) / (
+        factorial(support) * factorial(max_time - support)
+    )
+    return binom_coeff * p**support * q ** (max_time - support)
 
 
 FUNCS = {
@@ -115,7 +120,7 @@ def graph_from_config(graph_params: dict) -> dict[tuple[str, str], list[str]]:
     """Build graph dictionary for the `lymph` models from the YAML params."""
     lymph_graph = {}
 
-    if not "tumor" in graph_params and "lnl" in graph_params:
+    if "tumor" not in graph_params and "lnl" in graph_params:
         raise KeyError("Parameters must define tumors and LNLs")
 
     for node_type, node_dict in graph_params.items():
@@ -150,7 +155,7 @@ def _create_model_from_v0(params: dict[str, Any]) -> types.Model:
 
     if "model" in params:
         model_cls = getattr(models, params["model"]["class"])
-        if not "is_symmetric" in params["model"]["kwargs"]:
+        if "is_symmetric" not in params["model"]["kwargs"]:
             warnings.warn(
                 "The keywords `base_symmetric`, `trans_symmetric`, and `use_mixing` "
                 "have been deprecated. Please use `is_symmetric` instead.",
@@ -200,7 +205,7 @@ def assign_modalities(
     to the ``model``.
 
     Example:
-
+    -------
     >>> from_config = {
     ...     "CT": {"spec": 0.76, "sens": 0.81},
     ...     "MRI": [0.63, 0.86, "pathological"],
@@ -217,6 +222,7 @@ def assign_modalities(
     >>> assign_modalities(model, from_config, subset=["CT"])
     >>> model.get_all_modalities()   # doctest: +NORMALIZE_WHITESPACE
     {'CT': Clinical(spec=0.76, sens=0.81, is_trinary=False)}
+
     """
     if clear:
         model.clear_modalities()
@@ -241,7 +247,7 @@ def create_distribution(config: dict[str, Any]) -> diagnosis_times.Distribution:
     kwargs = config.get("kwargs", {})
 
     if (type_ := config.get("frozen")) is not None:
-        kwargs.update({"support": np.arange(max_time+1)})
+        kwargs.update({"support": np.arange(max_time + 1)})
         distribution = diagnosis_times.Distribution(FUNCS[type_](**kwargs))
     elif (type_ := config.get("parametric")) is not None:
         distribution = diagnosis_times.Distribution(FUNCS[type_], max_time, **kwargs)
@@ -404,7 +410,7 @@ def load_patient_data(
 ) -> pd.DataFrame:
     """Load patient data from a CSV file stored at ``file``."""
     if header is None:
-        header = [0,1,2]
+        header = [0, 1, 2]
     return pd.read_csv(file_path, header=header)
 
 
@@ -413,8 +419,7 @@ def load_patient_data(
 def load_yaml_params(file_path: Path) -> dict:
     """Load parameters from a YAML ``file``."""
     with open(file_path, encoding="utf-8") as file:
-        params = yaml.safe_load(file)
-    return params
+        return yaml.safe_load(file)
 
 
 @log_state()
@@ -426,7 +431,7 @@ def load_model_samples(
     discard: int = 0,
     thin: int = 1,
 ) -> np.ndarray:
-    """Load MCMC samples stored in an HDF5 file at ``file_path`` under a key ``name``."""
+    """Load MCMC samples stored in HDF5 file at ``file_path`` under a key ``name``."""
     backend = HDFBackend(file_path, name=name, read_only=True)
     return backend.get_chain(flat=flat, discard=discard, thin=thin)
 
@@ -458,6 +463,7 @@ TrueChoices = Literal["true", "t", "yes", "y", "involved", "metastatic"]
 FalseChoices = Literal["false", "f", "no", "n", "healthy", "benign"]
 """Type alias for what is interpreted as healthy/benign involvement of an LNL."""
 
+
 def optional_bool(value: NoneChoices | TrueChoices | FalseChoices) -> bool | None:
     """Convert a string to a boolean or ``None``.
 
@@ -481,4 +487,4 @@ def make_pattern(
     lnls: list[str],
 ) -> dict[str, bool | None]:
     """Create a dictionary from a list of bools and Nones."""
-    return dict(zip(lnls, from_list or [None] * len(lnls)))
+    return dict(zip(lnls, from_list or [None] * len(lnls), strict=False))

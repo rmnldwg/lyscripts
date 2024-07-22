@@ -1,8 +1,10 @@
+"""Evaluate the performance of the trained model.
+
+This is done by computing quantities like the Bayesian information criterion (BIC) or
+(if thermodynamic integration was performed) the actual evidence (with error) of the
+model.
 """
-Evaluate the performance of the trained model by computing quantities like the
-Bayesian information criterion (BIC) or (if thermodynamic integration was performed)
-the actual evidence (with error) of the model.
-"""
+
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import json
@@ -40,37 +42,29 @@ def _add_arguments(parser: argparse.ArgumentParser):
     This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
-        "data", type=Path,
-        help="Path to the tables of patient data (CSV)."
+        "data", type=Path, help="Path to the tables of patient data (CSV)."
     )
-    parser.add_argument(
-        "model", type=Path,
-        help="Path to model output files (HDF5)."
-    )
+    parser.add_argument("model", type=Path, help="Path to model output files (HDF5).")
 
     parser.add_argument(
-        "-p", "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file"
+        "-p",
+        "--params",
+        default="./params.yaml",
+        type=Path,
+        help="Path to parameter file",
     )
     parser.add_argument(
-        "--plots", default="./plots", type=Path,
-        help="Directory for storing plots"
+        "--plots", default="./plots", type=Path, help="Directory for storing plots"
     )
     parser.add_argument(
-        "--metrics", default="./metrics.json", type=Path,
-        help="Path to metrics file"
+        "--metrics", default="./metrics.json", type=Path, help="Path to metrics file"
     )
 
     parser.set_defaults(run_main=main)
 
 
-def comp_bic(
-    log_probs: np.ndarray,
-    num_params: int,
-    num_data: int
-) -> float:
-    """
-    Compute the negative one half of the Bayesian Information Criterion (BIC).
+def comp_bic(log_probs: np.ndarray, num_params: int, num_data: int) -> float:
+    r"""Compute the negative one half of the Bayesian Information Criterion (BIC).
 
     The BIC is defined as [^1]
     $$ BIC = k \\ln{n} - 2 \\ln{\\hat{L}} $$
@@ -83,14 +77,15 @@ def comp_bic(
 
     [^1]: https://en.wikipedia.org/wiki/Bayesian_information_criterion
     """
-    return np.max(log_probs) - num_params * np.log(num_data) / 2.
+    return np.max(log_probs) - num_params * np.log(num_data) / 2.0
+
 
 def compute_evidence(
     temp_schedule: np.ndarray,
     log_probs: np.ndarray,
     num: int = 1000,
 ) -> tuple[float, float]:
-    """Compute the evidene and its standard deviation.
+    """Compute the evidence and its standard deviation.
 
     Given a ``temp_schedule`` of inverse temperatures and corresponding sets of
     ``log_probs``, draw ``num`` "paths" of log-probabilities and compute the evidence
@@ -102,7 +97,7 @@ def compute_evidence(
     integrals = np.zeros(shape=num)
     for i in range(num):
         rand_idx = np.random.choice(log_probs.shape[1], size=log_probs.shape[0])
-        drawn_accuracy = log_probs[np.arange(log_probs.shape[0]),rand_idx].copy()
+        drawn_accuracy = log_probs[np.arange(log_probs.shape[0]), rand_idx].copy()
         integrals[i] = trapezoid(y=drawn_accuracy, x=temp_schedule)
     return np.mean(integrals), np.std(integrals)
 
@@ -128,8 +123,8 @@ def compute_ti_results(
     nsteps = params["sampling"]["nsteps"]
     ti_log_probs = np.zeros(shape=(num_temps, nsteps * nwalker))
 
-    for i, round in enumerate(h5_file["ti"]):
-        reader = emcee.backends.HDFBackend(model, name=f"ti/{round}", read_only=True)
+    for i, run in enumerate(h5_file["ti"]):
+        reader = emcee.backends.HDFBackend(model, name=f"ti/{run}", read_only=True)
         ti_log_probs[i] = reader.get_blobs(flat=True)
 
     evidence, evidence_std = compute_evidence(temp_schedule, ti_log_probs)
@@ -140,7 +135,7 @@ def compute_ti_results(
 
 
 def main(args: argparse.Namespace):
-    """Main entry point of the script."""
+    """Run main script."""
     metrics = {}
 
     params = load_yaml_params(args.params)
@@ -167,16 +162,17 @@ def main(args: argparse.Namespace):
         args.plots.parent.mkdir(exist_ok=True)
 
         beta_vs_accuracy = pd.DataFrame(
-            np.array([
-                temp_schedule,
-                np.mean(ti_log_probs, axis=1),
-                np.std(ti_log_probs, axis=1)
-            ]).T,
+            np.array(
+                [
+                    temp_schedule,
+                    np.mean(ti_log_probs, axis=1),
+                    np.std(ti_log_probs, axis=1),
+                ]
+            ).T,
             columns=["β", "accuracy", "std"],
         )
         beta_vs_accuracy.to_csv(args.plots, index=False)
         logger.info(f"Plotted β vs accuracy at {args.plots}")
-
 
     # use blobs, because also for TI, this is the unscaled log-prob
     backend = emcee.backends.HDFBackend(args.model, read_only=True, name="mcmc")
@@ -188,7 +184,9 @@ def main(args: argparse.Namespace):
     args.metrics.touch(exist_ok=True)
 
     metrics["BIC"] = comp_bic(
-        final_log_probs, ndim, len(data),
+        final_log_probs,
+        ndim,
+        len(data),
     )
     metrics["max_llh"] = np.max(final_log_probs)
     metrics["mean_llh"] = np.mean(final_log_probs)

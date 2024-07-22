@@ -1,6 +1,4 @@
-"""
-Learn the spread probabilities of the HMM for lymphatic tumor progression using
-the preprocessed data as input and MCMC as sampling method.
+"""Learn the model params using the preprocessed input data and MCMC sampling.
 
 This is the central script performing for our project on modelling lymphatic spread
 in head & neck cancer. We use it for model comparison via the thermodynamic
@@ -9,6 +7,7 @@ predictions. This risk estimate may in turn some day guide clinicians to make mo
 objective decisions with respect to defining the *elective clinical target volume*
 (CTV-N) in radiotherapy.
 """
+
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
@@ -58,60 +57,87 @@ def _add_arguments(parser: argparse.ArgumentParser):
     This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
-        "-i", "--input", type=Path, required=True,
-        help="Path to training data files"
+        "-i", "--input", type=Path, required=True, help="Path to training data files"
     )
     parser.add_argument(
-        "-o", "--output", type=Path, required=True,
-        help="Path to the HDF5 file to store the results in"
+        "-o",
+        "--output",
+        type=Path,
+        required=True,
+        help="Path to the HDF5 file to store the results in",
     )
     parser.add_argument(
-        "--history", type=Path, nargs="?",
-        help="Path to store the burnin history in (as CSV file)."
+        "--history",
+        type=Path,
+        nargs="?",
+        help="Path to store the burnin history in (as CSV file).",
     )
 
     parser.add_argument(
-        "-w", "--walkers-per-dim", type=int, default=10,
+        "-w",
+        "--walkers-per-dim",
+        type=int,
+        default=10,
         help="Number of walkers per dimension",
     )
     parser.add_argument(
-        "-b", "--burnin", type=int, nargs="?",
-        help="Number of burnin steps. If not provided, sampler runs until convergence."
+        "-b",
+        "--burnin",
+        type=int,
+        nargs="?",
+        help="Number of burnin steps. If not provided, sampler runs until convergence.",
     )
     parser.add_argument(
-        "--check-interval", type=int, default=100,
-        help="Check convergence every `check_interval` steps."
+        "--check-interval",
+        type=int,
+        default=100,
+        help="Check convergence every `check_interval` steps.",
     )
     parser.add_argument(
-        "--trust-fac", type=float, default=50.,
-        help="Factor to trust the autocorrelation time for convergence."
+        "--trust-fac",
+        type=float,
+        default=50.0,
+        help="Factor to trust the autocorrelation time for convergence.",
     )
     parser.add_argument(
-        "--rel-thresh", type=float, default=0.05,
-        help="Relative threshold for convergence."
+        "--rel-thresh",
+        type=float,
+        default=0.05,
+        help="Relative threshold for convergence.",
     )
     parser.add_argument(
-        "-n", "--nsteps", type=int, default=100,
-        help="Number of MCMC samples to draw, irrespective of thinning."
+        "-n",
+        "--nsteps",
+        type=int,
+        default=100,
+        help="Number of MCMC samples to draw, irrespective of thinning.",
     )
     parser.add_argument(
-        "-t", "--thin", type=int, default=10,
-        help="Thinning factor for the MCMC chain."
+        "-t", "--thin", type=int, default=10, help="Thinning factor for the MCMC chain."
     )
     parser.add_argument(
-        "-p", "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file."
+        "-p",
+        "--params",
+        default="./params.yaml",
+        type=Path,
+        help="Path to parameter file.",
     )
     parser.add_argument(
-        "-c", "--cores", type=int, nargs="?",
+        "-c",
+        "--cores",
+        type=int,
+        nargs="?",
         help=(
             "Number of parallel workers (CPU cores/threads) to use. If not provided, "
             "it will use all cores. If set to zero, multiprocessing will not be used."
-        )
+        ),
     )
     parser.add_argument(
-        "-s", "--seed", type=int, default=42,
-        help="Seed value to reproduce the same sampling round."
+        "-s",
+        "--seed",
+        type=int,
+        default=42,
+        help="Seed value to reproduce the same sampling round.",
     )
 
     parser.set_defaults(run_main=main)
@@ -119,8 +145,9 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 MODEL = None
 
+
 def log_prob_fn(theta: np.array) -> float:
-    """log probability function using global variables because of pickling."""
+    """Log probability function using global variables because of pickling."""
     return MODEL.likelihood(given_params=theta)
 
 
@@ -179,15 +206,16 @@ def run_burnin(
             total=burnin,
         )
         while sampler.iteration < (burnin or np.inf):
-            for state in sampler.sample(state, iterations=check_interval):
+            for state in sampler.sample(state, iterations=check_interval):  # noqa: B007, B020
                 progress.update(task, advance=1)
 
             new_acor_time = sampler.get_autocorr_time(tol=0).mean()
-            old_acor_time = history.acor_times[-1] if len(history.acor_times) > 0 else np.inf
+            old_acor_time = (
+                history.acor_times[-1] if len(history.acor_times) > 0 else np.inf
+            )
 
-            new_accept_frac = (
-                (np.sum(sampler.backend.accepted) - num_accepted)
-                / (sampler.nwalkers * check_interval)
+            new_accept_frac = (np.sum(sampler.backend.accepted) - num_accepted) / (
+                sampler.nwalkers * check_interval
             )
             num_accepted = np.sum(sampler.backend.accepted)
 
@@ -198,7 +226,9 @@ def run_burnin(
 
             is_converged = burnin is None
             is_converged &= new_acor_time * trust_fac < sampler.iteration
-            is_converged &= np.abs(new_acor_time - old_acor_time) / new_acor_time < rel_thresh
+            is_converged &= (
+                np.abs(new_acor_time - old_acor_time) / new_acor_time < rel_thresh
+            )
 
             if is_converged:
                 break
@@ -236,15 +266,18 @@ def run_sampling(
 
 class DummyPool:
     """Dummy class to allow for no multiprocessing."""
-    def __enter__(self):
-        return None
 
-    def __exit__(self, *args):
-        pass
+    def __enter__(self) -> None:
+        """Enter the context manager."""
+        ...
+
+    def __exit__(self, *args) -> None:
+        """Exit the context manager."""
+        ...
 
 
 def main(args: argparse.Namespace) -> None:
-    """Main function to run the MCMC sampling."""
+    """Run the MCMC sampling."""
     # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
     os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -277,7 +310,9 @@ def main(args: argparse.Namespace) -> None:
 
     with real_or_dummy_pool as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_prob_fn,
+            nwalkers,
+            ndim,
+            log_prob_fn,
             moves=moves_mix,
             backend=hdf5_backend,
             pool=pool,

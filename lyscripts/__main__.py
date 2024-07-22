@@ -1,7 +1,5 @@
-"""
-Utility for performing common tasks w.r.t. the inference and prediction tasks one
-can use the `lymph` package for.
-"""
+"""Utility for common tasks w.r.t. inference & prediction using `lymph` package."""
+
 from lyscripts import main
 
 # I need another __main__ guard here, because otherwise pdoc tries to run this

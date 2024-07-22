@@ -78,6 +78,9 @@ version = {attr = "lyscripts._version.version"}
 [tool.pytest.ini_options]
 testpaths = "."
 
+[tool.ruff]
+exclude = ["tests", "docs"]
+
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "C", "R", "U", "D", "I", "S", "T", "A", "N"]
 

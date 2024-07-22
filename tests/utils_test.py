@@ -1,6 +1,5 @@
-"""
-Test the core utility functions of the package.
-"""
+"""Test the core utility functions of the package."""
+
 import pytest
 from lymph import models
 
@@ -66,9 +65,13 @@ def test_create_model(params_v1):
     assert not model.use_central, "Model should not use central"
     assert model.use_midext_evo, "Model should use midext evolution"
     assert "early" in model.get_all_distributions(), "Early distribution is missing"
-    assert not model.get_distribution("early").is_updateable, "Early distribution should not be updateable"
+    assert not model.get_distribution(
+        "early"
+    ).is_updateable, "Early distribution should not be updateable"
     assert "late" in model.get_all_distributions(), "Late distribution is missing"
-    assert model.get_distribution("late").is_updateable, "Late distribution should be updateable"
+    assert model.get_distribution(
+        "late"
+    ).is_updateable, "Late distribution should be updateable"
     assert "CT" in model.get_all_modalities(), "CT modality is missing"
     assert model.get_modality("CT").spec == 0.76, "CT modality has wrong specificity"
     assert model.get_modality("CT").sens == 0.81, "CT modality has wrong sensitivity"

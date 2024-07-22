@@ -1,4 +1,5 @@
 """Define configuration via dataclasses and dacite."""
+
 import logging
 from collections.abc import Callable
 from copy import deepcopy
@@ -9,8 +10,6 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-from dacite import Config  # nopycln: import
-from dacite import from_dict as dc_from_dict  # nopycln: import
 from lymph import models
 from lymph.types import GraphDictType, Model, PatternType
 from scipy.special import factorial
@@ -23,14 +22,17 @@ logger = logging.getLogger(__name__)
 
 FuncNameType = Literal["binomial"]
 
+
 def binom_pmf(support: list[int] | np.ndarray, p: float = 0.5):
-    """Binomial PMF"""
+    """Binomial PMF."""
     max_time = len(support) - 1
-    if p > 1. or p < 0.:
+    if p > 1.0 or p < 0.0:
         raise ValueError("Binomial prob must be btw. 0 and 1")
-    q = 1. - p
-    binom_coeff = factorial(max_time) / (factorial(support) * factorial(max_time - support))
-    return binom_coeff * p**support * q**(max_time - support)
+    q = 1.0 - p
+    binom_coeff = factorial(max_time) / (
+        factorial(support) * factorial(max_time - support)
+    )
+    return binom_coeff * p**support * q ** (max_time - support)
 
 
 DIST_MAP: dict[FuncNameType, Callable] = {
@@ -41,6 +43,7 @@ DIST_MAP: dict[FuncNameType, Callable] = {
 @dataclass
 class DistributionConfig:
     """Configuration defining a distribution over diagnose times."""
+
     kind: Literal["frozen", "parametric"]
     func: FuncNameType = "binomial"
     params: dict[str | int, Number] | None = None
@@ -48,7 +51,7 @@ class DistributionConfig:
 
 @dataclass
 class ModelConfig:
-    """Configration that defines the setup of a model.
+    """Configuration that defines the setup of a model.
 
     >>> model_config = dc_from_dict(ModelConfig, {
     ...     "class_name": "Unilateral",
@@ -62,6 +65,7 @@ class ModelConfig:
     ... )
     True
     """
+
     class_name: Literal["Unilateral", "Bilateral", "Midline"]
     constructor: Literal["binary", "trinary"] = "binary"
     max_time: int = 10
@@ -117,6 +121,7 @@ def construct_and_add_dists(
 @dataclass
 class ModalityConfig:
     """Define a diagnostic or pathological modality."""
+
     spec: float
     sens: float
     kind: Literal["clinical", "pathological"] = "clinical"
@@ -154,23 +159,29 @@ class DataConfig:
     ... )
     True
     """
+
     path: Path
     side: Literal["ipsi", "contra"] = "ipsi"
-    mapping: dict[Literal[0,1,2,3,4], int | str] = field(default_factory=lambda: {
-        0: "early", 1: "early", 2: "early",
-        3: "late", 4: "late",
-    })
+    mapping: dict[Literal[0, 1, 2, 3, 4], int | str] = field(
+        default_factory=lambda: {
+            0: "early",
+            1: "early",
+            2: "early",
+            3: "late",
+            4: "late",
+        }
+    )
 
 
 def load_and_add_data(
     model: Model,
     path: Path,
     side: Literal["ipsi", "contra"],
-    mapping: dict[Literal[0,1,2,3,4], int | str] | None = None,
+    mapping: dict[Literal[0, 1, 2, 3, 4], int | str] | None = None,
     inplace: bool = False,
 ) -> Model:
     """Add data to a ``model``."""
-    data = pd.read_csv(path, header=[0,1,2])
+    data = pd.read_csv(path, header=[0, 1, 2])
     logger.debug(f"Loaded data from {path}: Shape: {data.shape}")
 
     kwargs = {"patient_data": data, "mapping": mapping}
@@ -189,12 +200,15 @@ def load_and_add_data(
 @dataclass
 class InvolvementConfig:
     """Config that defines an ipsi- and contralateral involvement pattern."""
+
     ipsi: PatternType = field(default_factory=dict)
     contra: PatternType = field(default_factory=dict)
+
 
 @dataclass
 class DiagnosisConfig:
     """Defines an ipsi- and contralateral diagnosis pattern."""
+
     ipsi: dict[str, PatternType] = field(default_factory=dict)
     contra: dict[str, PatternType] = field(default_factory=dict)
 
@@ -214,11 +228,15 @@ class ScenarioConfig:
     ...     "t_stages": [1, 2, 3, 4],
     ...     "t_stages_dist": [4., 1.],
     ... })
-    >>> scenario == ScenarioConfig(t_stages=[1, 2, 3, 4], t_stages_dist=[0.4, 0.3, 0.2, 0.1])
+    >>> scenario == ScenarioConfig(
+    ...     t_stages=[1, 2, 3, 4],
+    ...     t_stages_dist=[0.4, 0.3, 0.2, 0.1],
+    ... )
     True
     """
+
     t_stages: list[int | str]
-    t_stages_dist: list[float] = field(default_factory=lambda: [1.])
+    t_stages_dist: list[float] = field(default_factory=lambda: [1.0])
     midext: bool | None = None
     mode: Literal["HMM", "BN"] = "HMM"
     involvement: InvolvementConfig = field(default_factory=InvolvementConfig)
@@ -232,15 +250,14 @@ class ScenarioConfig:
     def interpolate(self):
         """Interpolate the distribution to the number of ``t_stages``."""
         if len(self.t_stages) != len(self.t_stages_dist):
-            new_x = np.linspace(0., 1., len(self.t_stages))
-            old_x = np.linspace(0., 1., len(self.t_stages_dist))
+            new_x = np.linspace(0.0, 1.0, len(self.t_stages))
+            old_x = np.linspace(0.0, 1.0, len(self.t_stages_dist))
             # cast to list to make ``__eq__`` work
             self.t_stages_dist = np.interp(new_x, old_x, self.t_stages_dist).tolist()
 
     def normalize(self):
         """Normalize the distribution to sum to 1."""
-        if not np.isclose(np.sum(self.t_stages_dist), 1.):
+        if not np.isclose(np.sum(self.t_stages_dist), 1.0):
             self.t_stages_dist = (
-                np.array(self.t_stages_dist)
-                / np.sum(self.t_stages_dist)
-            ).tolist()   # cast to list to make ``__eq__`` work
+                np.array(self.t_stages_dist) / np.sum(self.t_stages_dist)
+            ).tolist()  # cast to list to make ``__eq__`` work

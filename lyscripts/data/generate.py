@@ -1,8 +1,8 @@
-"""
-Calls the synthetic data generating methods of the `lymph`_ package models.
+"""Calls the synthetic data generating methods of the `lymph`_ package models.
 
 .. _lymph: https://lymph-model.readthedocs.io
 """
+
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
@@ -34,32 +34,42 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments to the parser."""
     parser.add_argument(
-        "num", type=int,
+        "num",
+        type=int,
         help="Number of synthetic patient records to generate",
     )
     parser.add_argument(
-        "output", type=Path,
+        "output",
+        type=Path,
         help="Path where to store the generated synthetic data",
     )
 
     parser.add_argument(
-        "--params", default="./params.yaml", type=Path,
-        help="Parameter file containing model specifications"
+        "--params",
+        default="./params.yaml",
+        type=Path,
+        help="Parameter file containing model specifications",
     )
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "--set-theta", nargs="+", type=float,
-        help="Set the spread probs and parameters for time marginalization by hand"
+        "--set-theta",
+        nargs="+",
+        type=float,
+        help="Set the spread probs and parameters for time marginalization by hand",
     )
     group.add_argument(
-        "--load-theta", choices=["mean", "max_llh"], default="mean",
-        help="Use either the mean or the maximum likelihood estimate from drawn samples"
+        "--load-theta",
+        choices=["mean", "max_llh"],
+        default="mean",
+        help="Use either the mean or the maximum likelihood estimate from drawn samples",
     )
 
     parser.add_argument(
-        "--samples", default="./models/samples.hdf5", type=Path,
-        help="Path to the samples if a method to load them was chosen"
+        "--samples",
+        default="./models/samples.hdf5",
+        type=Path,
+        help="Path to the samples if a method to load them was chosen",
     )
 
     parser.set_defaults(run_main=main)
@@ -82,11 +92,7 @@ def main(args: argparse.Namespace):
         logger.info("Assigned given parameters to model")
 
     else:
-        backend = emcee.backends.HDFBackend(
-            args.samples,
-            read_only=True,
-            name="mcmc"
-        )
+        backend = emcee.backends.HDFBackend(args.samples, read_only=True, name="mcmc")
         chain = backend.get_chain(flat=True)
         log_probs = backend.get_blobs(flat=True)
 

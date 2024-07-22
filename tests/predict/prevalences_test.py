@@ -1,6 +1,5 @@
-"""
-Test the functions of the prevalence prediction submodule.
-"""
+"""Test the functions of the prevalence prediction submodule."""
+
 import pandas as pd
 import pytest
 
@@ -12,16 +11,16 @@ def test_get_match_idx():
     """Test if the pattern dictionaries & pandas data are compared correctly."""
     oneside_pattern = {"I": False, "II": True, "III": None}
     ignorant_pattern = {"I": None, "II": None, "III": None}
-    three_patients = pd.DataFrame.from_dict({
-        "I":   [False, False, True],
-        "II":  [True , True , True],
-        "III": [True , False, True],
-    })
+    three_patients = pd.DataFrame.from_dict(
+        {
+            "I": [False, False, True],
+            "II": [True, True, True],
+            "III": [True, False, True],
+        }
+    )
     lnls = list(oneside_pattern.keys())
 
-    matching_idxs = get_match_idx(
-        True, oneside_pattern, three_patients, invert=False
-    )
+    matching_idxs = get_match_idx(True, oneside_pattern, three_patients, invert=False)
     inverted_matching_idxs = get_match_idx(
         False, oneside_pattern, three_patients, invert=True
     )
@@ -41,19 +40,16 @@ def test_get_match_idx():
 
 
 def test_does_midline_ext_match():
-    """
-    Test the function that returns indices of a `DataFrame` where the midline
+    """Test the function that returns indices of a `DataFrame` where the midline
     extension matches.
     """
-    midline_data = pd.DataFrame({
-        ("tumor", "1", "extension"): [True, False, None]
-    })
+    midline_data = pd.DataFrame({("tumor", "1", "extension"): [True, False, None]})
     keyerr_data = pd.DataFrame({("way", "too", "many", "levels"): [True, False, None]})
 
     midline_match = does_midext_match(midline_data, midext=False)
 
-    assert all(midline_match == pd.Series([False, True, False])), (
-        "Matching midline extension with correct data does not work."
-    )
+    assert all(
+        midline_match == pd.Series([False, True, False])
+    ), "Matching midline extension with correct data does not work."
     with pytest.raises(KeyError):
         _ = does_midext_match(keyerr_data, midext=False)

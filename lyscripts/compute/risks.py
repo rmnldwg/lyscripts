@@ -1,10 +1,10 @@
-"""
-Predict risks of involvements using the posteriors that were computed using the
+"""Predict risks of involvements using the posteriors that were computed using the
 :py:mod:`.compute.posteriors` command.
 
 The structure of these scenarios is similar to how scenarios are defined for the
 :py:mod:`.compute.prevalences` script.
 """
+
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
@@ -39,24 +39,32 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a `subparsers` instance."""
     parser.add_argument(
-        "--posteriors", type=Path, required=True,
-        help="Path to the computed posteriors (HDF5 file)."
+        "--posteriors",
+        type=Path,
+        required=True,
+        help="Path to the computed posteriors (HDF5 file).",
     )
     parser.add_argument(
-        "--risks", type=Path, required=True,
-        help="Path to file for storing the computed risks."
+        "--risks",
+        type=Path,
+        required=True,
+        help="Path to file for storing the computed risks.",
     )
     parser.add_argument(
-        "--params", type=Path, required=True,
-        help="Path to parameter file defining the model (YAML)."
+        "--params",
+        type=Path,
+        required=True,
+        help="Path to parameter file defining the model (YAML).",
     )
     parser.add_argument(
-        "--scenarios", type=Path, required=False,
+        "--scenarios",
+        type=Path,
+        required=False,
         help=(
             "Path to a YAML file containing a `scenarios` key with a list of "
             "diagnosis scenarios and involvement patterns of interest to compute the "
             "risks for."
-        )
+        ),
     )
 
     add_scenario_arguments(parser, for_comp="risks")
@@ -100,11 +108,13 @@ def compute_risks_using_cache(
         description="[blue]INFO     [/blue]" + progress_desc,
         total=len(posteriors),
     ):
-        risks.append(model.marginalize(
-            involvement=scenario.involvement,
-            given_state_dist=posterior,
-            **kwargs,
-        ))
+        risks.append(
+            model.marginalize(
+                involvement=scenario.involvement,
+                given_state_dist=posterior,
+                **kwargs,
+            )
+        )
 
     risks = np.stack(risks)
     risks_cache[risks_hash] = (risks, scenario.as_dict("risks"))
@@ -119,12 +129,14 @@ def main(args: argparse.Namespace):
 
     if args.scenarios is None:
         # create a single scenario from the stdin arguments...
-        scenarios = [Scenario.from_namespace(
-            namespace=args,
-            lnls=lnls,
-            is_uni=isinstance(model, models.Unilateral),
-            side=params["model"].get("side", "ipsi"),
-        )]
+        scenarios = [
+            Scenario.from_namespace(
+                namespace=args,
+                lnls=lnls,
+                is_uni=isinstance(model, models.Unilateral),
+                side=params["model"].get("side", "ipsi"),
+            )
+        ]
         num_scens = len(scenarios)
     else:
         # ...or load the scenarios from a YAML file

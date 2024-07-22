@@ -1,8 +1,8 @@
-"""
-Provide various plotting utilities for displaying results of e.g. the inference
+"""Provide various plotting utilities for displaying results of e.g. the inference
 or prediction process. At the moment, three subcommands are grouped under
 :py:mod:`.plot`.
 """
+
 import argparse
 from pathlib import Path
 

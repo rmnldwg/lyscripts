@@ -1,6 +1,5 @@
-"""
-Script to run doctests in the modules of `lyscripts`.
-"""
+"""Script to run doctests in the modules of `lyscripts`."""
+
 import doctest
 
 from lyscripts import utils
