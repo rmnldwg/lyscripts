@@ -1,6 +1,6 @@
-"""
-Compute posterior state distributions from computed priors (see
-:py:mod:`.compute.priors`). The posteriors are computed for a given "scenario" (or
+"""Compute posterior state distributions from priors (see :py:mod:`.compute.priors`).
+
+The posteriors are computed for a given "scenario" (or
 many of them), which typically define a clinical diagnosis w.r.t. the lymphatic
 involvement of a patient.
 
@@ -9,10 +9,13 @@ corresponding scenarios, similar to the priors. But the posteriors take into acc
 more information.
 
 Warning:
+-------
     The command skips the computation of the priors if it finds them in the cache. But
     this cache only accounts for the scenario, *NOT* the samples. So, if the samples
     change, you need to force a recomputation of the priors (e.g., by deleting them).
+
 """
+
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
@@ -47,26 +50,34 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a `subparsers` instance."""
     parser.add_argument(
-        "--priors", type=Path, required=True,
+        "--priors",
+        type=Path,
+        required=True,
         help=(
             "Path to the computed priors (HDF5 file). They must have been "
             "computed from the same model and scenarios as the posteriors."
-        )
+        ),
     )
     parser.add_argument(
-        "--posteriors", type=Path, required=True,
-        help="Path to file for storing the computed posterior distributions."
+        "--posteriors",
+        type=Path,
+        required=True,
+        help="Path to file for storing the computed posterior distributions.",
     )
     parser.add_argument(
-        "--params", type=Path, required=True,
-        help="Path to parameter file defining the model (YAML)."
+        "--params",
+        type=Path,
+        required=True,
+        help="Path to parameter file defining the model (YAML).",
     )
     parser.add_argument(
-        "--scenarios", type=Path, required=False,
+        "--scenarios",
+        type=Path,
+        required=False,
         help=(
             "Path to a YAML file containing a `scenarios` key with a list of "
             "diagnosis scenarios to compute the posteriors for."
-        )
+        ),
     )
 
     add_scenario_arguments(parser, for_comp="posteriors")
@@ -83,8 +94,9 @@ def compute_posteriors_using_cache(
 ) -> np.ndarray:
     """Compute posteriors from prior state distributions.
 
-    This will call the ``model`` method :py:meth:`~lymph.types.Model.posterior_state_dist`
-    for each of the ``priors``, given the specified ``diagnosis`` pattern.
+    This will call the ``model`` method
+    :py:meth:`~lymph.types.Model.posterior_state_dist` for each of the ``priors``,
+    given the specified ``diagnosis`` pattern.
     """
     posteriors_hash = scenario.md5_hash("posteriors")
 
@@ -113,11 +125,13 @@ def compute_posteriors_using_cache(
         description="[blue]INFO     [/blue]" + progress_desc,
         total=len(priors),
     ):
-        posteriors.append(model.posterior_state_dist(
-            given_state_dist=prior,
-            given_diagnosis=scenario.diagnosis,
-            **kwargs,
-        ))
+        posteriors.append(
+            model.posterior_state_dist(
+                given_state_dist=prior,
+                given_diagnosis=scenario.diagnosis,
+                **kwargs,
+            )
+        )
 
     posteriors = np.stack(posteriors)
     posteriors_cache[posteriors_hash] = (posteriors, scenario.as_dict("posteriors"))
@@ -132,12 +146,14 @@ def main(args: argparse.Namespace) -> None:
 
     if args.scenarios is None:
         # create a single scenario from the stdin arguments...
-        scenarios = [Scenario.from_namespace(
-            namespace=args,
-            lnls=lnls,
-            is_uni=isinstance(model, models.Unilateral),
-            side=params["model"].get("side", "ipsi"),
-        )]
+        scenarios = [
+            Scenario.from_namespace(
+                namespace=args,
+                lnls=lnls,
+                is_uni=isinstance(model, models.Unilateral),
+                side=params["model"].get("side", "ipsi"),
+            )
+        ]
         num_scens = len(scenarios)
     else:
         # ...or load the scenarios from a YAML file
