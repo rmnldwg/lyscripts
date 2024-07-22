@@ -1,11 +1,11 @@
-"""Predict risks of involvements using the posteriors that were computed using the
-:py:mod:`.compute.posteriors` command.
+"""Predict risks of involvements using precomputed posteriors.
+
+The posteriors can be created using the :py:mod:`.compute.posteriors` command.
 
 The structure of these scenarios is similar to how scenarios are defined for the
 :py:mod:`.compute.prevalences` script.
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 from pathlib import Path

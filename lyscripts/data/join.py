@@ -1,6 +1,5 @@
 """Join datasets from different sources (but of the same format) into one."""
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 import warnings

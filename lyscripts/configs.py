@@ -14,12 +14,7 @@ from lymph import models
 from lymph.types import GraphDictType, Model, PatternType
 from scipy.special import factorial
 
-# pylint: disable=logging-fstring-interpolation
-
-
 logger = logging.getLogger(__name__)
-
-
 FuncNameType = Literal["binomial"]
 
 
@@ -91,9 +86,9 @@ def construct_model(
     return model
 
 
-def construct_and_add_dists(
-    distributions: dict[str | int, DistributionConfig],
+def add_dists(
     model: Model,
+    distributions: dict[str | int, DistributionConfig],
     dist_map: dict[FuncNameType, Callable] = DIST_MAP,
     inplace: bool = False,
 ) -> Model:
@@ -127,9 +122,9 @@ class ModalityConfig:
     kind: Literal["clinical", "pathological"] = "clinical"
 
 
-def construct_and_add_modalities(
-    modalities: dict[str, ModalityConfig],
+def add_modalities(
     model: Model,
+    modalities: dict[str, ModalityConfig],
     inplace: bool = False,
 ) -> Model:
     """Add ``modalities`` to a ``model``."""
@@ -173,7 +168,7 @@ class DataConfig:
     )
 
 
-def load_and_add_data(
+def add_data(
     model: Model,
     path: Path,
     side: Literal["ipsi", "contra"],

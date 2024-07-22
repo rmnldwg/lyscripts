@@ -5,7 +5,6 @@ This is done by computing quantities like the Bayesian information criterion (BI
 model.
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import json
 import logging

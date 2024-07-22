@@ -1,10 +1,9 @@
 """Plot how the accuracy develops over the course of a thermodynamic integration run.
 
 This can also be used to compare how the accuracy of different models develops during
-thermdynamic integration.
+thermodynamic integration.
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 from pathlib import Path
@@ -88,12 +87,12 @@ def main(args: argparse.Namespace):
     accuracy_series = []
     min_acc = np.inf
     max_acc = -np.inf
-    for input in args.inputs:
-        tmp = pd.read_csv(input)
+    for input_ in args.inputs:
+        tmp = pd.read_csv(input_)
         min_acc = np.min([min_acc, *tmp["accuracy"]])
         max_acc = np.max([max_acc, *tmp["accuracy"]])
         accuracy_series.append(tmp)
-        logger.info(f"+ read in {input}")
+        logger.info(f"+ read in {input_}")
     logger.info("Loaded CSV file(s)")
 
     fig, ax = plt.subplots(figsize=get_size())

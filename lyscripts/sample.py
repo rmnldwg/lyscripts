@@ -8,7 +8,6 @@ objective decisions with respect to defining the *elective clinical target volum
 (CTV-N) in radiotherapy.
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 import os

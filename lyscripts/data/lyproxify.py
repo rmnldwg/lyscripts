@@ -1,4 +1,4 @@
-"""Consumes raw data and transforms it into a CSV of the format that `LyProX`_ understands.
+"""Consumes raw data and transforms it into a CSV that `LyProX`_ understands.
 
 To do so, it needs a dictionary that defines a mapping from raw columns to the LyProX
 style data format. See the documentation of the :py:func:`.transform_to_lyprox` function
@@ -7,7 +7,6 @@ for more information.
 .. _LyProX: https://lyprox.org
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import importlib.util
 import logging
@@ -91,7 +90,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--add-index",
         action="store_true",
-        help="If the data doesn't contain an index, add one by enumerating the patients",
+        help="If the data doesn't contain an index, add it by enumerating the patients",
     )
 
     parser.set_defaults(run_main=main)
@@ -146,13 +145,15 @@ def get_instruction_depth(nested_column_map: dict[tuple, dict[str, Any]]) -> int
             "Leaf of column map must be a dictionary with 'func' or 'default' key."
         )
 
+    raise ValueError("Empty column map.")
+
 
 def generate_markdown_docs(
     nested_column_map: dict[tuple, dict[str, Any]],
     depth: int = 0,
     indent_len: int = 4,
 ) -> str:
-    """Generate a markdown nested, ordered list as documentation for the column map.
+    r"""Generate a markdown nested, ordered list as documentation for the column map.
 
     A key in the doctionary is supposed to be documented, when its value is a dictionary
     containing a ``"__doc__"`` key.
@@ -188,13 +189,13 @@ def generate_markdown_docs(
 def transform_to_lyprox(
     raw: pd.DataFrame, column_map: dict[tuple, dict[str, Any]]
 ) -> pd.DataFrame:
-    """Transform ``raw`` data frame into table that can be uploaded directly to `LyProX`_.
+    """Transform ``raw`` data into table that can be uploaded directly to `LyProX`_.
 
     To do so, it uses instructions in the `colum_map` dictionary, that needs to have
     a particular structure:
 
     For each column in the final 'lyproxified' `pd.DataFrame`, one entry must exist in
-    the `column_map` dctionary. E.g., for the column corresponding to a patient's age,
+    the `column_map` dictionary. E.g., for the column corresponding to a patient's age,
     the dictionary should contain a key-value pair of this shape:
 
     .. code-block:: python
@@ -273,7 +274,9 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     right_data = right_data.rename(columns={"right": "ipsi"}, level=1)
 
     data = pd.concat([left_data, right_data], ignore_index=True)
-    assert len_before == len(data), "Number of patients changed"
+    if len_before != len(data):
+        raise RuntimeError("Number of patients changed")
+
     return data
 
 

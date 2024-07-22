@@ -22,7 +22,6 @@ Warning:
 
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 from collections.abc import Callable
@@ -239,7 +238,7 @@ def compute_prevalences_using_cache(
 
 
 def main(args: argparse.Namespace):
-    """Function to run the risk prediction routine."""
+    """Run the risk prediction routine."""
     params = utils.load_yaml_params(args.params)
     model = utils.create_model(params)
     lnls = list(params["graph"]["lnl"].keys())

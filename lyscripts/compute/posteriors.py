@@ -16,7 +16,6 @@ Warning:
 
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 from pathlib import Path

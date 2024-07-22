@@ -1,8 +1,8 @@
-"""Filter a datset according to some common criteria, like tumor location, subsite,
-T-category, etc.
+"""Filter a dataset according to some common criteria.
+
+These criteria may be something like tumor location, subsite, T-category, etc.
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 import warnings
@@ -57,7 +57,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
                 default=None,
                 type=str,
                 nargs="+",
-                help=f"If provided, {prefix} patients with the given tumor {filter_by}.",
+                help=f"If provided, {prefix} patients with given tumor {filter_by}.",
             )
 
     parser.set_defaults(run_main=main)

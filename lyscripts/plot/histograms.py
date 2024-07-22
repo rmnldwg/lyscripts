@@ -1,6 +1,5 @@
 """Plot computed risks and prevalences into a beautiful histogram."""
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 from pathlib import Path
@@ -64,7 +63,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 
 def main(args: argparse.Namespace):
-    """Function to run the histogram plotting."""
+    """Run the histogram plotting."""
     use_mpl_stylesheet(args.mplstyle)
 
     contents = []

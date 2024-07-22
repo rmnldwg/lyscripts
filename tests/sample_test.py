@@ -6,7 +6,6 @@ Originally, I wanted to test that the sampling procedure is reproducible, but th
 Maybe I am doing something wrong...
 """
 
-# pylint: disable=redefined-outer-name
 import numpy as np
 import pytest
 from emcee import EnsembleSampler, backends

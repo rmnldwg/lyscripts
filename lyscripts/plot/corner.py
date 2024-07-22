@@ -7,7 +7,6 @@ The library I use for this is built on `matplotlib` and is called
 .. _corner: https://github.com/dfm/corner.py
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 from pathlib import Path

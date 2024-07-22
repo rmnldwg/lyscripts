@@ -3,7 +3,6 @@
 .. _lymph: https://lymph-model.readthedocs.io
 """
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 from pathlib import Path
@@ -62,7 +61,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--load-theta",
         choices=["mean", "max_llh"],
         default="mean",
-        help="Use either the mean or the maximum likelihood estimate from drawn samples",
+        help="Use either mean or maximum likelihood estimate from drawn samples",
     )
 
     parser.add_argument(

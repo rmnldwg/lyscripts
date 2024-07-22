@@ -1,4 +1,4 @@
-"""Enhance a LyProX-style CSV dataset in two ways:
+"""Enhance a LyProX-style CSV dataset in one of two ways.
 
 1. Add consensus diagnosis based on all available modalities using on of two methods:
 ``max_llh`` infers the most likely true state of involvement given only the available
@@ -11,7 +11,6 @@ correct values. Conversely, if e.g. LNL II is reported to be healthy, we can ass
 the sublevels IIa and IIb would have been reported as healthy, too.
 """
 
-# pylint: disable=singleton-comparison,logging-fstring-interpolation
 import argparse
 import logging
 import warnings
@@ -99,7 +98,7 @@ def get_sublvl_values(
     lnl: str,
     sub_ids: list[str],
 ):
-    """Get values of sublevels (e.g. 'IIa' and 'IIb') for an ``lnl`` and ``data_frame``."""
+    """Get values of sublevels (e.g. 'IIa' and 'IIb') for ``lnl`` and ``data_frame``."""
     has_sublvls = all(lnl + sub in data_frame for sub in sub_ids)
     if not has_sublvls:
         return None
@@ -113,7 +112,7 @@ def infer_superlvl_from_sublvls(
     lnls_with_sub: list[str],
     sublvls: list[str] | None = None,
 ) -> pd.DataFrame:
-    """Infer the involvement state of all ``lnls_with_sub``
+    """Infer the involvement state of all ``lnls_with_sub``.
 
     I.e., infer the involvement of all LNLs where sub-levels were reported, for each
     patient in the ``table``. Do this for all defined ``modalities`` and take into
@@ -139,12 +138,12 @@ def infer_superlvl_from_sublvls(
                 # superlevel is involved. In this case, we want to keep the superlevel
                 # as involved.
                 if lnl in table[mod, side]:
-                    is_superlvl_involved = table[mod, side, lnl] == True
+                    is_superlvl_involved = table[mod, side, lnl] == True  # noqa: E712
                 else:
                     is_superlvl_involved = False
 
-                has_sublvl_involved = np.any(sublvl_values == True, axis=1)
-                all_sublvls_healthy = np.all(sublvl_values == False, axis=1)
+                has_sublvl_involved = np.any(sublvl_values == True, axis=1)  # noqa: E712
+                all_sublvls_healthy = np.all(sublvl_values == False, axis=1)  # noqa: E712
 
                 fixed_table.loc[has_sublvl_involved, (mod, side, lnl)] = True
                 fixed_table.loc[
@@ -231,10 +230,14 @@ def rank_consensus(obs_tuple: tuple[np.ndarray], modalities_spsn: tuple[list[flo
     modalities_spsn = list(modalities_spsn)
 
     healthy_sens = [
-        modalities_spsn[i][1] for i, obs in enumerate(obs_tuple) if obs == False
+        modalities_spsn[i][1]
+        for i, obs in enumerate(obs_tuple)
+        if obs == False  # noqa: E712
     ]
     involved_spec = [
-        modalities_spsn[i][0] for i, obs in enumerate(obs_tuple) if obs == True
+        modalities_spsn[i][0]
+        for i, obs in enumerate(obs_tuple)
+        if obs == True  # noqa: E712
     ]
     if np.max([*healthy_sens, 0.0]) > np.max([*involved_spec, 0.0]):
         return False
@@ -251,7 +254,7 @@ CONSENSUS_FUNCS = {
 
 
 def main(args: argparse.Namespace):
-    """Main function for the ``enhance`` command."""
+    """Run the ``enhance`` command."""
     input_table = load_patient_data(args.input)
     params = load_yaml_params(args.params)
 

@@ -1,8 +1,5 @@
-"""Split the full dataset into cross-validation folds according to the
-content of the params.yaml file.
-"""
+"""Split a dataset into cross-validation folds based on params.yaml file."""
 
-# pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
 import warnings
