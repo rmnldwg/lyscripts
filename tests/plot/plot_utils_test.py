@@ -90,6 +90,40 @@ def test_histogram_cls(beta_samples):
     )
 
 
+def test_inverted_histogram_cls(beta_samples):
+    """Make sure the histogram data container works as intended."""
+    str_filename = beta_samples
+    path_filename = Path(str_filename)
+    custom_label = "Lorem ipsum"
+
+    hist_from_str = Histogram.from_hdf5(filename=str_filename, dataname="beta")
+    hist_from_path = Histogram.from_hdf5(
+        filename=path_filename,
+        dataname="beta",
+        scale=-100.,
+        offset=100.,
+        label=custom_label,
+    )
+
+    assert np.all(np.isclose(100. - hist_from_str.values, hist_from_path.values)), (
+        "Scaling and offsetting of data does not work correclty"
+    )
+    assert np.all(np.isclose(
+        hist_from_str.left_percentile(50.),
+        hist_from_str.right_percentile(50.),
+    )), "50% percentiles should be the same from the left and from the right."
+    assert np.all(np.isclose(
+        hist_from_path.left_percentile(10.),
+        hist_from_path.right_percentile(90.),
+    )), "10% from the left is not the same as 90% from the right"
+    assert hist_from_str.kwargs["label"] == "beta | mega scan | 100 | ext", (
+        "Label extraction did not work"
+    )
+    assert hist_from_path.kwargs["label"] == custom_label, (
+        "Keyword override did not work"
+    )
+
+
 def test_posterior_cls(beta_samples):
     """Test the container class for Beta posteriors."""
     str_filename = beta_samples
@@ -142,7 +176,6 @@ def test_draw(beta_samples):
     post = BetaPosterior.from_hdf5(filename, dataname)
     fig, ax = plt.subplots()
     ax = draw(axes=ax, contents=[hist, post], percent_lims=(2.,2.))
-    ax.legend()
     return fig
 
 

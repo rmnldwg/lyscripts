@@ -26,10 +26,10 @@ class UninitializedProperty(Exception):
     """Raise when a uninitialized property of a dataclass is accessed.
 
     If a field of a dataclass is also a property, then the dataclass will call the
-    property's setter during ``__init__`` with the ``proprety`` object as the value
+    property's setter during ``__init__`` with the ``property`` object as the value
     (at least if nothing is provided to the constructor).
 
-    Thus, I will not allow setting a ``propoerty`` as the value and raise this exception
+    Thus, I will not allow setting a ``property`` as the value and raise this exception
     in the getter when no private attribute is found.
     """
 
@@ -42,6 +42,7 @@ class Scenario:
     This may be used by the :py:mod:`.compute` and :py:mod:`.predict` modules to
     compute priors, posteriors, prevalences, and risks.
     """
+
     t_stages: list[int | str] = field(default_factory=lambda: ["early"])
     t_stages_dist: list[float] | np.ndarray
     mode: Literal["BN", "HMM"] = "HMM"
@@ -85,6 +86,13 @@ class Scenario:
             except UninitializedProperty:
                 default = self._defaults(field.name)
                 setattr(self, field.name, default)
+
+        if not self.is_uni:
+            for side in ["ipsi", "contra"]:
+                if not side in self.diagnosis:
+                    self.diagnosis[side] = {}
+                if not side in self.involvement:
+                    self.involvement[side] = {}
 
 
     @classmethod
@@ -196,10 +204,13 @@ class Scenario:
         >>> data = {
         ...     "t_stages": ["early"],
         ...     "mode": "BN",
+        ...     "diagnosis": {"ipsi": {"max_llh": {"II": True, "III": False}}},
         ... }
         >>> scenario = Scenario.from_dict(data)
         >>> scenario.t_stages, scenario.mode
         (['early'], 'BN')
+        >>> scenario.diagnosis
+        {'ipsi': {'max_llh': {'II': True, 'III': False}}, 'contra': {}}
         """
         init_kwargs = {
             field: kwargs.get(field, data.get(field, value))
@@ -306,12 +317,12 @@ class Scenario:
             pattern = self._involvement
         else:
             pattern = {
-                side: self._diagnosis[side][modality]
+                side: self._diagnosis.get(side, {}).get(modality, {})
                 for side in ["ipsi", "contra"]
             }
 
         if self.is_uni:
-            return pattern[self.side]
+            return pattern.get(self.side, {})
 
         return pattern
 
