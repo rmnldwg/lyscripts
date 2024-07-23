@@ -9,9 +9,11 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 from lymph import models
-from lymph.types import GraphDictType, Model, PatternType
+from lymph.types import Model, PatternType
 from pydantic import BaseModel, Field
 from scipy.special import factorial
+
+from lyscripts.utils import flatten
 
 logger = logging.getLogger(__name__)
 FuncNameType = Literal["binomial"]
@@ -108,7 +110,7 @@ class DataConfig(BaseModel):
         pattern=r".*\.csv",
         description="Path to the data CSV file.",
     )
-    side: Literal["ipsi", "contra"] = Field(
+    side: Literal["ipsi", "contra"] | None = Field(
         default="ipsi",
         description="Side of the neck to load data for.",
     )
@@ -230,17 +232,21 @@ class SamplingConfig(BaseModel):
 
 
 def construct_model(
-    config: ModelConfig,
-    graph_dict: GraphDictType,
+    model_config: ModelConfig,
+    graph_config: GraphConfig,
 ) -> Model:
     """Construct a model from a ``model_config``.
 
     The ``dist_map`` should map a name to a function that will be used as distribution
     over diagnosis times.
     """
-    cls = getattr(models, config.class_name)
-    constructor = getattr(cls, config.constructor)
-    model = constructor(graph_dict, max_time=config.max_time, **config.kwargs)
+    cls = getattr(models, model_config.class_name)
+    constructor = getattr(cls, model_config.constructor)
+    model = constructor(
+        graph_dict=flatten(graph_config.model_dump()),
+        max_time=model_config.max_time,
+        **model_config.kwargs,
+    )
     logger.info(f"Constructed model: {model}")
     return model
 

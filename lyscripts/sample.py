@@ -23,7 +23,6 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
-from lymph import models
 from pydantic import Field
 from pydantic_settings import BaseSettings, CliSettingsSource
 from rich.progress import Progress, TimeElapsedColumn, track
@@ -35,9 +34,11 @@ from lyscripts.configs import (
     ModalityConfig,
     ModelConfig,
     SamplingConfig,
+    add_dists,
+    add_modalities,
+    construct_model,
 )
 from lyscripts.utils import (
-    create_model,
     initialize_backend,
     load_patient_data,
     load_yaml_params,
@@ -252,20 +253,19 @@ def main(args: argparse.Namespace, cli_settings: CliSettingsSource) -> None:
     for param_file in args.params:
         params.update(load_yaml_params(param_file))
 
-    _settings = SamplingSettings(_cli_settings_source=cli_settings, **params)
+    settings = SamplingSettings(_cli_settings_source=cli_settings, **params)
 
-    inference_data = load_patient_data(args.input)
+    inference_data = load_patient_data(settings.data.path)
 
     # ugly, but necessary for pickling
     global MODEL
-    MODEL = create_model(params)
-
-    mapping = params["model"].get("mapping", None)
-    if isinstance(MODEL, models.Unilateral):
-        side = params["model"].get("side", "ipsi")
-        MODEL.load_patient_data(inference_data, side=side, mapping=mapping)
-    else:
-        MODEL.load_patient_data(inference_data, mapping=mapping)
+    MODEL = construct_model(settings.model, settings.graph)
+    MODEL = add_dists(MODEL, settings.distributions)
+    MODEL = add_modalities(MODEL, settings.modalities)
+    MODEL.load_patient_data(
+        inference_data,
+        **settings.data.model_dump(exclude={"path"}, exclude_none=True),
+    )
 
     ndim = MODEL.get_num_dims()
     nwalkers = ndim * args.walkers_per_dim
