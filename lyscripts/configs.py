@@ -1,21 +1,18 @@
-"""Define configuration via dataclasses and dacite."""
+"""Define configuration using pydantic."""
 
 import logging
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import asdict, dataclass, field
-from numbers import Number
 from pathlib import Path
 from typing import Any, Literal
 
-import dacite
 import numpy as np
 import pandas as pd
 from lymph import models
 from lymph.types import GraphDictType, Model, PatternType
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
 from scipy.special import factorial
-
-from lyscripts.utils import load_yaml_params
 
 logger = logging.getLogger(__name__)
 FuncNameType = Literal["binomial"]
@@ -38,53 +35,167 @@ DIST_MAP: dict[FuncNameType, Callable] = {
 }
 
 
-@dataclass
-class DistributionConfig:
+class DistributionConfig(BaseModel):
     """Configuration defining a distribution over diagnose times."""
 
-    kind: Literal["frozen", "parametric"]
-    func: FuncNameType = "binomial"
-    params: dict[str, Number] = field(default_factory=dict)
-
-    @classmethod
-    def dict_from_params(
-        cls: type,
-        path: Path,
-        key: str = "distributions",
-    ) -> dict[str, "DistributionConfig"]:
-        """Load a distribution configuration from a YAML file."""
-        params = load_yaml_params(path)
-        return {key: dacite.from_dict(cls, value) for key, value in params[key].items()}
+    kind: Literal["frozen", "parametric"] = Field(
+        default="frozen", description="Parametric distributions may be updated."
+    )
+    func: FuncNameType = Field(
+        default="binomial",
+        description="Name of predefined function to use as distribution.",
+    )
+    params: dict[str, int | float] = Field(
+        default={}, description="Parameters to pass to the predefined function."
+    )
 
 
-@dataclass
-class ModelConfig:
-    """Configuration that defines the setup of a model.
+class ModalityConfig(BaseModel):
+    """Define a diagnostic or pathological modality."""
 
-    >>> model_config = dc_from_dict(ModelConfig, {
-    ...     "class_name": "Unilateral",
-    ...     "constructor": "binary",
-    ...     "max_time": 10,
-    ... })
-    >>> model_config == ModelConfig(
-    ...     class_name="Unilateral",
-    ...     constructor="binary",
-    ...     max_time=10,
-    ...     kwargs={},
-    ... )
+    spec: float = Field(ge=0.5, le=1.0, description="Specificity of the modality.")
+    sens: float = Field(ge=0.5, le=1.0, description="Sensitivity of the modality.")
+    kind: Literal["clinical", "pathological"] = Field(
+        default="clinical",
+        description="Clinical modalities cannot detect microscopic disease.",
+    )
+
+
+class ModelConfig(BaseModel):
+    """Configuration that defines the setup of a model."""
+
+    class_name: Literal["Unilateral", "Bilateral", "Midline"] = Field(
+        default="Unilateral", description="Name of the model class to use."
+    )
+    constructor: Literal["binary", "trinary"] = Field(
+        default="binary",
+        description="Trinary models differentiate btw. micro- and macroscopic disease.",
+    )
+    max_time: int = Field(
+        default=10, description="Max. number of time-steps to evolve the model over."
+    )
+    kwargs: dict[str, Any] = Field(
+        default={},
+        description="Additional keyword arguments to pass to the model constructor.",
+    )
+
+
+class DataConfig(BaseModel):
+    """Config that defines which data to load and how.
+
+    >>> data_data = {"path": "./data.csv", "side": "ipsi"}
+    >>> data_config = DataConfig(**data_data)
+    >>> data_config == DataConfig(path="./data.csv", side="ipsi")
     True
     """
 
-    class_name: Literal["Unilateral", "Bilateral", "Midline"]
-    constructor: Literal["binary", "trinary"] = "binary"
-    max_time: int = 10
-    kwargs: dict[str, Any] = field(default_factory=dict)
+    path: Path = Field(
+        pattern=r".*\.csv",
+        description="Path to the data CSV file.",
+    )
+    side: Literal["ipsi", "contra"] = Field(
+        default="ipsi",
+        description="Side of the neck to load data for.",
+    )
+    mapping: dict[Literal[0, 1, 2, 3, 4], int | str] = Field(
+        default={i: "early" if i <= 2 else "late" for i in range(5)},
+        description="Optional mapping of T-stages.",
+    )
 
-    @classmethod
-    def from_params(cls, path: Path) -> "ModelConfig":
-        """Load a model configuration from a YAML file."""
-        params = load_yaml_params(path)
-        return dacite.from_dict(cls, params["model"])
+
+class InvolvementConfig(BaseModel):
+    """Config that defines an ipsi- and contralateral involvement pattern."""
+
+    ipsi: PatternType = Field(
+        default={},
+        description="Involvement pattern for the ipsilateral side of the neck.",
+        examples=[{"II": True, "III": False}],
+    )
+    contra: PatternType = Field(
+        default={},
+        description="Involvement pattern for the contralateral side of the neck.",
+    )
+
+
+class DiagnosisConfig(BaseModel):
+    """Defines an ipsi- and contralateral diagnosis pattern."""
+
+    ipsi: dict[str, PatternType] = Field(
+        default={},
+        description="Observed diagnoses by different modalities on the ipsi neck.",
+        examples=[{"CT": {"II": True, "III": False}}],
+    )
+    contra: dict[str, PatternType] = Field(
+        default={},
+        description="Observed diagnoses by different modalities on the contra neck.",
+    )
+
+
+class ScenarioConfig(BaseModel):
+    """Define a scenario for which e.g. prevalences and risks may be computed."""
+
+    t_stages: list[int | str] = Field(
+        description="List of T-stages to marginalize over in the scenario.",
+        examples=[["early"], [3, 4]],
+    )
+    t_stages_dist: list[float] = Field(
+        default=[1.0],
+        description="Distribution over T-stages to use for marginalization.",
+        examples=[[1.0], [0.6, 0.4]],
+    )
+    midext: bool | None = Field(
+        default=None,
+        description="Whether the patient's tumor extends over the midline.",
+    )
+    mode: Literal["HMM", "BN"] = Field(
+        default="HMM",
+        description="Which underlying model architecture to use.",
+    )
+    involvement: InvolvementConfig = InvolvementConfig()
+    diagnosis: DiagnosisConfig = DiagnosisConfig()
+
+    def model_post_init(self, __context: Any) -> None:
+        """Interpolate and normalize the distribution."""
+        self.interpolate()
+        self.normalize()
+
+    def interpolate(self):
+        """Interpolate the distribution to the number of ``t_stages``."""
+        if len(self.t_stages) != len(self.t_stages_dist):
+            new_x = np.linspace(0.0, 1.0, len(self.t_stages))
+            old_x = np.linspace(0.0, 1.0, len(self.t_stages_dist))
+            # cast to list to make ``__eq__`` work
+            self.t_stages_dist = np.interp(new_x, old_x, self.t_stages_dist).tolist()
+
+    def normalize(self):
+        """Normalize the distribution to sum to 1."""
+        if not np.isclose(np.sum(self.t_stages_dist), 1.0):
+            self.t_stages_dist = (
+                np.array(self.t_stages_dist) / np.sum(self.t_stages_dist)
+            ).tolist()  # cast to list to make ``__eq__`` work
+
+
+class LyscriptsSettings(
+    BaseSettings,
+    cli_parse_args=True,
+    cli_use_class_docs_for_groups=True,
+):
+    """Settings definition including model and scenario configurations."""
+
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description="Distributions over diagnosis times.",
+    )
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description="Diagnostic modalities to use in the model.",
+    )
+    data: DataConfig | None = None
+    scenarios: list[ScenarioConfig] = Field(
+        default=[],
+        description="Scenarios to compute prevalences and risks for.",
+    )
 
 
 def construct_model(
@@ -135,25 +246,6 @@ def add_dists(
     return model
 
 
-@dataclass
-class ModalityConfig:
-    """Define a diagnostic or pathological modality."""
-
-    spec: float
-    sens: float
-    kind: Literal["clinical", "pathological"] = "clinical"
-
-    @classmethod
-    def dict_from_params(
-        cls: type,
-        path: Path,
-        key: str = "modalities",
-    ) -> dict[str, "ModalityConfig"]:
-        """Load a modality configuration from a YAML file."""
-        params = load_yaml_params(path)
-        return {key: dacite.from_dict(cls, value) for key, value in params[key].items()}
-
-
 def add_modalities(
     model: Model,
     modalities: dict[str, ModalityConfig],
@@ -165,39 +257,11 @@ def add_modalities(
         logger.debug("Created deepcopy of model.")
 
     for modality, modality_config in modalities.items():
-        model.set_modality(modality, **asdict(modality_config))
+        model.set_modality(modality, **modality_config.model_dump())
         logger.debug(f"Added modality {modality} to model: {modality_config}")
 
     logger.info(f"Added {len(modalities)} modalities to model: {model}")
     return model
-
-
-@dataclass
-class DataConfig:
-    """Config that defines which data to load and how.
-
-    >>> data_config = dc_from_dict(DataConfig, {
-    ...     "path": "data/processed.csv",
-    ...     "side": "ipsi",
-    ... }, config=Config(cast=[Path]))
-    >>> data_config == DataConfig(
-    ...     path=Path("data/processed.csv"),
-    ...     side="ipsi",
-    ... )
-    True
-    """
-
-    path: Path
-    side: Literal["ipsi", "contra"] = "ipsi"
-    mapping: dict[Literal[0, 1, 2, 3, 4], int | str] = field(
-        default_factory=lambda: {
-            0: "early",
-            1: "early",
-            2: "early",
-            3: "late",
-            4: "late",
-        }
-    )
 
 
 def add_data(
@@ -222,69 +286,3 @@ def add_data(
     model.load_patient_data(**kwargs)
     logger.info(f"Added data to model: {model}")
     return model
-
-
-@dataclass
-class InvolvementConfig:
-    """Config that defines an ipsi- and contralateral involvement pattern."""
-
-    ipsi: PatternType = field(default_factory=dict)
-    contra: PatternType = field(default_factory=dict)
-
-
-@dataclass
-class DiagnosisConfig:
-    """Defines an ipsi- and contralateral diagnosis pattern."""
-
-    ipsi: dict[str, PatternType] = field(default_factory=dict)
-    contra: dict[str, PatternType] = field(default_factory=dict)
-
-
-@dataclass
-class ScenarioConfig:
-    """Define a scenario for which quantities may be computed.
-
-    >>> ScenarioConfig(t_stages=["early", "late"])    # doctest: +NORMALIZE_WHITESPACE
-    ScenarioConfig(t_stages=['early', 'late'],
-                   t_stages_dist=[0.5, 0.5],
-                   midext=None,
-                   mode='HMM',
-                   involvement=InvolvementConfig(ipsi={}, contra={}),
-                   diagnosis=DiagnosisConfig(ipsi={}, contra={}))
-    >>> scenario = dc_from_dict(ScenarioConfig, {
-    ...     "t_stages": [1, 2, 3, 4],
-    ...     "t_stages_dist": [4., 1.],
-    ... })
-    >>> scenario == ScenarioConfig(
-    ...     t_stages=[1, 2, 3, 4],
-    ...     t_stages_dist=[0.4, 0.3, 0.2, 0.1],
-    ... )
-    True
-    """
-
-    t_stages: list[int | str]
-    t_stages_dist: list[float] = field(default_factory=lambda: [1.0])
-    midext: bool | None = None
-    mode: Literal["HMM", "BN"] = "HMM"
-    involvement: InvolvementConfig = field(default_factory=InvolvementConfig)
-    diagnosis: DiagnosisConfig = field(default_factory=DiagnosisConfig)
-
-    def __post_init__(self):
-        """Interpolate and normalize the distribution."""
-        self.interpolate()
-        self.normalize()
-
-    def interpolate(self):
-        """Interpolate the distribution to the number of ``t_stages``."""
-        if len(self.t_stages) != len(self.t_stages_dist):
-            new_x = np.linspace(0.0, 1.0, len(self.t_stages))
-            old_x = np.linspace(0.0, 1.0, len(self.t_stages_dist))
-            # cast to list to make ``__eq__`` work
-            self.t_stages_dist = np.interp(new_x, old_x, self.t_stages_dist).tolist()
-
-    def normalize(self):
-        """Normalize the distribution to sum to 1."""
-        if not np.isclose(np.sum(self.t_stages_dist), 1.0):
-            self.t_stages_dist = (
-                np.array(self.t_stages_dist) / np.sum(self.t_stages_dist)
-            ).tolist()  # cast to list to make ``__eq__`` work

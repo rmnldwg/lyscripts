@@ -35,7 +35,8 @@ dependencies = [
     "lymph-model >= 1.2.2",
     "deprecated",
     "joblib",
-    "dacite",
+    "pydantic",
+    "pydantic-settings",
 ]
 dynamic = ["version"]
 
@@ -53,6 +54,7 @@ docs = [
     "sphinx-autodoc-typehints",
     "sphinxcontrib-programoutput",
     "m2r",
+    "sphinx-pydantic",
 ]
 test = [
     "pytest",
