@@ -15,7 +15,7 @@ it with the :py:func:`lymph.matrix.generate_observation` to get the likelihood o
 observed involvement pattern.
 
 Warning:
--------
+--------
     The command skips the computation of the priors if it finds them in the cache. But
     this cache only accounts for the scenario, *NOT* the samples. So, if the samples
     change, you need to force a recomputation of the priors (e.g., by deleting them).
@@ -117,7 +117,7 @@ def compute_observed_prevalence(
     T-stages defined in the ``scenario``.
 
     Warning:
-    -------
+    --------
         When computing prevalences for unilateral models, the contralateral diagnosis
         will still be considered for computing the prevalence in the *data*.
 

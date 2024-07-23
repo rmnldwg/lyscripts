@@ -1,6 +1,7 @@
-"""Given samples drawn during an MCMC round, compute the (prior) state distribution for
-each sample. This may then later on be used to compute risks and prevalences more
-quickly.
+"""Given samples drawn during an MCMC round, compute the (prior) state distributions.
+
+This is done for each sample. This may then later on be used to compute risks and
+prevalences more quickly.
 
 The computed priors are stored in an HDF5 file under a hash key of the scenario they
 were computed for. This scenario consists of the T-stages it was computed for and the

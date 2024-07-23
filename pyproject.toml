@@ -53,15 +53,15 @@ docs = [
     "sphinx-book-theme",
     "sphinx-autodoc-typehints",
     "sphinxcontrib-programoutput",
-    "m2r",
-    "sphinx-pydantic",
+    "myst_parser",
+    "autodoc_pydantic",
 ]
 test = [
     "pytest",
-    "pytest-mpl"
+    "pytest-mpl",
 ]
 app = [
-    "streamlit"
+    "streamlit",
 ]
 
 [project.scripts]
@@ -85,6 +85,7 @@ exclude = ["tests", "docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "C", "R", "U", "D", "I", "S", "T", "A", "N"]
+ignore = ["D409"]
 
 
 # git-cliff ~ default configuration file

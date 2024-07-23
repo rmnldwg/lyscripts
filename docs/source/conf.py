@@ -22,9 +22,10 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.programoutput',
     'sphinx.ext.napoleon',
-    'm2r',
+    'sphinxcontrib.programoutput',
+    'sphinxcontrib.autodoc_pydantic',
+    'myst_parser',
 ]
 
 # markdown to reST

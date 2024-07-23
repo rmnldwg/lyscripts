@@ -9,7 +9,10 @@ import numpy as np
 
 def is_hdf5_compatible(value: Any) -> bool:
     """Check if the given ``value`` can be stored in an HDF5 file."""
-    return isinstance(value, (bool, str, bytes, int, float, np.ndarray, list, tuple))
+    return isinstance(
+        value,
+        bool | str | bytes | int | float | np.ndarray | list | tuple,
+    )
 
 
 def hdf5_dict(attrs: dict[str, Any]) -> dict[str, str]:
@@ -57,6 +60,7 @@ class HDF5FileCache:
         self.file_path = file_path
 
     def __getitem__(self, key: bytes | str) -> tuple[np.ndarray, dict[str, Any]]:
+        """Get the array and attributes stored under the given ``key``."""
         with h5py.File(self.file_path, "a") as file:
             array = file[key][()]
             attrs = dict(file[key].attrs)
@@ -67,6 +71,7 @@ class HDF5FileCache:
         key: bytes | str,
         value: tuple[np.ndarray, dict[str, Any]],
     ) -> None:
+        """Store the given ``value`` under the given ``key``."""
         array, attrs = value
         with h5py.File(self.file_path, "a") as file:
             if key in file:
@@ -75,6 +80,7 @@ class HDF5FileCache:
             file[key].attrs.update(hdf5_dict(attrs))
 
     def __contains__(self, key: bytes | str) -> bool:
+        """Check if the given ``key`` is in the cache."""
         with h5py.File(self.file_path, "a") as file:
             return key in file
 
@@ -86,7 +92,7 @@ def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, b
     but be shorter to store.
 
     Example:
-    -------
+    --------
     >>> full = {
     ...     "ipsi": {"I": None, "II": True, "III": None},
     ...     "contra": {"I": None, "II": None, "III": None},
@@ -117,7 +123,7 @@ def complete_pattern(
     contain ``True``, ``False`` or ``None``.
 
     Example:
-    -------
+    --------
     >>> pattern = {"ipsi": {"II": True}}
     >>> lnls = ["II", "III"]
     >>> complete_pattern(pattern, lnls)

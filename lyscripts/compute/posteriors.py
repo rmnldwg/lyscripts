@@ -9,7 +9,7 @@ corresponding scenarios, similar to the priors. But the posteriors take into acc
 more information.
 
 Warning:
--------
+--------
     The command skips the computation of the priors if it finds them in the cache. But
     this cache only accounts for the scenario, *NOT* the samples. So, if the samples
     change, you need to force a recomputation of the priors (e.g., by deleting them).
