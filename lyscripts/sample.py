@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 from lymph import models
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, CliSettingsSource
 from rich.progress import Progress, TimeElapsedColumn, track
 
 from lyscripts.configs import (
@@ -59,7 +59,7 @@ class SamplingSettings(BaseSettings):
         default={},
         description="Diagnostic modalities to use in the model.",
     )
-    data: DataConfig | None = None
+    data: DataConfig
     sampling: SamplingConfig = SamplingConfig()
 
 
@@ -83,9 +83,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
     This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
-        "-i", "--input", type=Path, required=True, help="Path to training data files"
-    )
-    parser.add_argument(
         "-o",
         "--output",
         type=Path,
@@ -96,14 +93,18 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--history",
         type=Path,
         nargs="?",
-        help="Path to store the burnin history in (as CSV file).",
+        help="Path to store the burn-in history in (as CSV file).",
     )
     parser.add_argument(
         "-p",
         "--params",
-        default="./params.yaml",
+        default=[],
         type=Path,
-        help="Path to parameter file.",
+        nargs="*",
+        help=(
+            "Path to parameter file(s). Subsequent files overwrite previous ones. "
+            "Command line arguments take precedence over all files."
+        ),
     )
 
     parser.set_defaults(run_main=main)
@@ -242,12 +243,17 @@ class DummyPool:
         ...
 
 
-def main(args: argparse.Namespace) -> None:
+def main(args: argparse.Namespace, cli_settings: CliSettingsSource) -> None:
     """Run the MCMC sampling."""
     # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
     os.environ["OMP_NUM_THREADS"] = "1"
 
-    params = load_yaml_params(args.params)
+    params = {}
+    for param_file in args.params:
+        params.update(load_yaml_params(param_file))
+
+    _settings = SamplingSettings(_cli_settings_source=cli_settings, **params)
+
     inference_data = load_patient_data(args.input)
 
     # ugly, but necessary for pickling
@@ -302,5 +308,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     _add_arguments(parser)
 
+    cli_settings = CliSettingsSource(
+        settings_cls=SamplingSettings,
+        root_parser=parser,
+        cli_parse_args=True,
+        cli_use_class_docs_for_groups=True,
+    )
+
     args = parser.parse_args()
-    args.run_main(args)
+    args.run_main(args, cli_settings)
