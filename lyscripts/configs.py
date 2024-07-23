@@ -35,6 +35,22 @@ DIST_MAP: dict[FuncNameType, Callable] = {
 }
 
 
+class GraphConfig(BaseModel):
+    """Configuration specifying the structure of the model graph.
+
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam nec purus.
+    """
+
+    tumor: dict[str, list[str]] = Field(
+        default={"T": []},
+        description="Define the name of the tumor(s) and which LNLs it/they drain to.",
+    )
+    lnl: dict[str, list[str]] = Field(
+        default={},
+        description="Define the name of the LNL(s) and which LNLs it/they drain to.",
+    )
+
+
 class DistributionConfig(BaseModel):
     """Configuration defining a distribution over diagnose times."""
 
@@ -182,6 +198,7 @@ class LyscriptsSettings(
 ):
     """Settings definition including model and scenario configurations."""
 
+    graph: GraphConfig = GraphConfig()
     model: ModelConfig = ModelConfig()
     distributions: dict[str, DistributionConfig] = Field(
         default={},
