@@ -120,7 +120,7 @@ def graph_from_config(graph_params: dict) -> dict[tuple[str, str], list[str]]:
     """Build graph dictionary for the `lymph` models from the YAML params."""
     lymph_graph = {}
 
-    if "tumor" not in graph_params and "lnl" in graph_params:
+    if "tumor" not in graph_params or "lnl" not in graph_params:
         raise KeyError("Parameters must define tumors and LNLs")
 
     for node_type, node_dict in graph_params.items():
@@ -160,6 +160,7 @@ def _create_model_from_v0(params: dict[str, Any]) -> types.Model:
                 "The keywords `base_symmetric`, `trans_symmetric`, and `use_mixing` "
                 "have been deprecated. Please use `is_symmetric` instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
             params["model"]["kwargs"]["is_symmetric"] = {
                 "tumor_spread": params["model"]["kwargs"].pop("base_symmetric", False),
