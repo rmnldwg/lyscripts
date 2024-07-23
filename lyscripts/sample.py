@@ -24,8 +24,18 @@ import emcee
 import numpy as np
 import pandas as pd
 from lymph import models
+from pydantic import Field
+from pydantic_settings import BaseSettings
 from rich.progress import Progress, TimeElapsedColumn, track
 
+from lyscripts.configs import (
+    DataConfig,
+    DistributionConfig,
+    GraphConfig,
+    ModalityConfig,
+    ModelConfig,
+    SamplingConfig,
+)
 from lyscripts.utils import (
     create_model,
     initialize_backend,
@@ -34,6 +44,23 @@ from lyscripts.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class SamplingSettings(BaseSettings):
+    """Settings required for the MCMC sampling."""
+
+    graph: GraphConfig = GraphConfig()
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description="Distributions over diagnosis times.",
+    )
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description="Diagnostic modalities to use in the model.",
+    )
+    data: DataConfig | None = None
+    sampling: SamplingConfig = SamplingConfig()
 
 
 def _add_parser(
@@ -71,72 +98,12 @@ def _add_arguments(parser: argparse.ArgumentParser):
         nargs="?",
         help="Path to store the burnin history in (as CSV file).",
     )
-
-    parser.add_argument(
-        "-w",
-        "--walkers-per-dim",
-        type=int,
-        default=10,
-        help="Number of walkers per dimension",
-    )
-    parser.add_argument(
-        "-b",
-        "--burnin",
-        type=int,
-        nargs="?",
-        help="Number of burnin steps. If not provided, sampler runs until convergence.",
-    )
-    parser.add_argument(
-        "--check-interval",
-        type=int,
-        default=100,
-        help="Check convergence every `check_interval` steps.",
-    )
-    parser.add_argument(
-        "--trust-fac",
-        type=float,
-        default=50.0,
-        help="Factor to trust the autocorrelation time for convergence.",
-    )
-    parser.add_argument(
-        "--rel-thresh",
-        type=float,
-        default=0.05,
-        help="Relative threshold for convergence.",
-    )
-    parser.add_argument(
-        "-n",
-        "--nsteps",
-        type=int,
-        default=100,
-        help="Number of MCMC samples to draw, irrespective of thinning.",
-    )
-    parser.add_argument(
-        "-t", "--thin", type=int, default=10, help="Thinning factor for the MCMC chain."
-    )
     parser.add_argument(
         "-p",
         "--params",
         default="./params.yaml",
         type=Path,
         help="Path to parameter file.",
-    )
-    parser.add_argument(
-        "-c",
-        "--cores",
-        type=int,
-        nargs="?",
-        help=(
-            "Number of parallel workers (CPU cores/threads) to use. If not provided, "
-            "it will use all cores. If set to zero, multiprocessing will not be used."
-        ),
-    )
-    parser.add_argument(
-        "-s",
-        "--seed",
-        type=int,
-        default=42,
-        help="Seed value to reproduce the same sampling round.",
     )
 
     parser.set_defaults(run_main=main)

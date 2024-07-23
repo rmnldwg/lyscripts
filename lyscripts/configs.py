@@ -11,7 +11,6 @@ import pandas as pd
 from lymph import models
 from lymph.types import GraphDictType, Model, PatternType
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
 from scipy.special import factorial
 
 logger = logging.getLogger(__name__)
@@ -191,27 +190,42 @@ class ScenarioConfig(BaseModel):
             ).tolist()  # cast to list to make ``__eq__`` work
 
 
-class LyscriptsSettings(
-    BaseSettings,
-    cli_parse_args=True,
-    cli_use_class_docs_for_groups=True,
-):
-    """Settings definition including model and scenario configurations."""
+class SamplingConfig(BaseModel):
+    """Configuration for the sampling procedure."""
 
-    graph: GraphConfig = GraphConfig()
-    model: ModelConfig = ModelConfig()
-    distributions: dict[str, DistributionConfig] = Field(
-        default={},
-        description="Distributions over diagnosis times.",
+    seed: int = Field(
+        default=42,
+        description="Seed for the random number generator.",
     )
-    modalities: dict[str, ModalityConfig] = Field(
-        default={},
-        description="Diagnostic modalities to use in the model.",
+    walkers_per_dim: int = Field(
+        default=20,
+        description="Number of walkers per parameter space dimension.",
     )
-    data: DataConfig | None = None
-    scenarios: list[ScenarioConfig] = Field(
-        default=[],
-        description="Scenarios to compute prevalences and risks for.",
+    max_burnin: int = Field(
+        default=10000,
+        description="Maximum number of burn-in steps.",
+    )
+    check_invterval: int = Field(
+        default=50,
+        description="Check for convergence each time after this many steps.",
+    )
+    trust_factor: float = Field(
+        default=50.0,
+        description=(
+            "Trust the autocorrelation time only when it's smaller than this factor "
+            "times the length of the chain."
+        ),
+    )
+    relative_thresh: float = Field(
+        default=0.05,
+        description="Relative threshold for convergence.",
+    )
+    thin: int = Field(
+        default=10, description="How many samples to draw before for saving one."
+    )
+    num_steps: int = Field(
+        default=100,
+        description="Number of samples after convergence, regardless of thinning.",
     )
 
 
