@@ -1,5 +1,4 @@
-"""Provide a range of commands and functions related to managing CSV datasets on patterns
-of lymphatic progression.
+"""Commands and functions for managing CSV data on patterns of lymphatic progression.
 
 It helps transform raw CSV data of any form to be converted into our `LyProX`_ format,
 which can then be uploaded to the `LyProX`_ online tool for others to inspect the data.

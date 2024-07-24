@@ -11,7 +11,7 @@ import logging
 import re
 
 import pandas as pd
-import rich
+import rich.text
 from rich_argparse import RichHelpFormatter
 
 from lyscripts import app, compute, data, evaluate, plot, sample, temp_schedule

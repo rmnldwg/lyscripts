@@ -1,6 +1,6 @@
-"""With the commands of this module, a user may compute prior and posterior state
-distributions from drawn samples of a model. This can in turn speed up the computation
-of risks and prevalences.
+"""Commands to compute prior and posterior state distributions from model samples.
+
+This can in turn speed up the computation of risks and prevalences.
 """
 
 import argparse
