@@ -11,7 +11,6 @@ objective decisions with respect to defining the *elective clinical target volum
 import argparse
 import logging
 import os
-from collections import namedtuple
 
 try:
     from multiprocess import Pool
@@ -40,7 +39,6 @@ from lyscripts.configs import (
 )
 from lyscripts.utils import (
     initialize_backend,
-    load_patient_data,
     load_yaml_params,
 )
 
@@ -100,7 +98,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "-p",
         "--params",
         default=[],
-        type=Path,
         nargs="*",
         help=(
             "Path to parameter file(s). Subsequent files overwrite previous ones. "
@@ -133,20 +130,35 @@ def get_starting_state(sampler):
     return state
 
 
-BurninHistory = namedtuple(
-    typename="BurninHistory",
-    field_names=["steps", "acor_times", "accept_fracs", "max_log_probs"],
-)
-"""Namedtuple to store the burnin history."""
+def init_burnin_history():
+    """Initialize the burnin history DataFrame."""
+    return pd.DataFrame(
+        columns=["steps", "acor_times", "accept_fracs", "max_log_probs"],
+    ).set_index("steps")
+
+
+def is_converged(
+    iteration: int,
+    new_acor_time: float,
+    old_acor_time: float,
+    trust_factor: float,
+    relative_thresh: float,
+) -> bool:
+    """Check if the chain has converged based on the autocorrelation time."""
+    return (
+        new_acor_time * trust_factor
+        < iteration & np.abs(new_acor_time - old_acor_time) / new_acor_time
+        < relative_thresh
+    )
 
 
 def run_burnin(
     sampler: emcee.EnsembleSampler,
-    burnin: int | None = None,
+    max_burnin: int | None = None,
     check_interval: int = 100,
-    trust_fac: float = 50.0,
-    rel_thresh: float = 0.05,
-) -> BurninHistory:
+    trust_factor: float = 50.0,
+    relative_thresh: float = 0.05,
+) -> pd.DataFrame:
     """Run the burnin phase of the MCMC sampling.
 
     This will run the sampler for ``burnin`` steps or (if ``burnin`` is `None`) until
@@ -158,12 +170,11 @@ def run_burnin(
 
     The samples of the burnin phase will be stored, such that one can resume a
     cancelled run. Also, metrics collected during the burnin phase will be returned
-    in a :py:obj:`.BurninHistory` namedtuple. This may be used for plotting and
-    diagnostics.
+    in a pandas DataFrame.
     """
     state = get_starting_state(sampler)
-    history = BurninHistory([], [], [], [])
-    num_accepted = 0
+    history = init_burnin_history()
+    previous_accepted = 0
 
     with Progress(
         *Progress.get_default_columns(),
@@ -171,39 +182,43 @@ def run_burnin(
     ) as progress:
         task = progress.add_task(
             description="[blue]INFO     [/blue]Burn-in phase ",
-            total=burnin,
+            total=max_burnin,
         )
-        while sampler.iteration < (burnin or np.inf):
+        while sampler.iteration < (max_burnin or np.inf):
+            logger.debug("| step   | acor time | accept frac | max log prob |")
+            logger.debug("| -----: | --------: | ----------: | -----------: |")
+
             for state in sampler.sample(state, iterations=check_interval):  # noqa: B007, B020
                 progress.update(task, advance=1)
 
             new_acor_time = sampler.get_autocorr_time(tol=0).mean()
-            old_acor_time = (
-                history.acor_times[-1] if len(history.acor_times) > 0 else np.inf
+            old_acor_time = history.acor_times[-1] if len(history) > 0 else np.inf
+
+            newly_accepted = np.sum(sampler.backend.accepted) - previous_accepted
+            new_accept_frac = newly_accepted / (sampler.nwalkers * check_interval)
+            previous_accepted = np.sum(sampler.backend.accepted)
+
+            history.loc[sampler.iteration] = [
+                new_acor_time,
+                new_accept_frac,
+                np.max(state.log_prob),
+            ]
+            logger.debug(
+                f"| {sampler.iteration:>6d} "
+                f"| {new_acor_time:>9.2f} "
+                f"| {new_accept_frac:>11.2%} "
+                f"| {np.max(state.log_prob):>12.2f} |"
             )
 
-            new_accept_frac = (np.sum(sampler.backend.accepted) - num_accepted) / (
-                sampler.nwalkers * check_interval
-            )
-            num_accepted = np.sum(sampler.backend.accepted)
-
-            history.steps.append(sampler.iteration)
-            history.acor_times.append(new_acor_time)
-            history.accept_fracs.append(new_accept_frac)
-            history.max_log_probs.append(np.max(state.log_prob))
-
-            is_converged = burnin is None
-            is_converged &= new_acor_time * trust_fac < sampler.iteration
-            is_converged &= (
-                np.abs(new_acor_time - old_acor_time) / new_acor_time < rel_thresh
-            )
-
-            if is_converged:
+            if max_burnin is None and is_converged(
+                iteration=sampler.iteration,
+                new_acor_time=new_acor_time,
+                old_acor_time=old_acor_time,
+                trust_factor=trust_factor,
+                relative_thresh=relative_thresh,
+            ):
                 break
 
-    if is_converged:
-        logger.info(f"Converged after {sampler.iteration} steps.")
-    logger.info(f"Acceptance fraction: {sampler.acceptance_fraction.mean():.2%}")
     return history
 
 
@@ -255,25 +270,17 @@ def main(args: argparse.Namespace, cli_settings: CliSettingsSource) -> None:
 
     settings = SamplingSettings(_cli_settings_source=cli_settings, **params)
 
-    inference_data = load_patient_data(settings.data.path)
-
     # ugly, but necessary for pickling
     global MODEL
     MODEL = construct_model(settings.model, settings.graph)
     MODEL = add_dists(MODEL, settings.distributions)
     MODEL = add_modalities(MODEL, settings.modalities)
-    MODEL.load_patient_data(
-        inference_data,
-        **settings.data.model_dump(exclude={"path"}, exclude_none=True),
-    )
-
-    ndim = MODEL.get_num_dims()
-    nwalkers = ndim * args.walkers_per_dim
+    MODEL.load_patient_data(**settings.data.load_kwargs())
 
     # emcee does not support numpy's new random number generator yet.
     np.random.seed(args.seed)
-    hdf5_backend = initialize_backend(args.output, nwalkers, ndim)
-    moves_mix = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
+    ndim = MODEL.get_num_dims()
+    nwalkers = ndim * args.walkers_per_dim
 
     if args.cores == 0:
         real_or_dummy_pool = DummyPool()
@@ -285,23 +292,20 @@ def main(args: argparse.Namespace, cli_settings: CliSettingsSource) -> None:
             nwalkers,
             ndim,
             log_prob_fn,
-            moves=moves_mix,
-            backend=hdf5_backend,
+            moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)],
+            backend=initialize_backend(args.output, nwalkers, ndim),
             pool=pool,
         )
+        kwargs_set = {"max_burnin", "check_interval", "trust_factor", "relative_thresh"}
         burnin_history = run_burnin(
             sampler,
-            burnin=args.burnin,
-            check_interval=args.check_interval,
-            trust_fac=args.trust_fac,
-            rel_thresh=args.rel_thresh,
+            **settings.sampling.model_dump(include=kwargs_set),
         )
         run_sampling(sampler, nsteps=args.nsteps, thin=args.thin)
 
     if args.history is not None:
-        logger.info(f"Saving burnin history to {args.history}.")
-        burnin_history_df = pd.DataFrame(burnin_history._asdict()).set_index("steps")
-        burnin_history_df.to_csv(args.history, index=True)
+        logger.info(f"Saving burn-in history to {args.history}.")
+        burnin_history.to_csv(args.history, index=True)
 
 
 if __name__ == "__main__":
