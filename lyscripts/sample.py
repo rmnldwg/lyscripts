@@ -11,7 +11,6 @@ objective decisions with respect to defining the *elective clinical target volum
 import argparse
 import logging
 import os
-import sys
 
 try:
     from multiprocess import Pool
@@ -110,6 +109,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         run_main=main,
         cli_settings_source=CliSettingsSource(
             settings_cls=SamplingSettings,
+            cli_use_class_docs_for_groups=True,
             root_parser=parser,
         ),
     )
@@ -275,17 +275,11 @@ def main(args: argparse.Namespace) -> None:
     for param_file in args.params:
         params.update(load_yaml_params(param_file))
 
-    # despite using a subparser, pydantic will still consume `sys.argv[1:]`, meaning
-    # that the subcommand will be interpreted as an argument. To avoid this, we have to
-    # manually remove the first argument.
-    sys.argv = sys.argv[1:]
     settings = SamplingSettings(
-        _cli_parse_args=True,
-        _cli_use_class_docs_for_groups=True,
-        _cli_settings_source=args.cli_settings_source(args=True),
+        _cli_settings_source=args.cli_settings_source(parsed_args=args),
         **params,
     )
-    logger.info(settings.model_dump_json(indent=2))
+    logger.debug(settings.model_dump_json(indent=2))
 
     # ugly, but necessary for pickling
     global MODEL
