@@ -11,6 +11,7 @@ objective decisions with respect to defining the *elective clinical target volum
 import argparse
 import logging
 import os
+import sys
 
 try:
     from multiprocess import Pool
@@ -105,7 +106,13 @@ def _add_arguments(parser: argparse.ArgumentParser):
         ),
     )
 
-    parser.set_defaults(run_main=main)
+    parser.set_defaults(
+        run_main=main,
+        cli_settings_source=CliSettingsSource(
+            settings_cls=SamplingSettings,
+            root_parser=parser,
+        ),
+    )
 
 
 MODEL = None
@@ -259,7 +266,7 @@ class DummyPool:
         ...
 
 
-def main(args: argparse.Namespace, cli_settings: CliSettingsSource) -> None:
+def main(args: argparse.Namespace) -> None:
     """Run the MCMC sampling."""
     # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
     os.environ["OMP_NUM_THREADS"] = "1"
@@ -268,19 +275,29 @@ def main(args: argparse.Namespace, cli_settings: CliSettingsSource) -> None:
     for param_file in args.params:
         params.update(load_yaml_params(param_file))
 
-    settings = SamplingSettings(_cli_settings_source=cli_settings, **params)
+    # despite using a subparser, pydantic will still consume `sys.argv[1:]`, meaning
+    # that the subcommand will be interpreted as an argument. To avoid this, we have to
+    # manually remove the first argument.
+    sys.argv = sys.argv[1:]
+    settings = SamplingSettings(
+        _cli_parse_args=True,
+        _cli_use_class_docs_for_groups=True,
+        _cli_settings_source=args.cli_settings_source(args=True),
+        **params,
+    )
+    logger.info(settings.model_dump_json(indent=2))
 
     # ugly, but necessary for pickling
     global MODEL
     MODEL = construct_model(settings.model, settings.graph)
     MODEL = add_dists(MODEL, settings.distributions)
     MODEL = add_modalities(MODEL, settings.modalities)
-    MODEL.load_patient_data(**settings.data.load_kwargs())
+    MODEL.load_patient_data(**settings.data.get_load_kwargs())
 
     # emcee does not support numpy's new random number generator yet.
-    np.random.seed(args.seed)
+    np.random.seed(settings.sampling.seed)
     ndim = MODEL.get_num_dims()
-    nwalkers = ndim * args.walkers_per_dim
+    nwalkers = ndim * settings.sampling.walkers_per_dim
 
     if args.cores == 0:
         real_or_dummy_pool = DummyPool()
@@ -312,12 +329,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     _add_arguments(parser)
 
-    cli_settings = CliSettingsSource(
-        settings_cls=SamplingSettings,
-        root_parser=parser,
-        cli_parse_args=True,
-        cli_use_class_docs_for_groups=True,
-    )
-
     args = parser.parse_args()
-    args.run_main(args, cli_settings)
+    args.run_main(args)

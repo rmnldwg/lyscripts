@@ -407,12 +407,12 @@ def get_modalities_subset(
 @check_input_file_exists
 def load_patient_data(
     file_path: Path,
-    header: list[int] | None = None,
+    **read_csv_kwargs: dict,
 ) -> pd.DataFrame:
     """Load patient data from a CSV file stored at ``file``."""
-    if header is None:
-        header = [0, 1, 2]
-    return pd.read_csv(file_path, header=header)
+    if "header" not in read_csv_kwargs:
+        read_csv_kwargs["header"] = [0, 1, 2]
+    return pd.read_csv(file_path, **read_csv_kwargs)
 
 
 @log_state()

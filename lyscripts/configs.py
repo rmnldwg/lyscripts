@@ -13,7 +13,7 @@ from lymph.types import Model, PatternType
 from pydantic import BaseModel, Field
 from scipy.special import factorial
 
-from lyscripts.utils import flatten
+from lyscripts.utils import flatten, load_patient_data
 
 logger = logging.getLogger(__name__)
 FuncNameType = Literal["binomial"]
@@ -98,26 +98,36 @@ class ModelConfig(BaseModel):
 
 
 class DataConfig(BaseModel):
-    """Config that defines which data to load and how.
-
-    >>> data_data = {"path": "./data.csv", "side": "ipsi"}
-    >>> data_config = DataConfig(**data_data)
-    >>> data_config == DataConfig(path="./data.csv", side="ipsi")
-    True
-    """
+    """Config that defines which data to load and how."""
 
     path: Path = Field(
         pattern=r".*\.csv",
         description="Path to the data CSV file.",
     )
     side: Literal["ipsi", "contra"] | None = Field(
-        default="ipsi",
+        default=None,
         description="Side of the neck to load data for.",
     )
     mapping: dict[Literal[0, 1, 2, 3, 4], int | str] = Field(
         default={i: "early" if i <= 2 else "late" for i in range(5)},
         description="Optional mapping of T-stages.",
     )
+
+    def get_pandas(self, **read_csv_kwargs) -> pd.DataFrame:
+        """Load the data from the path."""
+        return load_patient_data(self.path, **read_csv_kwargs)
+
+    def get_load_kwargs(
+        self,
+        read_csv_kwargs: dict[str, Any] | None = None,
+        **load_patient_data_kwargs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Get the keyword arguments to pass to the load method."""
+        return {
+            "patient_data": self.get_pandas(**(read_csv_kwargs or {})),
+            **self.model_dump(exclude={"path"}, exclude_none=True),
+            **load_patient_data_kwargs,
+        }
 
 
 class InvolvementConfig(BaseModel):
