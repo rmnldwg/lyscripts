@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from lymph import models
 from lymph.types import Model, PatternType
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, FilePath
 from scipy.special import factorial
 
 from lyscripts.utils import flatten, load_patient_data
@@ -37,10 +37,7 @@ DIST_MAP: dict[FuncNameType, Callable] = {
 
 
 class GraphConfig(BaseModel):
-    """Configuration specifying the structure of the model graph.
-
-    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam nec purus.
-    """
+    """Specifies how the tumor(s) and LNLs are connected in a DAG."""
 
     tumor: dict[str, list[str]] = Field(
         default={"T": []},
@@ -79,7 +76,7 @@ class ModalityConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    """Configuration that defines the setup of a model."""
+    """Define which of the ``lymph`` models to use and how to set them up."""
 
     class_name: Literal["Unilateral", "Bilateral", "Midline"] = Field(
         default="Unilateral", description="Name of the model class to use."
@@ -98,24 +95,24 @@ class ModelConfig(BaseModel):
 
 
 class DataConfig(BaseModel):
-    """Config that defines which data to load and how."""
+    """Where to load the data from and how to feed it into the model."""
 
-    path: Path = Field(
-        pattern=r".*\.csv",
+    input_file: FilePath = Field(
+        pattern=r".+\.csv",
         description="Path to the data CSV file.",
     )
     side: Literal["ipsi", "contra"] | None = Field(
         default=None,
-        description="Side of the neck to load data for.",
+        description="Side of the neck to load data for. Only for Unilateral models.",
     )
     mapping: dict[Literal[0, 1, 2, 3, 4], int | str] = Field(
         default={i: "early" if i <= 2 else "late" for i in range(5)},
-        description="Optional mapping of T-stages.",
+        description="Optional mapping of numeric T-stages to model T-stages.",
     )
 
     def get_pandas(self, **read_csv_kwargs) -> pd.DataFrame:
         """Load the data from the path."""
-        return load_patient_data(self.path, **read_csv_kwargs)
+        return load_patient_data(self.input_file, **read_csv_kwargs)
 
     def get_load_kwargs(
         self,
@@ -125,7 +122,7 @@ class DataConfig(BaseModel):
         """Get the keyword arguments to pass to the load method."""
         return {
             "patient_data": self.get_pandas(**(read_csv_kwargs or {})),
-            **self.model_dump(exclude={"path"}, exclude_none=True),
+            **self.model_dump(exclude={"input_file"}, exclude_none=True),
             **load_patient_data_kwargs,
         }
 
@@ -200,45 +197,6 @@ class ScenarioConfig(BaseModel):
             self.t_stages_dist = (
                 np.array(self.t_stages_dist) / np.sum(self.t_stages_dist)
             ).tolist()  # cast to list to make ``__eq__`` work
-
-
-class SamplingConfig(BaseModel):
-    """Configuration for the sampling procedure."""
-
-    seed: int = Field(
-        default=42,
-        description="Seed for the random number generator.",
-    )
-    walkers_per_dim: int = Field(
-        default=20,
-        description="Number of walkers per parameter space dimension.",
-    )
-    max_burnin: int = Field(
-        default=10000,
-        description="Maximum number of burn-in steps.",
-    )
-    check_invterval: int = Field(
-        default=50,
-        description="Check for convergence each time after this many steps.",
-    )
-    trust_factor: float = Field(
-        default=50.0,
-        description=(
-            "Trust the autocorrelation time only when it's smaller than this factor "
-            "times the length of the chain."
-        ),
-    )
-    relative_thresh: float = Field(
-        default=0.05,
-        description="Relative threshold for convergence.",
-    )
-    thin: int = Field(
-        default=10, description="How many samples to draw before for saving one."
-    )
-    num_steps: int = Field(
-        default=100,
-        description="Number of samples after convergence, regardless of thinning.",
-    )
 
 
 def construct_model(

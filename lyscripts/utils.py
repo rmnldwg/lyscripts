@@ -439,7 +439,7 @@ def load_model_samples(
 
 @log_state()
 @check_output_dir_exists
-def initialize_backend(
+def get_hdf5_backend(
     file_path: Path,
     nwalkers: int | None = None,
     ndim: int | None = None,
