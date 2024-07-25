@@ -40,11 +40,9 @@ class GraphConfig(BaseModel):
     """Specifies how the tumor(s) and LNLs are connected in a DAG."""
 
     tumor: dict[str, list[str]] = Field(
-        default={"T": []},
         description="Define the name of the tumor(s) and which LNLs it/they drain to.",
     )
     lnl: dict[str, list[str]] = Field(
-        default={},
         description="Define the name of the LNL(s) and which LNLs it/they drain to.",
     )
 

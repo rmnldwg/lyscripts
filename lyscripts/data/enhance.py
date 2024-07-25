@@ -2,7 +2,7 @@
 
 1. Add consensus diagnosis based on all available modalities using on of two methods:
 ``max_llh`` infers the most likely true state of involvement given only the available
-diagnosis. ``rank`` uses the available diagnositc modalities and ranks them based on
+diagnosis. ``rank`` uses the available diagnostic modalities and ranks them based on
 their respective sensitivity and specificity.
 
 2. Complete sub- & super-level fields. This means that if a dataset reports LNLs IIa

@@ -103,10 +103,10 @@ class SamplingConfig(BaseModel):
     )
 
 
-class SamplingSettings(BaseSettings):
+class CmdSettings(BaseSettings):
     """Settings required for the MCMC sampling."""
 
-    graph: GraphConfig = GraphConfig()
+    graph: GraphConfig
     model: ModelConfig = ModelConfig()
     distributions: dict[str, DistributionConfig] = Field(
         default={},
@@ -145,7 +145,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
     This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
-        "-p",
         "--params",
         default=[],
         nargs="*",
@@ -157,7 +156,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.set_defaults(
         run_main=main,
         cli_settings_source=CliSettingsSource(
-            settings_cls=SamplingSettings,
+            settings_cls=CmdSettings,
             cli_use_class_docs_for_groups=True,
             root_parser=parser,
         ),
@@ -341,7 +340,7 @@ def main(args: argparse.Namespace) -> None:
     for param_file in args.params:
         yaml_params = deep_update(yaml_params, load_yaml_params(param_file))
 
-    settings = SamplingSettings(
+    settings = CmdSettings(
         _cli_settings_source=args.cli_settings_source(parsed_args=args),
         **yaml_params,
     )

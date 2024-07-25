@@ -106,7 +106,7 @@ def compute_posteriors_using_cache(
 
     try:
         priors = compute_priors_using_cache(
-            model=model,
+            model_config=model,
             cache=priors_cache,
             scenario=scenario,
             cache_hit_msg="Loaded computed priors.",

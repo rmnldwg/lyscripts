@@ -14,14 +14,82 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from lymph import types
+from pydantic import BaseModel, DirectoryPath, Field, FilePath
+from pydantic._internal._utils import deep_update
+from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
 
 from lyscripts import utils
-from lyscripts.compute.utils import HDF5FileCache
-from lyscripts.scenario import Scenario, add_scenario_arguments
+from lyscripts.configs import (
+    DistributionConfig,
+    GraphConfig,
+    ModalityConfig,
+    ModelConfig,
+    ScenarioConfig,
+    construct_model,
+)
 
 logger = logging.getLogger(__name__)
+
+
+class SamplesConfig(BaseModel):
+    """Configuration for the samples file."""
+
+    input_file: FilePath = Field(description="Path to the drawn samples (HDF5 file).")
+    dset_name: str = Field(
+        default="mcmc",
+        description="Name of the dataset in the HDF5 file.",
+    )
+    thin: int = Field(
+        gt=0,
+        default=1,
+        description="Only use every `thin`-th sample from the input file.",
+    )
+
+
+class PriorsConfig(BaseModel):
+    """Configure how the priors are computed."""
+
+    output_file: Path = Field(
+        description="Path to file for storing the computed prior distributions."
+    )
+    dset_name: str | None = Field(
+        default=None,
+        description=(
+            "Name of the dataset in the HDF5 file. If `None`, this will be "
+            "dynamically computed from the scenario."
+        ),
+    )
+
+
+class CmdSettings(BaseSettings):
+    """Settings required to compute priors from model configs and samples."""
+
+    cache_dir: DirectoryPath = Field(
+        default=Path.cwd() / ".lyscripts_cache",
+        description="Cache directory for storing function calls.",
+    )
+    samples: SamplesConfig
+    priors: PriorsConfig
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description=(
+            "Maps names of diagnostic modalities to their specificity/sensitivity."
+        ),
+    )
+    scenarios: list[ScenarioConfig] = Field(
+        default=[],
+        description="List of scenarios to compute priors for.",
+    )
 
 
 def _add_parser(
@@ -39,45 +107,34 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments needed to run this script to a ``subparsers`` instance."""
-    parser.add_argument(
-        "--samples",
-        type=Path,
-        required=True,
-        help="Path to the drawn samples (HDF5 file).",
-    )
-    parser.add_argument(
-        "--priors",
-        type=Path,
-        required=True,
-        help="Path to file for storing the computed prior distributions.",
-    )
+    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
+
+    This is called by the parent module that is called via the command line.
+    """
     parser.add_argument(
         "--params",
-        type=Path,
-        required=True,
-        help="Path to parameter file defining the model (YAML).",
-    )
-    parser.add_argument(
-        "--scenarios",
-        type=Path,
-        required=False,
+        default=[],
+        nargs="*",
         help=(
-            "Path to a YAML file containing a `scenarios` key with a list of "
-            "diagnosis scenarios to compute the posteriors for."
+            "Path(s) to parameter file(s). Subsequent files overwrite previous ones. "
+            "Command line arguments take precedence over all files."
+        ),
+    )
+    parser.set_defaults(
+        run_main=main,
+        cli_settings_source=CliSettingsSource(
+            settings_cls=CmdSettings,
+            cli_use_class_docs_for_groups=True,
+            root_parser=parser,
         ),
     )
 
-    add_scenario_arguments(parser, for_comp="priors")
-    parser.set_defaults(run_main=main)
-
 
 def compute_priors_using_cache(
-    model: types.Model,
-    cache: HDF5FileCache,
-    samples: np.ndarray | None = None,
-    scenario: Scenario | None = None,
-    cache_hit_msg: str = "Priors already computed. Skipping.",
+    model_config: ModelConfig,
+    graph_config: GraphConfig,
+    samples: np.ndarray,
+    scenario: ScenarioConfig,
     progress_desc: str = "Computing priors from samples",
 ) -> np.ndarray:
     """Compute prior state distributions from the ``samples`` for the ``model``.
@@ -87,18 +144,7 @@ def compute_priors_using_cache(
     computed by marginalizing over the provided ``t_stage_dist``. Otherwise, the
     priors will be computed for the given ``t_stage``.
     """
-    if scenario is None:
-        scenario = Scenario()
-
-    priors_hash = scenario.md5_hash("priors")
-    if priors_hash in cache:
-        logger.info(cache_hit_msg)
-        priors, _ = cache[priors_hash]
-        return priors
-
-    if samples is None:
-        raise ValueError("No samples provided.")
-
+    model = construct_model(model_config=model_config, graph_config=graph_config)
     priors = []
 
     for sample in progress.track(
@@ -114,36 +160,31 @@ def compute_priors_using_cache(
             )
         )
 
-    priors = np.stack(priors)
-    cache[priors_hash] = (priors, scenario.as_dict("priors"))
-    return priors
+    return np.stack(priors)
 
 
 def main(args: argparse.Namespace):
     """Compute the prior state distribution for each sample."""
-    params = utils.load_yaml_params(args.params)
+    yaml_params = {}
+    for param_file in args.params:
+        yaml_params = deep_update(yaml_params, utils.load_yaml_params(param_file))
 
-    if args.scenarios is None:
-        # create a single scenario from the stdin arguments...
-        scenarios = [Scenario.from_namespace(args)]
-        num_scens = len(scenarios)
-    else:
-        # ...or load the scenarios from a YAML file
-        scenarios = Scenario.list_from_params(utils.load_yaml_params(args.scenarios))
-        num_scens = len(scenarios)
-        logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
+    settings = CmdSettings(
+        _cli_settings_source=args.cli_settings_source(parsed_args=args),
+        **yaml_params,
+    )
+    logger.debug(settings.model_dump_json(indent=2))
 
-    model = utils.create_model(params)
     samples = utils.load_model_samples(args.samples)
-    priors_cache = HDF5FileCache(args.priors)
 
-    for i, scenario in enumerate(scenarios):
+    num_scenarios = len(settings.scenarios)
+    for i, scenario in enumerate(settings.scenarios):
         _priors = compute_priors_using_cache(
-            model=model,
-            cache=priors_cache,
+            model_config=settings.model,
+            graph_config=settings.graph,
             samples=samples,
             scenario=scenario,
-            progress_desc=f"Computing priors for scenario {i + 1}/{num_scens}",
+            progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
         )
 
 
