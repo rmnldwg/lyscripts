@@ -1,0 +1,370 @@
+{
+    "$defs": {
+        "DataConfig": {
+            "description": "Where to load the data from and how to feed it into the model.",
+            "properties": {
+                "input_file": {
+                    "description": "Path to the data CSV file.",
+                    "format": "file-path",
+                    "pattern": ".+\\.csv",
+                    "title": "Input File",
+                    "type": "string"
+                },
+                "side": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                "ipsi",
+                                "contra"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Side of the neck to load data for. Only for Unilateral models.",
+                    "title": "Side"
+                },
+                "mapping": {
+                    "additionalProperties": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "default": {
+                        "0": "early",
+                        "1": "early",
+                        "2": "early",
+                        "3": "late",
+                        "4": "late"
+                    },
+                    "description": "Optional mapping of numeric T-stages to model T-stages.",
+                    "title": "Mapping",
+                    "type": "object"
+                }
+            },
+            "required": [
+                "input_file"
+            ],
+            "title": "DataConfig",
+            "type": "object"
+        },
+        "DistributionConfig": {
+            "description": "Configuration defining a distribution over diagnose times.",
+            "properties": {
+                "kind": {
+                    "default": "frozen",
+                    "description": "Parametric distributions may be updated.",
+                    "enum": [
+                        "frozen",
+                        "parametric"
+                    ],
+                    "title": "Kind",
+                    "type": "string"
+                },
+                "func": {
+                    "const": "binomial",
+                    "default": "binomial",
+                    "description": "Name of predefined function to use as distribution.",
+                    "enum": [
+                        "binomial"
+                    ],
+                    "title": "Func",
+                    "type": "string"
+                },
+                "params": {
+                    "additionalProperties": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    "default": {},
+                    "description": "Parameters to pass to the predefined function.",
+                    "title": "Params",
+                    "type": "object"
+                }
+            },
+            "title": "DistributionConfig",
+            "type": "object"
+        },
+        "GraphConfig": {
+            "description": "Specifies how the tumor(s) and LNLs are connected in a DAG.",
+            "properties": {
+                "tumor": {
+                    "additionalProperties": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "default": {
+                        "T": []
+                    },
+                    "description": "Define the name of the tumor(s) and which LNLs it/they drain to.",
+                    "title": "Tumor",
+                    "type": "object"
+                },
+                "lnl": {
+                    "additionalProperties": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "default": {},
+                    "description": "Define the name of the LNL(s) and which LNLs it/they drain to.",
+                    "title": "Lnl",
+                    "type": "object"
+                }
+            },
+            "title": "GraphConfig",
+            "type": "object"
+        },
+        "ModalityConfig": {
+            "description": "Define a diagnostic or pathological modality.",
+            "properties": {
+                "spec": {
+                    "description": "Specificity of the modality.",
+                    "maximum": 1.0,
+                    "minimum": 0.5,
+                    "title": "Spec",
+                    "type": "number"
+                },
+                "sens": {
+                    "description": "Sensitivity of the modality.",
+                    "maximum": 1.0,
+                    "minimum": 0.5,
+                    "title": "Sens",
+                    "type": "number"
+                },
+                "kind": {
+                    "default": "clinical",
+                    "description": "Clinical modalities cannot detect microscopic disease.",
+                    "enum": [
+                        "clinical",
+                        "pathological"
+                    ],
+                    "title": "Kind",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "spec",
+                "sens"
+            ],
+            "title": "ModalityConfig",
+            "type": "object"
+        },
+        "ModelConfig": {
+            "description": "Define which of the ``lymph`` models to use and how to set them up.",
+            "properties": {
+                "class_name": {
+                    "default": "Unilateral",
+                    "description": "Name of the model class to use.",
+                    "enum": [
+                        "Unilateral",
+                        "Bilateral",
+                        "Midline"
+                    ],
+                    "title": "Class Name",
+                    "type": "string"
+                },
+                "constructor": {
+                    "default": "binary",
+                    "description": "Trinary models differentiate btw. micro- and macroscopic disease.",
+                    "enum": [
+                        "binary",
+                        "trinary"
+                    ],
+                    "title": "Constructor",
+                    "type": "string"
+                },
+                "max_time": {
+                    "default": 10,
+                    "description": "Max. number of time-steps to evolve the model over.",
+                    "title": "Max Time",
+                    "type": "integer"
+                },
+                "kwargs": {
+                    "default": {},
+                    "description": "Additional keyword arguments to pass to the model constructor.",
+                    "title": "Kwargs",
+                    "type": "object"
+                }
+            },
+            "title": "ModelConfig",
+            "type": "object"
+        },
+        "SamplingConfig": {
+            "description": "Settings to configure the MCMC sampling.",
+            "properties": {
+                "output_file": {
+                    "description": "Path to the HDF5 file to store the results in.",
+                    "format": "path",
+                    "title": "Output File",
+                    "type": "string"
+                },
+                "history_file": {
+                    "anyOf": [
+                        {
+                            "format": "path",
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Path to store the burn-in history in (as CSV file).",
+                    "title": "History File"
+                },
+                "cores": {
+                    "anyOf": [
+                        {
+                            "exclusiveMinimum": 0,
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": 16,
+                    "description": "Number of cores to use for parallel sampling. If `None`, no parallel processing is used.",
+                    "title": "Cores"
+                },
+                "seed": {
+                    "default": 42,
+                    "description": "Seed for the random number generator.",
+                    "title": "Seed",
+                    "type": "integer"
+                },
+                "walkers_per_dim": {
+                    "default": 20,
+                    "description": "Number of walkers per parameter space dimension.",
+                    "title": "Walkers Per Dim",
+                    "type": "integer"
+                },
+                "max_burnin": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Maximum number of burn-in steps.",
+                    "title": "Max Burnin"
+                },
+                "check_interval": {
+                    "default": 50,
+                    "description": "Check for convergence each time after this many steps.",
+                    "title": "Check Interval",
+                    "type": "integer"
+                },
+                "trust_factor": {
+                    "default": 50.0,
+                    "description": "Trust the autocorrelation time only when it's smaller than this factor times the length of the chain.",
+                    "title": "Trust Factor",
+                    "type": "number"
+                },
+                "relative_thresh": {
+                    "default": 0.05,
+                    "description": "Relative threshold for convergence.",
+                    "title": "Relative Thresh",
+                    "type": "number"
+                },
+                "thin": {
+                    "default": 10,
+                    "description": "How many samples to draw before for saving one.",
+                    "title": "Thin",
+                    "type": "integer"
+                },
+                "nsteps": {
+                    "default": 100,
+                    "description": "Number of samples after convergence, regardless of thinning.",
+                    "title": "Nsteps",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "output_file"
+            ],
+            "title": "SamplingConfig",
+            "type": "object"
+        }
+    },
+    "additionalProperties": false,
+    "description": "Settings required for the MCMC sampling.",
+    "properties": {
+        "graph": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/GraphConfig"
+                }
+            ],
+            "default": {
+                "tumor": {
+                    "T": []
+                },
+                "lnl": {}
+            }
+        },
+        "model": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/ModelConfig"
+                }
+            ],
+            "default": {
+                "class_name": "Unilateral",
+                "constructor": "binary",
+                "max_time": 10,
+                "kwargs": {}
+            }
+        },
+        "distributions": {
+            "additionalProperties": {
+                "$ref": "#/$defs/DistributionConfig"
+            },
+            "default": {},
+            "description": "Mapping of model T-categories to predefined distributions over diagnose times.",
+            "title": "Distributions",
+            "type": "object"
+        },
+        "modalities": {
+            "additionalProperties": {
+                "$ref": "#/$defs/ModalityConfig"
+            },
+            "default": {},
+            "description": "Maps names of diagnostic modalities to their specificity/sensitivity.",
+            "title": "Modalities",
+            "type": "object"
+        },
+        "data": {
+            "$ref": "#/$defs/DataConfig"
+        },
+        "sampling": {
+            "$ref": "#/$defs/SamplingConfig"
+        }
+    },
+    "required": [
+        "data",
+        "sampling"
+    ],
+    "title": "SamplingSettings",
+    "type": "object"
+}
