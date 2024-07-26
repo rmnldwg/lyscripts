@@ -32,7 +32,7 @@ dependencies = [
     "rich",
     "rich-argparse",
     "pyyaml",
-    "lymph-model >= 1.2.2",
+    "lymph-model >= 1.2.3",
     "deprecated",
     "joblib",
     "pydantic",
