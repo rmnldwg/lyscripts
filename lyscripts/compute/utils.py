@@ -1,10 +1,13 @@
 """Utilities for precomputing the priors and posteriors."""
 
+import logging
 from pathlib import Path
 from typing import Any
 
 import h5py
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 def is_hdf5_compatible(value: Any) -> bool:
@@ -58,6 +61,7 @@ class HDF5FileCache:
         """Initialize the cache with the given ``file_path``."""
         file_path.parent.mkdir(parents=True, exist_ok=True)
         self.file_path = file_path
+        logger.info(f"Initialized HDF5 storage at {file_path}")
 
         if attrs is not None:
             with h5py.File(self.file_path, "a") as file:
@@ -68,6 +72,8 @@ class HDF5FileCache:
         with h5py.File(self.file_path, "r") as file:
             array = file[key][()]
             attrs = dict(file[key].attrs)
+
+        logger.debug(f"Loaded dataset {key} from {self.file_path}")
         return array, attrs
 
     def __setitem__(
@@ -83,10 +89,67 @@ class HDF5FileCache:
             file[key] = array
             file[key].attrs.update(hdf5_dict(attrs))
 
+        logger.debug(f"Stored dataset {key} in {self.file_path}")
+
     def __contains__(self, key: bytes | str) -> bool:
         """Check if the given ``key`` is in the cache."""
         with h5py.File(self.file_path, "a") as file:
             return key in file
+
+
+class HDF5FileStorage:
+    """Helper class for storing and loading data from an HDF5 file."""
+
+    def __init__(self, file_path: Path, attrs: dict[str, Any] | None = None) -> None:
+        """Initialize the storage at the given ``file_path``."""
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        self.file_path = file_path
+        logger.info(f"Initialized HDF5 storage at {file_path}")
+
+        if attrs is not None:
+            with h5py.File(self.file_path, "a") as file:
+                file.attrs.update(hdf5_dict(attrs))
+
+    def _get_dset(self, dset_name: str) -> h5py.Dataset:
+        """Get the dataset with ``dset_name``."""
+        with h5py.File(self.file_path, "a") as file:
+            return file[dset_name]
+
+    def load(self, dset_name: str) -> np.ndarray:
+        """Load the dataset with the name ``dset_name``."""
+        array = self._get_dset(dset_name)[()]
+        logger.debug(f"Loaded dataset {dset_name} from {self.file_path}")
+        return array
+
+    def get_attrs(self, dset_name: str) -> dict[str, Any]:
+        """Get the attributes of the dataset ``dset_name``."""
+        attrs = dict(self._get_dset(dset_name).attrs)
+        logger.debug(f"Loaded attributes for dataset {dset_name} from {self.file_path}")
+        return attrs
+
+    def save(
+        self,
+        dset_name: str,
+        values: np.ndarray,
+    ) -> None:
+        """Set the ``values`` for the ``dset_name`` dataset."""
+        with h5py.File(self.file_path, "a") as file:
+            if dset_name in file:
+                del file[dset_name]
+            file[dset_name] = values
+
+        logger.debug(f"Stored dataset {dset_name} in {self.file_path}")
+
+    def set_attrs(
+        self,
+        dset_name: str,
+        attrs: dict[str, Any],
+    ) -> None:
+        """Update the ``attrs`` for the ``dset_name`` dataset."""
+        with h5py.File(self.file_path, "a") as file:
+            file[dset_name].attrs.update(hdf5_dict(attrs))
+
+        logger.debug(f"Stored attributes for dataset {dset_name} in {self.file_path}")
 
 
 def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, bool]]:

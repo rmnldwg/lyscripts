@@ -20,7 +20,7 @@ from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
 
 from lyscripts import utils
-from lyscripts.compute.utils import HDF5FileCache
+from lyscripts.compute.utils import HDF5FileStorage
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
@@ -175,24 +175,31 @@ def compute_priors(
     return np.stack(priors)
 
 
+def get_cached_compute_priors(cache_dir: Path) -> callable:
+    """Return a function that computes priors and caches the results."""
+    memory = Memory(
+        location=cache_dir,
+        verbose=(
+            20 * (logger.level <= logging.DEBUG) + 1 * (logger.level <= logging.INFO)
+        ),
+    )
+    cached_compute_priors = memory.cache(compute_priors, ignore=["progress_desc"])
+    logger.debug(f"Initialized cache at {cache_dir}")
+    return cached_compute_priors
+
+
 def main(args: argparse.Namespace):
     """Compute the prior state distribution for each sample."""
     yaml_configs = merge_yaml_configs(args.configs)
-
     settings = CmdSettings(
         _cli_settings_source=args.cli_settings_source(parsed_args=args),
         **yaml_configs,
     )
     logger.debug(settings.model_dump_json(indent=2))
 
-    memory = Memory(
-        location=settings.cache_dir,
-        verbose=(
-            20 * (logger.level <= logging.DEBUG) + 1 * (logger.level <= logging.INFO)
-        ),
-    )
-    cached_compute_priors = memory.cache(compute_priors, ignore=["progress_desc"])
-    hdf5_storage = HDF5FileCache(
+    cached_compute_priors = get_cached_compute_priors(settings)
+
+    hdf5_storage = HDF5FileStorage(
         file_path=settings.priors.output_file,
         attrs=settings.model_dump(include={"model", "graph", "distributions"}),
     )
@@ -209,7 +216,8 @@ def main(args: argparse.Namespace):
             progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
             **attrs,
         )
-        hdf5_storage[f"{i:03d}"] = priors, attrs
+        hdf5_storage.save(dset_name=f"{i:03d}", values=priors)
+        hdf5_storage.set_attrs(dset_name=f"{i:03d}", attrs=attrs)
 
 
 if __name__ == "__main__":

@@ -492,6 +492,7 @@ def make_pattern(
     return dict(zip(lnls, from_list or [None] * len(lnls), strict=False))
 
 
+@log_state()
 def merge_yaml_configs(files: list[Path]) -> dict:
     """Merge the YAML configuration files and return the merged dictionary."""
     yaml_params = {}
