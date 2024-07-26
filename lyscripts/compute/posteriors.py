@@ -25,7 +25,7 @@ from lymph import models, types
 from rich import progress
 
 from lyscripts import utils
-from lyscripts.compute.priors import compute_priors_using_cache
+from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
@@ -105,7 +105,7 @@ def compute_posteriors_using_cache(
         return posteriors
 
     try:
-        priors = compute_priors_using_cache(
+        priors = compute_priors(
             model_config=model,
             cache=priors_cache,
             scenario=scenario,

@@ -23,7 +23,6 @@ import emcee
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
-from pydantic._internal._utils import deep_update
 from pydantic_settings import (
     BaseSettings,
     CliSettingsSource,
@@ -43,7 +42,7 @@ from lyscripts.configs import (
 from lyscripts.utils import (
     console,
     get_hdf5_backend,
-    load_yaml_params,
+    merge_yaml_configs,
 )
 
 logger = logging.getLogger(__name__)
@@ -145,12 +144,12 @@ def _add_arguments(parser: argparse.ArgumentParser):
     This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
-        "--params",
+        "--configs",
         default=[],
         nargs="*",
         help=(
-            "Path(s) to parameter file(s). Subsequent files overwrite previous ones. "
-            "Command line arguments take precedence over all files."
+            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
+            "previous ones. Command line arguments take precedence over all files."
         ),
     )
     parser.set_defaults(
@@ -336,13 +335,11 @@ def main(args: argparse.Namespace) -> None:
     # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
     os.environ["OMP_NUM_THREADS"] = "1"
 
-    yaml_params = {}
-    for param_file in args.params:
-        yaml_params = deep_update(yaml_params, load_yaml_params(param_file))
+    yaml_configs = merge_yaml_configs(args.configs)
 
     settings = CmdSettings(
         _cli_settings_source=args.cli_settings_source(parsed_args=args),
-        **yaml_params,
+        **yaml_configs,
     )
     logger.debug(settings.model_dump_json(indent=2))
 

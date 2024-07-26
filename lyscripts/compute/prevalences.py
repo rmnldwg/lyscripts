@@ -35,7 +35,7 @@ from lymph import models, types
 from rich.progress import track
 
 from lyscripts import utils
-from lyscripts.compute.priors import compute_priors_using_cache
+from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
@@ -191,7 +191,7 @@ def compute_prevalences_using_cache(
         return prevalences
 
     try:
-        priors = compute_priors_using_cache(
+        priors = compute_priors(
             model_config=model,
             cache=priors_cache,
             scenario=scenario,

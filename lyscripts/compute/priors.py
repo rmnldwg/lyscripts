@@ -14,12 +14,13 @@ import logging
 from pathlib import Path
 
 import numpy as np
+from joblib import Memory
 from pydantic import BaseModel, DirectoryPath, Field, FilePath
-from pydantic._internal._utils import deep_update
 from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
 
 from lyscripts import utils
+from lyscripts.compute.utils import HDF5FileCache
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
@@ -28,6 +29,7 @@ from lyscripts.configs import (
     ScenarioConfig,
     construct_model,
 )
+from lyscripts.utils import merge_yaml_configs
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,14 @@ class SamplesConfig(BaseModel):
         default=1,
         description="Only use every `thin`-th sample from the input file.",
     )
+
+    def load(self) -> np.ndarray:
+        """Load the samples from the HDF5 file."""
+        return utils.load_model_samples(
+            file_path=self.input_file,
+            name=self.dset_name,
+            thin=self.thin,
+        )
 
 
 class PriorsConfig(BaseModel):
@@ -66,7 +76,7 @@ class CmdSettings(BaseSettings):
     """Settings required to compute priors from model configs and samples."""
 
     cache_dir: DirectoryPath = Field(
-        default=Path.cwd() / ".lyscripts_cache",
+        default=Path.cwd() / ".cache",
         description="Cache directory for storing function calls.",
     )
     samples: SamplesConfig
@@ -112,12 +122,12 @@ def _add_arguments(parser: argparse.ArgumentParser):
     This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
-        "--params",
+        "--configs",
         default=[],
         nargs="*",
         help=(
-            "Path(s) to parameter file(s). Subsequent files overwrite previous ones. "
-            "Command line arguments take precedence over all files."
+            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
+            "previous ones. Command line arguments take precedence over all files."
         ),
     )
     parser.set_defaults(
@@ -130,11 +140,13 @@ def _add_arguments(parser: argparse.ArgumentParser):
     )
 
 
-def compute_priors_using_cache(
+def compute_priors(
     model_config: ModelConfig,
     graph_config: GraphConfig,
     samples: np.ndarray,
-    scenario: ScenarioConfig,
+    t_stages: list[int | str],
+    t_stages_dist: list[float],
+    mode: str = "HMM",
     progress_desc: str = "Computing priors from samples",
 ) -> np.ndarray:
     """Compute prior state distributions from the ``samples`` for the ``model``.
@@ -155,8 +167,8 @@ def compute_priors_using_cache(
         model.set_params(*sample)
         priors.append(
             sum(
-                model.state_dist(t_stage=t, mode=scenario.mode) * p
-                for t, p in zip(scenario.t_stages, scenario.t_stages_dist, strict=False)
+                model.state_dist(t_stage=t, mode=mode) * p
+                for t, p in zip(t_stages, t_stages_dist, strict=False)
             )
         )
 
@@ -165,27 +177,39 @@ def compute_priors_using_cache(
 
 def main(args: argparse.Namespace):
     """Compute the prior state distribution for each sample."""
-    yaml_params = {}
-    for param_file in args.params:
-        yaml_params = deep_update(yaml_params, utils.load_yaml_params(param_file))
+    yaml_configs = merge_yaml_configs(args.configs)
 
     settings = CmdSettings(
         _cli_settings_source=args.cli_settings_source(parsed_args=args),
-        **yaml_params,
+        **yaml_configs,
     )
     logger.debug(settings.model_dump_json(indent=2))
 
-    samples = utils.load_model_samples(args.samples)
+    memory = Memory(
+        location=settings.cache_dir,
+        verbose=(
+            20 * (logger.level <= logging.DEBUG) + 1 * (logger.level <= logging.INFO)
+        ),
+    )
+    cached_compute_priors = memory.cache(compute_priors, ignore=["progress_desc"])
+    hdf5_storage = HDF5FileCache(
+        file_path=settings.priors.output_file,
+        attrs=settings.model_dump(include={"model", "graph", "distributions"}),
+    )
 
+    samples = settings.samples.load()
     num_scenarios = len(settings.scenarios)
+
     for i, scenario in enumerate(settings.scenarios):
-        _priors = compute_priors_using_cache(
+        attrs = scenario.model_dump(include={"t_stages", "t_stages_dist", "mode"})
+        priors = cached_compute_priors(
             model_config=settings.model,
             graph_config=settings.graph,
             samples=samples,
-            scenario=scenario,
             progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
+            **attrs,
         )
+        hdf5_storage[f"{i:03d}"] = priors, attrs
 
 
 if __name__ == "__main__":

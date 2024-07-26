@@ -54,14 +54,18 @@ def get_modality_subset(diagnosis: dict[str, Any]) -> set[str]:
 class HDF5FileCache:
     """HDF5 file acting as a cache for expensive arrays."""
 
-    def __init__(self, file_path: Path) -> None:
+    def __init__(self, file_path: Path, attrs: dict[str, Any] | None = None) -> None:
         """Initialize the cache with the given ``file_path``."""
         file_path.parent.mkdir(parents=True, exist_ok=True)
         self.file_path = file_path
 
+        if attrs is not None:
+            with h5py.File(self.file_path, "a") as file:
+                file.attrs.update(hdf5_dict(attrs))
+
     def __getitem__(self, key: bytes | str) -> tuple[np.ndarray, dict[str, Any]]:
         """Get the array and attributes stored under the given ``key``."""
-        with h5py.File(self.file_path, "a") as file:
+        with h5py.File(self.file_path, "r") as file:
             array = file[key][()]
             attrs = dict(file[key].attrs)
         return array, attrs

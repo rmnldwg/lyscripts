@@ -16,6 +16,7 @@ import yaml
 from deprecated import deprecated
 from emcee.backends import HDFBackend
 from lymph import diagnosis_times, models, types
+from pydantic._internal._utils import deep_update
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
@@ -489,3 +490,11 @@ def make_pattern(
 ) -> dict[str, bool | None]:
     """Create a dictionary from a list of bools and Nones."""
     return dict(zip(lnls, from_list or [None] * len(lnls), strict=False))
+
+
+def merge_yaml_configs(files: list[Path]) -> dict:
+    """Merge the YAML configuration files and return the merged dictionary."""
+    yaml_params = {}
+    for file in files:
+        yaml_params = deep_update(yaml_params, load_yaml_params(file))
+    return yaml_params
