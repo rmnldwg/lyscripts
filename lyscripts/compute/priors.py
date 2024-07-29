@@ -197,27 +197,28 @@ def main(args: argparse.Namespace):
     )
     logger.debug(settings.model_dump_json(indent=2))
 
-    cached_compute_priors = get_cached_compute_priors(settings)
-
-    hdf5_storage = HDF5FileStorage(
-        file_path=settings.priors.output_file,
-        attrs=settings.model_dump(include={"model", "graph", "distributions"}),
-    )
+    hdf5_storage = HDF5FileStorage(settings.priors.output_file)
+    global_attrs = settings.model_dump(include={"model", "graph", "distributions"})
+    hdf5_storage.set_attrs("/", global_attrs)
 
     samples = settings.samples.load()
+    cached_compute_priors = get_cached_compute_priors(settings)
     num_scenarios = len(settings.scenarios)
 
     for i, scenario in enumerate(settings.scenarios):
-        attrs = scenario.model_dump(include={"t_stages", "t_stages_dist", "mode"})
+        scenario_fields = {"t_stages", "t_stages_dist", "mode"}
+        scenario_attrs = scenario.model_dump(include=scenario_fields)
+
         priors = cached_compute_priors(
             model_config=settings.model,
             graph_config=settings.graph,
             samples=samples,
             progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
-            **attrs,
+            **scenario_attrs,
         )
+
         hdf5_storage.save(dset_name=f"{i:03d}", values=priors)
-        hdf5_storage.set_attrs(dset_name=f"{i:03d}", attrs=attrs)
+        hdf5_storage.set_attrs(dset_name=f"{i:03d}", attrs=scenario_attrs)
 
 
 if __name__ == "__main__":
