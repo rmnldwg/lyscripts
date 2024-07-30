@@ -1,0 +1,13 @@
+distributions:
+  early:
+    func: binomial
+    kind: frozen
+    params: {p: 0.3}
+  late:
+    func: binomial
+    kind: parametric
+    params: {p: 0.7}
+
+t_stages_dist:
+  early: 0.6
+  late: 0.4
