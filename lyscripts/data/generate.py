@@ -1,19 +1,53 @@
-"""Calls the synthetic data generating methods of the `lymph`_ package models.
-
-.. _lymph: https://lymph-model.readthedocs.io
-"""
+"""Script to create some test data for the integration tests."""
 
 import argparse
 import logging
 from pathlib import Path
 
-import emcee
 import numpy as np
+from pydantic_settings import BaseSettings, CliSettingsSource
 
+from lyscripts.configs import (
+    DistributionConfig,
+    GraphConfig,
+    ModalityConfig,
+    ModelConfig,
+    add_dists,
+    add_modalities,
+    construct_model,
+)
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.utils import create_model, load_yaml_params
+from lyscripts.utils import merge_yaml_configs
 
 logger = logging.getLogger(__name__)
+
+
+class CmdSettings(BaseSettings):
+    """Settings for the command-line interface."""
+
+    model: ModelConfig
+    graph: GraphConfig
+    distributions: dict[str, DistributionConfig]
+    t_stages_dist: dict[str, float]
+    modalities: dict[str, ModalityConfig]
+    params: dict[str, float]
+    num_patients: int = 200
+    output_file: str
+    seed: int = 42
+
+    def model_post_init(self, __context) -> None:
+        """Make sure distribution over T-stages is normalized."""
+        total = 0.0
+        for t_stage in self.distributions:
+            if t_stage not in self.t_stages_dist:
+                raise ValueError(f"Missing distribution for T-stage {t_stage}.")
+
+            total += self.t_stages_dist[t_stage]
+
+        if not np.isclose(total, 1.0):
+            raise ValueError("Sum of T-stage distributions must be 1.")
+
+        return super().model_post_init(__context)
 
 
 def _add_parser(
@@ -31,98 +65,48 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to the parser."""
+    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
+
+    This is called by the parent module that is called via the command line.
+    """
     parser.add_argument(
-        "num",
-        type=int,
-        help="Number of synthetic patient records to generate",
+        "--configs",
+        default=[],
+        nargs="*",
+        help="Path(s) to YAML configuration file(s).",
     )
-    parser.add_argument(
-        "output",
-        type=Path,
-        help="Path where to store the generated synthetic data",
-    )
-
-    parser.add_argument(
-        "--params",
-        default="./params.yaml",
-        type=Path,
-        help="Parameter file containing model specifications",
+    parser.set_defaults(
+        run_main=main,
+        cli_settings_source=CliSettingsSource(
+            settings_cls=CmdSettings,
+            cli_use_class_docs_for_groups=True,
+            root_parser=parser,
+        ),
     )
 
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        "--set-theta",
-        nargs="+",
-        type=float,
-        help="Set the spread probs and parameters for time marginalization by hand",
+
+def main(args: argparse.Namespace) -> None:
+    """Run main script."""
+    yaml_config = merge_yaml_configs(args.configs)
+    settings = CmdSettings(
+        _cli_settings_source=args.cli_settings_source(parsed_args=args), **yaml_config
     )
-    group.add_argument(
-        "--load-theta",
-        choices=["mean", "max_llh"],
-        default="mean",
-        help="Use either mean or maximum likelihood estimate from drawn samples",
+    logger.debug(settings.model_dump_json(indent=2))
+
+    model = construct_model(settings.model, settings.graph)
+    model = add_dists(model, settings.distributions)
+    model = add_modalities(model, settings.modalities)
+    model.set_params(**settings.params)
+    logger.info(f"Set parameters: {model.get_params(as_dict=True)}")
+
+    synth_data = model.draw_patients(
+        num=settings.num_patients,
+        stage_dist=list(settings.t_stages_dist.values()),
+        seed=settings.seed,
     )
+    logger.info(f"Generated synthetic data with shape {synth_data.shape}")
 
-    parser.add_argument(
-        "--samples",
-        default="./models/samples.hdf5",
-        type=Path,
-        help="Path to the samples if a method to load them was chosen",
-    )
-
-    parser.set_defaults(run_main=main)
-
-
-def main(args: argparse.Namespace):
-    """Run the data generation."""
-    params = load_yaml_params(args.params)
-    model = create_model(params)
-    ndim = len(model.spread_probs) + model.diag_time_dists.num_parametric
-
-    if args.set_theta is not None:
-        if len(args.set_theta) != ndim:
-            raise ValueError(
-                f"Model takes {ndim} parameters, but{len(args.set_theta)} were provided"
-            )
-        theta = np.array(args.set_theta)
-        model.check_and_assign(theta)
-        logger.debug(theta)
-        logger.info("Assigned given parameters to model")
-
-    else:
-        backend = emcee.backends.HDFBackend(args.samples, read_only=True, name="mcmc")
-        chain = backend.get_chain(flat=True)
-        log_probs = backend.get_blobs(flat=True)
-
-        if args.load_theta == "mean":
-            theta = np.mean(chain, axis=0)
-        elif args.load_theta == "max_llh":
-            max_llh_idx = np.argmax(log_probs)
-            theta = chain[max_llh_idx]
-        else:
-            raise ValueError("Only 'mean' and 'max_llh' are supported")
-
-        model.check_and_assign(theta)
-        logger.debug(theta)
-        logger.info(f"Loaded samples and assigned their {args.load_theta} value")
-
-    model.modalities = params["synthetic"]["modalities"]
-    logger.debug(f"Assigned modalities for synthetic data: {model.modalities}")
-
-    synthetic_data = model.generate_dataset(
-        num_patients=args.num,
-        stage_dist=params["synthetic"]["t_stages_dist"],
-        ext_prob=params["synthetic"]["midline_ext_prob"],
-    )
-    if len(synthetic_data) != args.num:
-        logger.error(
-            f"Length of generated data ({len(synthetic_data)}) does not match "
-            f"target length ({args.num})"
-        )
-    logger.info(f"Created synthetic data of {args.num} patients.")
-
-    save_table_to_csv(args.output, synthetic_data)
+    save_table_to_csv(file_path=settings.output_file, table=synth_data)
 
 
 if __name__ == "__main__":
