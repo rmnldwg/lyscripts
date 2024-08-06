@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 from joblib import Memory
-from pydantic import BaseModel, DirectoryPath, Field, FilePath
+from pydantic import BaseModel, ConfigDict, Field, FilePath
 from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
 
@@ -27,6 +27,7 @@ from lyscripts.configs import (
     ModalityConfig,
     ModelConfig,
     ScenarioConfig,
+    add_dists,
     construct_model,
 )
 from lyscripts.utils import merge_yaml_configs
@@ -75,7 +76,9 @@ class PriorsConfig(BaseModel):
 class CmdSettings(BaseSettings):
     """Settings required to compute priors from model configs and samples."""
 
-    cache_dir: DirectoryPath = Field(
+    model_config = ConfigDict(extra="allow")
+
+    cache_dir: Path = Field(
         default=Path.cwd() / ".cache",
         description="Cache directory for storing function calls.",
     )
@@ -143,6 +146,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 def compute_priors(
     model_config: ModelConfig,
     graph_config: GraphConfig,
+    dist_configs: dict[str, DistributionConfig],
     samples: np.ndarray,
     t_stages: list[int | str],
     t_stages_dist: list[float],
@@ -157,6 +161,7 @@ def compute_priors(
     priors will be computed for the given ``t_stage``.
     """
     model = construct_model(model_config=model_config, graph_config=graph_config)
+    model = add_dists(model, dist_configs)
     priors = []
 
     for sample in progress.track(
@@ -202,7 +207,7 @@ def main(args: argparse.Namespace):
     hdf5_storage.set_attrs("/", global_attrs)
 
     samples = settings.samples.load()
-    cached_compute_priors = get_cached_compute_priors(settings)
+    cached_compute_priors = get_cached_compute_priors(settings.cache_dir)
     num_scenarios = len(settings.scenarios)
 
     for i, scenario in enumerate(settings.scenarios):
@@ -212,6 +217,7 @@ def main(args: argparse.Namespace):
         priors = cached_compute_priors(
             model_config=settings.model,
             graph_config=settings.graph,
+            dist_configs=settings.distributions,
             samples=samples,
             progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
             **scenario_attrs,
