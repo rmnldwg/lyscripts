@@ -185,6 +185,7 @@ def get_starting_state(sampler):
         )
     except AttributeError:
         state = np.random.uniform(size=(sampler.nwalkers, sampler.ndim))
+        logger.debug(f"No stored samples found. Starting from random state {state}.")
 
     return state
 
