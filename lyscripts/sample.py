@@ -22,7 +22,7 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import (
     BaseSettings,
     CliSettingsSource,
@@ -104,6 +104,8 @@ class SamplingConfig(BaseModel):
 
 class CmdSettings(BaseSettings):
     """Settings required for the MCMC sampling."""
+
+    model_config = ConfigDict(extra="allow")
 
     graph: GraphConfig
     model: ModelConfig = ModelConfig()
