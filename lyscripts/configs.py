@@ -1,5 +1,7 @@
 """Define configuration using pydantic."""
 
+import importlib
+import importlib.util
 import logging
 from collections.abc import Callable
 from copy import deepcopy
@@ -74,8 +76,17 @@ class ModalityConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    """Define which of the ``lymph`` models to use and how to set them up."""
+    """Define which of the ``lymph`` models to use and how to set them up.
 
+    Also allows loading a pre-defined model from an external Python file. Note that it
+    should provide at least the methods defined by the `lymph.types.Model` protocol,
+    possibly more.
+    """
+
+    external: FilePath | None = Field(
+        default=None,
+        description="Path to a Python file that defines a model.",
+    )
     class_name: Literal["Unilateral", "Bilateral", "Midline"] = Field(
         default="Unilateral", description="Name of the model class to use."
     )
@@ -197,6 +208,22 @@ class ScenarioConfig(BaseModel):
             ).tolist()  # cast to list to make ``__eq__`` work
 
 
+def _construct_model_from_external(path: Path) -> Model:
+    """Construct a model from a Python file."""
+    module_name = path.stem
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    module = importlib.util.module_from_spec(spec)
+
+    try:
+        spec.loader.exec_module(module)
+    except FileNotFoundError as fnf_err:
+        logger.error(f"Could not load model from {path}: {fnf_err}")
+        raise fnf_err
+
+    logger.info(f"Loaded model from {path}. This ignores model and graph configs.")
+    return module.model
+
+
 def construct_model(
     model_config: ModelConfig,
     graph_config: GraphConfig,
@@ -206,6 +233,9 @@ def construct_model(
     The ``dist_map`` should map a name to a function that will be used as distribution
     over diagnosis times.
     """
+    if model_config.external is not None:
+        return _construct_model_from_external(model_config.external)
+
     cls = getattr(models, model_config.class_name)
     constructor = getattr(cls, model_config.constructor)
     model = constructor(
