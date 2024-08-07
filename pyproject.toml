@@ -80,12 +80,17 @@ version = {attr = "lyscripts._version.version"}
 [tool.pytest.ini_options]
 testpaths = "."
 
-[tool.ruff]
-exclude = ["tests", "docs"]
-
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "C", "R", "U", "D", "I", "S", "T", "A", "N"]
 ignore = ["D409"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+"**/{tests,docs}/*" = [
+    "D103",
+    "E402",
+    "S101",
+]
 
 
 # git-cliff ~ default configuration file
