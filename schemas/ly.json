@@ -388,42 +388,13 @@
       "title": "PriorsConfig",
       "type": "object"
     },
-    "SamplesConfig": {
-      "description": "Configuration for the samples file.",
-      "properties": {
-        "input_file": {
-          "description": "Path to the drawn samples (HDF5 file).",
-          "format": "file-path",
-          "title": "Input File",
-          "type": "string"
-        },
-        "dset_name": {
-          "default": "mcmc",
-          "description": "Name of the dataset in the HDF5 file.",
-          "title": "Dset Name",
-          "type": "string"
-        },
-        "thin": {
-          "default": 1,
-          "description": "Only use every `thin`-th sample from the input file.",
-          "exclusiveMinimum": 0,
-          "title": "Thin",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "input_file"
-      ],
-      "title": "SamplesConfig",
-      "type": "object"
-    },
     "SamplingConfig": {
       "description": "Settings to configure the MCMC sampling.",
       "properties": {
-        "output_file": {
-          "description": "Path to the HDF5 file to store the results in.",
+        "storage_file": {
+          "description": "Path to HDF5 file for the results to be stored on or loaded from.",
           "format": "path",
-          "title": "Output File",
+          "title": "Storage File",
           "type": "string"
         },
         "history_file": {
@@ -439,6 +410,12 @@
           "default": null,
           "description": "Path to store the burn-in metrics in (as CSV file).",
           "title": "History File"
+        },
+        "dset_name": {
+          "default": "mcmc",
+          "description": "Name of the dataset in the HDF5 file.",
+          "title": "Dset Name",
+          "type": "string"
         },
         "cores": {
           "anyOf": [
@@ -517,7 +494,7 @@
         }
       },
       "required": [
-        "output_file"
+        "storage_file"
       ],
       "title": "SamplingConfig",
       "type": "object"
@@ -632,8 +609,8 @@
       "title": "Cache Dir",
       "type": "string"
     },
-    "samples": {
-      "$ref": "#/$defs/SamplesConfig"
+    "sampling": {
+      "$ref": "#/$defs/SamplingConfig"
     },
     "priors": {
       "$ref": "#/$defs/PriorsConfig"
@@ -684,9 +661,6 @@
     },
     "data": {
       "$ref": "#/$defs/DataConfig"
-    },
-    "sampling": {
-      "$ref": "#/$defs/SamplingConfig"
     }
   },
   "title": "SchemaSettings",

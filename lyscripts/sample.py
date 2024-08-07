@@ -22,7 +22,7 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from pydantic_settings import (
     BaseSettings,
     CliSettingsSource,
@@ -35,6 +35,7 @@ from lyscripts.configs import (
     GraphConfig,
     ModalityConfig,
     ModelConfig,
+    SamplingConfig,
     add_dists,
     add_modalities,
     construct_model,
@@ -55,67 +56,6 @@ _BURNIN_KWARGS = {
     "history_file",
 }
 _SAMPLING_KWARGS = {"nsteps", "thin"}
-
-
-class SamplingConfig(BaseModel):
-    """Settings to configure the MCMC sampling."""
-
-    output_file: Path = Field(
-        description="Path to the HDF5 file to store the results in."
-    )
-    history_file: Path | None = Field(
-        default=None,
-        description="Path to store the burn-in metrics in (as CSV file).",
-    )
-    cores: int | None = Field(
-        gt=0,
-        default=os.cpu_count(),
-        description=(
-            "Number of cores to use for parallel sampling. If `None`, no parallel "
-            "processing is used."
-        ),
-    )
-    seed: int = Field(
-        default=42,
-        description="Seed for the random number generator.",
-    )
-    walkers_per_dim: int = Field(
-        default=20,
-        description="Number of walkers per parameter space dimension.",
-    )
-    max_burnin: int | None = Field(
-        default=None,
-        description="Maximum number of burn-in steps.",
-    )
-    check_interval: int = Field(
-        default=50,
-        description="Check for convergence each time after this many steps.",
-    )
-    trust_factor: float = Field(
-        default=50.0,
-        description=(
-            "Trust the autocorrelation time only when it's smaller than this factor "
-            "times the length of the chain."
-        ),
-    )
-    relative_thresh: float = Field(
-        default=0.05,
-        description="Relative threshold for convergence.",
-    )
-    thin: int = Field(
-        default=10, description="How many samples to draw before for saving one."
-    )
-    nsteps: int = Field(
-        default=100,
-        description="Number of samples after convergence, regardless of thinning.",
-    )
-    inverse_temp: float = Field(
-        default=1.0,
-        description=(
-            "Inverse temperature for thermodynamic integration. Note that this is not "
-            "yet fully implemented."
-        ),
-    )
 
 
 class CmdSettings(BaseSettings):
@@ -351,13 +291,33 @@ def get_pool(num_cores: int | None) -> Any | DummyPool:  # type: ignore
     return Pool(num_cores) if num_cores is not None else DummyPool()
 
 
+def init_sampler(settings: CmdSettings, ndim: int, pool: Any) -> emcee.EnsembleSampler:
+    """Initialize the ``emcee.EnsembleSampler`` with the given ``settings``."""
+    nwalkers = ndim * settings.sampling.walkers_per_dim
+    backend = get_hdf5_backend(
+        file_path=settings.sampling.storage_file,
+        dset_name=settings.sampling.dset_name,
+        nwalkers=nwalkers,
+        ndim=ndim,
+    )
+    return emcee.EnsembleSampler(
+        nwalkers,
+        ndim,
+        log_prob_fn,
+        kwargs={"inverse_temp": settings.sampling.inverse_temp},
+        moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)],
+        backend=backend,
+        pool=pool,
+        blobs_dtype=[("inverse_temp", np.float64)],
+    )
+
+
 def main(args: argparse.Namespace) -> None:
     """Run the MCMC sampling."""
     # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
     os.environ["OMP_NUM_THREADS"] = "1"
 
     yaml_configs = merge_yaml_configs(args.configs)
-
     settings = CmdSettings(
         _cli_settings_source=args.cli_settings_source(parsed_args=args),
         **yaml_configs,
@@ -370,23 +330,13 @@ def main(args: argparse.Namespace) -> None:
     MODEL = add_dists(MODEL, settings.distributions)
     MODEL = add_modalities(MODEL, settings.modalities)
     MODEL.load_patient_data(**settings.data.get_load_kwargs())
+    ndim = MODEL.get_num_dims()
 
     # emcee does not support numpy's new random number generator yet.
     np.random.seed(settings.sampling.seed)
-    ndim = MODEL.get_num_dims()
-    nwalkers = ndim * settings.sampling.walkers_per_dim
 
     with get_pool(settings.sampling.cores) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_prob_fn,
-            kwargs={"inverse_temp": settings.sampling.inverse_temp},
-            moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)],
-            backend=get_hdf5_backend(settings.sampling.output_file, nwalkers, ndim),
-            pool=pool,
-            blobs_dtype=[("inverse_temp", np.float64)],
-        )
+        sampler = init_sampler(settings, ndim, pool)
         run_burnin(sampler, **settings.sampling.model_dump(include=_BURNIN_KWARGS))
         run_sampling(sampler, **settings.sampling.model_dump(include=_SAMPLING_KWARGS))
 

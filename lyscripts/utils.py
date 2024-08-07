@@ -442,13 +442,13 @@ def load_model_samples(
 @check_output_dir_exists
 def get_hdf5_backend(
     file_path: Path,
+    dset_name: str = "mcmc",
     nwalkers: int | None = None,
     ndim: int | None = None,
-    name: str = "mcmc",
     reset: bool = False,
 ) -> HDFBackend:
     """Open an HDF5 file at ``file_path`` and return a backend."""
-    backend = HDFBackend(file_path, name=name)
+    backend = HDFBackend(file_path, name=dset_name)
 
     if reset:
         backend.reset(nwalkers, ndim)

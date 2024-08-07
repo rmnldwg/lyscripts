@@ -3,6 +3,7 @@
 import importlib
 import importlib.util
 import logging
+import os
 from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
@@ -15,7 +16,7 @@ from lymph.types import Model, PatternType
 from pydantic import BaseModel, Field, FilePath
 from scipy.special import factorial
 
-from lyscripts.utils import flatten, load_patient_data
+from lyscripts.utils import flatten, load_model_samples, load_patient_data
 
 logger = logging.getLogger(__name__)
 FuncNameType = Literal["binomial"]
@@ -319,3 +320,76 @@ def add_data(
     model.load_patient_data(**kwargs)
     logger.info(f"Added data to model: {model}")
     return model
+
+
+class SamplingConfig(BaseModel):
+    """Settings to configure the MCMC sampling."""
+
+    storage_file: Path = Field(
+        description="Path to HDF5 file for the results to be stored on or loaded from."
+    )
+    history_file: Path | None = Field(
+        default=None,
+        description="Path to store the burn-in metrics in (as CSV file).",
+    )
+    dset_name: str = Field(
+        default="mcmc",
+        description="Name of the dataset in the HDF5 file.",
+    )
+    cores: int | None = Field(
+        gt=0,
+        default=os.cpu_count(),
+        description=(
+            "Number of cores to use for parallel sampling. If `None`, no parallel "
+            "processing is used."
+        ),
+    )
+    seed: int = Field(
+        default=42,
+        description="Seed for the random number generator.",
+    )
+    walkers_per_dim: int = Field(
+        default=20,
+        description="Number of walkers per parameter space dimension.",
+    )
+    max_burnin: int | None = Field(
+        default=None,
+        description="Maximum number of burn-in steps.",
+    )
+    check_interval: int = Field(
+        default=50,
+        description="Check for convergence each time after this many steps.",
+    )
+    trust_factor: float = Field(
+        default=50.0,
+        description=(
+            "Trust the autocorrelation time only when it's smaller than this factor "
+            "times the length of the chain."
+        ),
+    )
+    relative_thresh: float = Field(
+        default=0.05,
+        description="Relative threshold for convergence.",
+    )
+    thin: int = Field(
+        default=10, description="How many samples to draw before for saving one."
+    )
+    nsteps: int = Field(
+        default=100,
+        description="Number of samples after convergence, regardless of thinning.",
+    )
+    inverse_temp: float = Field(
+        default=1.0,
+        description=(
+            "Inverse temperature for thermodynamic integration. Note that this is not "
+            "yet fully implemented."
+        ),
+    )
+
+    def load(self) -> np.ndarray:
+        """Load the samples from the HDF5 file."""
+        return load_model_samples(
+            file_path=self.storage_file,
+            name=self.dset_name,
+            thin=self.thin,
+        )

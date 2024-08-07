@@ -15,17 +15,17 @@ from pathlib import Path
 
 import numpy as np
 from joblib import Memory
-from pydantic import BaseModel, ConfigDict, Field, FilePath
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
 
-from lyscripts import utils
 from lyscripts.compute.utils import HDF5FileStorage
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
     ModalityConfig,
     ModelConfig,
+    SamplingConfig,
     ScenarioConfig,
     add_dists,
     construct_model,
@@ -35,33 +35,10 @@ from lyscripts.utils import merge_yaml_configs
 logger = logging.getLogger(__name__)
 
 
-class SamplesConfig(BaseModel):
-    """Configuration for the samples file."""
-
-    input_file: FilePath = Field(description="Path to the drawn samples (HDF5 file).")
-    dset_name: str = Field(
-        default="mcmc",
-        description="Name of the dataset in the HDF5 file.",
-    )
-    thin: int = Field(
-        gt=0,
-        default=1,
-        description="Only use every `thin`-th sample from the input file.",
-    )
-
-    def load(self) -> np.ndarray:
-        """Load the samples from the HDF5 file."""
-        return utils.load_model_samples(
-            file_path=self.input_file,
-            name=self.dset_name,
-            thin=self.thin,
-        )
-
-
 class PriorsConfig(BaseModel):
     """Configure how the priors are computed."""
 
-    output_file: Path = Field(
+    storage_file: Path = Field(
         description="Path to file for storing the computed prior distributions."
     )
     dset_name: str | None = Field(
@@ -82,7 +59,7 @@ class CmdSettings(BaseSettings):
         default=Path.cwd() / ".cache",
         description="Cache directory for storing function calls.",
     )
-    samples: SamplesConfig
+    sampling: SamplingConfig
     priors: PriorsConfig
     graph: GraphConfig
     model: ModelConfig = ModelConfig()
@@ -202,11 +179,11 @@ def main(args: argparse.Namespace):
     )
     logger.debug(settings.model_dump_json(indent=2))
 
-    hdf5_storage = HDF5FileStorage(settings.priors.output_file)
+    hdf5_storage = HDF5FileStorage(settings.priors.storage_file)
     global_attrs = settings.model_dump(include={"model", "graph", "distributions"})
     hdf5_storage.set_attrs("/", global_attrs)
 
-    samples = settings.samples.load()
+    samples = settings.sampling.load()
     cached_compute_priors = get_cached_compute_priors(settings.cache_dir)
     num_scenarios = len(settings.scenarios)
 
