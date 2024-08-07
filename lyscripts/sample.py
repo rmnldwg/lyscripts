@@ -47,6 +47,15 @@ from lyscripts.utils import (
 
 logger = logging.getLogger(__name__)
 
+_BURNIN_KWARGS = {
+    "max_burnin",
+    "check_interval",
+    "trust_factor",
+    "relative_thresh",
+    "history_file",
+}
+_SAMPLING_KWARGS = {"nsteps", "thin"}
+
 
 class SamplingConfig(BaseModel):
     """Settings to configure the MCMC sampling."""
@@ -56,7 +65,7 @@ class SamplingConfig(BaseModel):
     )
     history_file: Path | None = Field(
         default=None,
-        description="Path to store the burn-in history in (as CSV file).",
+        description="Path to store the burn-in metrics in (as CSV file).",
     )
     cores: int | None = Field(
         gt=0,
@@ -99,6 +108,13 @@ class SamplingConfig(BaseModel):
     nsteps: int = Field(
         default=100,
         description="Number of samples after convergence, regardless of thinning.",
+    )
+    inverse_temp: float = Field(
+        default=1.0,
+        description=(
+            "Inverse temperature for thermodynamic integration. Note that this is not "
+            "yet fully implemented."
+        ),
     )
 
 
@@ -167,9 +183,13 @@ def _add_arguments(parser: argparse.ArgumentParser):
 MODEL = None
 
 
-def log_prob_fn(theta: np.array) -> float:
-    """Log probability function using global variables because of pickling."""
-    return MODEL.likelihood(given_params=theta)
+def log_prob_fn(theta: np.array, inverse_temp: float = 1.0) -> tuple[float, float]:
+    """Compute log-prob using global variables because of pickling.
+
+    An inverse temperature ``inverse_temp`` can be provided for thermodynamic
+    integration.
+    """
+    return inverse_temp * MODEL.likelihood(given_params=theta), inverse_temp
 
 
 def get_starting_state(sampler):
@@ -240,7 +260,7 @@ def run_burnin(
     A history of some burn-in metrics will be stored at ``history_path`` if provided.
     """
     state = get_starting_state(sampler)
-    history_df = get_burnin_history(history_file)
+    history = get_burnin_history(history_file)
     previous_accepted = 0
 
     with Progress(
@@ -257,22 +277,20 @@ def run_burnin(
                 progress.update(task, advance=1)
 
             new_acor_time = sampler.get_autocorr_time(tol=0).mean()
-            old_acor_time = (
-                history_df.iloc[-1].acor_times if len(history_df) > 0 else np.inf
-            )
+            old_acor_time = history.iloc[-1].acor_times if len(history) > 0 else np.inf
 
             newly_accepted = np.sum(sampler.backend.accepted) - previous_accepted
             new_accept_frac = newly_accepted / (sampler.nwalkers * check_interval)
             previous_accepted = np.sum(sampler.backend.accepted)
 
-            history_df.loc[sampler.iteration] = [
+            history.loc[sampler.iteration] = [
                 new_acor_time,
                 new_accept_frac,
                 np.max(state.log_prob),
             ]
-            logger.debug(history_df.iloc[-1].to_dict())
+            logger.debug(history.iloc[-1].to_dict())
             if history_file is not None:
-                history_df.to_csv(history_file, index=True)
+                history.to_csv(history_file, index=True)
 
             if max_burnin is None and is_converged(
                 iteration=sampler.iteration,
@@ -309,7 +327,7 @@ def run_sampling(
         total=nsteps * thin,
         console=console,
     ):
-        continue
+        pass
 
 
 class DummyPool:
@@ -363,25 +381,14 @@ def main(args: argparse.Namespace) -> None:
             nwalkers,
             ndim,
             log_prob_fn,
+            kwargs={"inverse_temp": settings.sampling.inverse_temp},
             moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)],
             backend=get_hdf5_backend(settings.sampling.output_file, nwalkers, ndim),
             pool=pool,
+            blobs_dtype=[("inverse_temp", np.float64)],
         )
-        kwargs = {
-            "max_burnin",
-            "check_interval",
-            "trust_factor",
-            "relative_thresh",
-            "history_file",
-        }
-        run_burnin(
-            sampler,
-            **settings.sampling.model_dump(include=kwargs),
-        )
-        run_sampling(
-            sampler,
-            **settings.sampling.model_dump(include={"nsteps", "thin"}),
-        )
+        run_burnin(sampler, **settings.sampling.model_dump(include=_BURNIN_KWARGS))
+        run_sampling(sampler, **settings.sampling.model_dump(include=_SAMPLING_KWARGS))
 
 
 if __name__ == "__main__":
