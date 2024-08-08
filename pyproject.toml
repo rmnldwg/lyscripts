@@ -37,6 +37,7 @@ dependencies = [
     "joblib",
     "pydantic",
     "pydantic-settings",
+    "lydata",
 ]
 dynamic = ["version"]
 

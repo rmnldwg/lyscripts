@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+from lydata.utils import ModalityConfig
 from lymph import models
 from lymph.types import Model, PatternType
 from pydantic import BaseModel, Field, FilePath
@@ -62,17 +63,6 @@ class DistributionConfig(BaseModel):
     )
     params: dict[str, int | float] = Field(
         default={}, description="Parameters to pass to the predefined function."
-    )
-
-
-class ModalityConfig(BaseModel):
-    """Define a diagnostic or pathological modality."""
-
-    spec: float = Field(ge=0.5, le=1.0, description="Specificity of the modality.")
-    sens: float = Field(ge=0.5, le=1.0, description="Sensitivity of the modality.")
-    kind: Literal["clinical", "pathological"] = Field(
-        default="clinical",
-        description="Clinical modalities cannot detect microscopic disease.",
     )
 
 

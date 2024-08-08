@@ -15,6 +15,7 @@ from pathlib import Path
 
 import numpy as np
 from joblib import Memory
+from lydata.utils import ModalityConfig
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
@@ -23,7 +24,6 @@ from lyscripts.compute.utils import HDF5FileStorage
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
-    ModalityConfig,
     ModelConfig,
     SamplingConfig,
     ScenarioConfig,

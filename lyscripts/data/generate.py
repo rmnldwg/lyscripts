@@ -5,12 +5,12 @@ import logging
 from pathlib import Path
 
 import numpy as np
+from lydata.utils import ModalityConfig
 from pydantic_settings import BaseSettings, CliSettingsSource
 
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
-    ModalityConfig,
     ModelConfig,
     add_dists,
     add_modalities,

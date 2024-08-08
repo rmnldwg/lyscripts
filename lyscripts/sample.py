@@ -22,6 +22,7 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
+from lydata.utils import ModalityConfig
 from pydantic import ConfigDict, Field
 from pydantic_settings import (
     BaseSettings,
@@ -33,7 +34,6 @@ from lyscripts.configs import (
     DataConfig,
     DistributionConfig,
     GraphConfig,
-    ModalityConfig,
     ModelConfig,
     SamplingConfig,
     add_dists,
