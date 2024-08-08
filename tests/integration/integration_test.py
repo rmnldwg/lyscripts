@@ -1,7 +1,7 @@
 """Test the ``generate`` CLI."""
 
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import emcee
 import h5py
@@ -37,19 +37,25 @@ def sample_file() -> Path:
 @pytest.fixture(scope="module")
 def generated_data(data_file: Path) -> pd.DataFrame:
     """Generate a dataset and return it."""
-    subprocess.run([
-        "lyscripts",
-        "data",
-        "generate",
-        "--configs",
-        "tests/integration/model.ly.yaml",
-        "tests/integration/graph.ly.yaml",
-        "tests/integration/distributions.ly.yaml",
-        "tests/integration/modalities.ly.yaml",
-        "--num_patients", "200",
-        "--output_file", str(data_file),
-        "--seed", "42",
-    ])
+    subprocess.run(
+        [
+            "lyscripts",
+            "data",
+            "generate",
+            "--configs",
+            "tests/integration/model.ly.yaml",
+            "tests/integration/graph.ly.yaml",
+            "tests/integration/distributions.ly.yaml",
+            "tests/integration/modalities.ly.yaml",
+            "--num_patients",
+            "200",
+            "--output_file",
+            str(data_file),
+            "--seed",
+            "42",
+        ],
+        check=True,
+    )
     return load_patient_data(data_file)
 
 
@@ -60,19 +66,25 @@ def drawn_samples(
     sample_file: Path,
 ) -> np.ndarray:
     """Draw samples from the defined model."""
-    subprocess.run([
-        "lyscripts",
-        "--log-level", "DEBUG",
-        "sample",
-        "--configs",
-        "tests/integration/model.ly.yaml",
-        "tests/integration/graph.ly.yaml",
-        "tests/integration/distributions.ly.yaml",
-        "tests/integration/modalities.ly.yaml",
-        "tests/integration/sample.ly.yaml",
-        "--data.input_file", str(data_file),
-        "--sampling.output_file", str(sample_file),
-    ])
+    subprocess.run(
+        [
+            "lyscripts",
+            "--log-level",
+            "DEBUG",
+            "sample",
+            "--configs",
+            "tests/integration/model.ly.yaml",
+            "tests/integration/graph.ly.yaml",
+            "tests/integration/distributions.ly.yaml",
+            "tests/integration/modalities.ly.yaml",
+            "tests/integration/sample.ly.yaml",
+            "--data.input_file",
+            str(data_file),
+            "--sampling.storage_file",
+            str(sample_file),
+        ],
+        check=True,
+    )
     backend = emcee.backends.HDFBackend(sample_file, read_only=True)
     return backend.get_chain(flat=True)
 
@@ -94,18 +106,22 @@ def computed_priors(
     dset_name: str = "001",
 ) -> np.ndarray:
     """Compute the priors for the drawn samples."""
-    subprocess.run([
-        "lyscripts",
-        "compute",
-        "priors",
-        "--configs",
-        "tests/integration/model.ly.yaml",
-        "tests/integration/graph.ly.yaml",
-        "tests/integration/distributions.ly.yaml",
-        "tests/integration/scenarios.ly.yaml",
-        "--samples.input_file", str(sample_file),
-        "--priors.output_file", str(priors_file),
-    ])
+    subprocess.run(
+        [
+            "lyscripts",
+            "compute",
+            "priors",
+            "--configs",
+            "tests/integration/model.ly.yaml",
+            "tests/integration/graph.ly.yaml",
+            "tests/integration/distributions.ly.yaml",
+            "tests/integration/scenarios.ly.yaml",
+            "--sampling.storage_file",
+            str(sample_file),
+            "--priors.storage_file",
+            str(priors_file),
+        ]
+    )
     with h5py.File(priors_file, "r") as h5file:
         return h5file[dset_name][:]
 
