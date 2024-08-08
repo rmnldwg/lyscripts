@@ -46,9 +46,6 @@ source = "https://github.com/rmnldwg/lyscripts"
 documentation = "https://rmnldwg.github.io/lyscripts"
 
 [project.optional-dependencies]
-dev = [
-    "pre-commit",
-]
 docs = [
     "sphinx",
     "sphinx-book-theme",
