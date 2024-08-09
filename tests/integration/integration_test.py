@@ -78,7 +78,7 @@ def drawn_samples(
             "tests/integration/distributions.ly.yaml",
             "tests/integration/modalities.ly.yaml",
             "tests/integration/sample.ly.yaml",
-            "--data.input_file",
+            "--data.source",
             str(data_file),
             "--sampling.storage_file",
             str(sample_file),

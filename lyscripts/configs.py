@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+from lydata.loader import LyDatasetConfig
 from lydata.utils import ModalityConfig
 from lymph import models
 from lymph.types import Model, PatternType
@@ -97,9 +98,11 @@ class ModelConfig(BaseModel):
 class DataConfig(BaseModel):
     """Where to load the data from and how to feed it into the model."""
 
-    input_file: FilePath = Field(
-        pattern=r".+\.csv",
-        description="Path to the data CSV file.",
+    source: FilePath | LyDatasetConfig = Field(
+        description=(
+            "Either a path to a CSV file or a config that specifies how and where "
+            "to fetch the data from."
+        )
     )
     side: Literal["ipsi", "contra"] | None = Field(
         default=None,
@@ -110,20 +113,18 @@ class DataConfig(BaseModel):
         description="Optional mapping of numeric T-stages to model T-stages.",
     )
 
-    def get_pandas(self, **read_csv_kwargs) -> pd.DataFrame:
-        """Load the data from the path."""
-        return load_patient_data(self.input_file, **read_csv_kwargs)
+    def load(self, **read_csv_kwargs) -> pd.DataFrame:
+        """Load data from path or the :py:class:``~lydata.loader.LyDatasetConfig``."""
+        if isinstance(self.source, LyDatasetConfig):
+            return self.source.load(**read_csv_kwargs)
 
-    def get_load_kwargs(
-        self,
-        read_csv_kwargs: dict[str, Any] | None = None,
-        **load_patient_data_kwargs: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Get the keyword arguments to pass to the load method."""
+        return load_patient_data(self.source, **read_csv_kwargs)
+
+    def get_load_kwargs(self, **read_csv_kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Get kwargs for :py:meth:``~lymph.types.Model.load_patient_data``."""
         return {
-            "patient_data": self.get_pandas(**(read_csv_kwargs or {})),
+            "patient_data": self.load(**(read_csv_kwargs or {})),
             **self.model_dump(exclude={"input_file"}, exclude_none=True),
-            **load_patient_data_kwargs,
         }
 
 

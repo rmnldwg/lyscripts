@@ -3,12 +3,18 @@
     "DataConfig": {
       "description": "Where to load the data from and how to feed it into the model.",
       "properties": {
-        "input_file": {
-          "description": "Path to the data CSV file.",
-          "format": "file-path",
-          "pattern": ".+\\.csv",
-          "title": "Input File",
-          "type": "string"
+        "source": {
+          "anyOf": [
+            {
+              "format": "file-path",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/LyDatasetConfig"
+            }
+          ],
+          "description": "Either a path to a CSV file or a config that specifies how and where to fetch the data from.",
+          "title": "Source"
         },
         "side": {
           "anyOf": [
@@ -51,7 +57,7 @@
         }
       },
       "required": [
-        "input_file"
+        "source"
       ],
       "title": "DataConfig",
       "type": "object"
@@ -270,6 +276,51 @@
       "title": "InvolvementConfig",
       "type": "object"
     },
+    "LyDatasetConfig": {
+      "description": "Specification of a dataset.",
+      "properties": {
+        "year": {
+          "description": "Release year of dataset.",
+          "exclusiveMaximum": 2024,
+          "exclusiveMinimum": 0,
+          "title": "Year",
+          "type": "integer"
+        },
+        "institution": {
+          "description": "Institution's short code. E.g., University Hospital Zurich: `usz`.",
+          "minLength": 1,
+          "title": "Institution",
+          "type": "string"
+        },
+        "subsite": {
+          "description": "Subsite(s) this dataset covers.",
+          "minLength": 1,
+          "title": "Subsite",
+          "type": "string"
+        },
+        "repo": {
+          "default": "rmnldwg/lydata",
+          "description": "GitHub `repository/owner`.",
+          "minLength": 1,
+          "title": "Repo",
+          "type": "string"
+        },
+        "revision": {
+          "default": "main",
+          "description": "Branch/tag/commit of the repo.",
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "year",
+        "institution",
+        "subsite"
+      ],
+      "title": "LyDatasetConfig",
+      "type": "object"
+    },
     "ModalityConfig": {
       "description": "Define a diagnostic or pathological modality.",
       "properties": {
@@ -362,10 +413,10 @@
     "PriorsConfig": {
       "description": "Configure how the priors are computed.",
       "properties": {
-        "output_file": {
+        "storage_file": {
           "description": "Path to file for storing the computed prior distributions.",
           "format": "path",
-          "title": "Output File",
+          "title": "Storage File",
           "type": "string"
         },
         "dset_name": {
@@ -383,7 +434,7 @@
         }
       },
       "required": [
-        "output_file"
+        "storage_file"
       ],
       "title": "PriorsConfig",
       "type": "object"
