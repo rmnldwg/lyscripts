@@ -23,6 +23,7 @@ import emcee
 import numpy as np
 import pandas as pd
 from lydata.utils import ModalityConfig
+from lymph.types import ParamsType
 from pydantic import ConfigDict, Field
 from pydantic_settings import (
     BaseSettings,
@@ -62,7 +63,9 @@ class CmdSettings(BaseSettings):
     """Settings required for the MCMC sampling."""
 
     model_config = ConfigDict(extra="allow")
-
+    # Note that `mode_config` above refers to pydantic's configuration of this Python
+    # data  model class. While the `model` field below refers to the statistical model
+    # from the `lymph-models` package.
     graph: GraphConfig
     model: ModelConfig = ModelConfig()
     distributions: dict[str, DistributionConfig] = Field(
@@ -123,7 +126,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 MODEL = None
 
 
-def log_prob_fn(theta: np.array, inverse_temp: float = 1.0) -> tuple[float, float]:
+def log_prob_fn(theta: ParamsType, inverse_temp: float = 1.0) -> tuple[float, float]:
     """Compute log-prob using global variables because of pickling.
 
     An inverse temperature ``inverse_temp`` can be provided for thermodynamic
@@ -156,13 +159,11 @@ def get_burnin_history(file: Path | None) -> pd.DataFrame:
     Return an empty DataFrame if no history is found.
     """
     if file is None or not file.exists():
-        history = pd.DataFrame(
+        return pd.DataFrame(
             columns=["steps", "acor_times", "accept_fracs", "max_log_probs"],
         ).set_index("steps")
-    else:
-        history = pd.read_csv(file, index_col="steps")
 
-    return history
+    return pd.read_csv(file, index_col="steps")
 
 
 def is_converged(

@@ -137,7 +137,7 @@ def compute_priors(
     computed by marginalizing over the provided ``t_stage_dist``. Otherwise, the
     priors will be computed for the given ``t_stage``.
     """
-    model = construct_model(model_config=model_config, graph_config=graph_config)
+    model = construct_model(model_config, graph_config)
     model = add_dists(model, dist_configs)
     priors = []
 
