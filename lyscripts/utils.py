@@ -28,18 +28,6 @@ from lyscripts.decorators import (
     log_state,
 )
 
-try:
-    import streamlit
-    from streamlit.runtime.scriptrunner import get_script_run_ctx
-
-    streamlit.status = streamlit.spinner
-except ImportError:
-
-    def get_script_run_ctx() -> bool:
-        """Mock the `get_script_run_ctx` function of `streamlit`."""
-        return None
-
-
 CROSS = "[bold red]✗[/bold red]"
 CIRCL = "[bold blue]∘[/bold blue]"
 WARN = "[bold yellow]Δ[/bold yellow]"
@@ -61,11 +49,6 @@ class LyScriptsWarning(Warning):
         self.level = level
         self.message = args[0]
         super().__init__(*args)
-
-
-def is_streamlit_running() -> bool:
-    """Check if code is running inside a `streamlit` app."""
-    return get_script_run_ctx() is not None
 
 
 class CustomProgress(Progress):

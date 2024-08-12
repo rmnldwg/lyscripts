@@ -58,9 +58,6 @@ test = [
     "pytest",
     "pytest-mpl",
 ]
-app = [
-    "streamlit",
-]
 
 [project.scripts]
 lyscripts = "lyscripts:main"
