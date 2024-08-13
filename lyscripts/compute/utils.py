@@ -3,10 +3,12 @@
 import ast
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import h5py
 import numpy as np
+from joblib import Memory
+from pydantic import AfterValidator, BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -109,61 +111,94 @@ class HDF5FileCache:
             return key in file
 
 
-class HDF5FileStorage:
-    """Helper class for storing and loading data from an HDF5 file.
+def ensure_parent_dir(path: Path) -> Path:
+    """Create the parent directory of the given ``path``."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    logger.debug(f"Ensured parent directory of {path}")
+    return path
 
-    >>> from tempfile import TemporaryDirectory
-    >>> tmp_path = Path(TemporaryDirectory().name) / "test.hdf5"
-    >>> storage = HDF5FileStorage(tmp_path)
-    >>> rand_data = np.random.rand(100, 100)
-    >>> storage.save("test", rand_data)
-    >>> np.all(storage.load("test") == rand_data)
-    np.True_
-    >>> some_attrs = {"key": "value"}
-    >>> storage.set_attrs("test", some_attrs)
-    >>> storage.get_attrs("test")
-    {'key': 'value'}
-    """
 
-    def __init__(self, file_path: Path) -> None:
-        """Initialize the storage at the given ``file_path``."""
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        self.file_path = file_path
-        logger.info(f"Initialized HDF5 storage at {file_path}")
+HasParentPath = Annotated[Path, AfterValidator(ensure_parent_dir)]
+"""Type hint for path whose parent dir is created if it doesn't exist."""
 
-    def load(self, dset_name: str) -> np.ndarray:
-        """Load the dataset with the name ``dset_name``."""
-        with h5py.File(self.file_path, "r") as file:
-            array = file[dset_name][()]
 
-        logger.debug(f"Loaded dataset {dset_name} from {self.file_path}")
+class HDF5FileStorage(BaseModel):
+    """HDF5 file storage for in- and outputs of computations."""
+
+    file: HasParentPath = Field(
+        description="Path to the HDF5 file. Parent directories are created if needed."
+    )
+    dataset: str | None = Field(
+        default=None,
+        description=(
+            "Name of the dataset in the HDF5 file. Save/load methods can override this."
+        ),
+    )
+
+    def _get_dataset(self) -> str:
+        """Get attribute ``dataset`` or the first dataset in the file.
+
+        >>> from tempfile import TemporaryDirectory
+        >>> tmp_path = Path(TemporaryDirectory().name) / "test.hdf5"
+        >>> storage = HDF5FileStorage(file=tmp_path)
+        >>> rand_data = np.random.rand(100, 100)
+        >>> storage.save(values=rand_data, dataset="test")
+        >>> np.all(storage.load(dataset="test") == rand_data)
+        np.True_
+        >>> np.all(storage.load() == rand_data)   # loads first dataset
+        np.True_
+        >>> some_attrs = {"key": "value"}
+        >>> storage.set_attrs(attrs=some_attrs, dataset="test")
+        >>> storage.get_attrs(dataset="test")
+        {'key': 'value'}
+        """
+        if self.dataset is not None:
+            return self.dataset
+
+        with h5py.File(self.file, "r") as file:
+            return next(iter(file.keys()))
+
+    def load(self, dataset: str | None = None) -> np.ndarray:
+        """Load the dataset with the name ``dataset``."""
+        dataset = dataset or self._get_dataset()
+
+        with h5py.File(self.file, "r") as file:
+            array = file[dataset][()]
+
+        logger.debug(f"Loaded dataset {dataset} from {self.file}")
         return array
 
-    def get_attrs(self, dset_name: str) -> dict[str, Any]:
-        """Get the attributes of the dataset ``dset_name``."""
-        with h5py.File(self.file_path, "r") as file:
-            attrs = from_hdf5_attrs(file[dset_name].attrs)
+    def get_attrs(self, dataset: str | None = None) -> dict[str, Any]:
+        """Get the attributes of the dataset ``dataset``."""
+        dataset = dataset or self._get_dataset()
 
-        logger.debug(f"Loaded attrs for dataset '{dset_name}' from {self.file_path}")
+        with h5py.File(self.file, "r") as file:
+            attrs = from_hdf5_attrs(file[dataset].attrs)
+
+        logger.debug(f"Loaded attrs for dataset '{dataset}' from {self.file}")
         return attrs
 
-    def save(self, dset_name: str, values: np.ndarray) -> None:
-        """Set the ``values`` for the ``dset_name`` dataset."""
-        with h5py.File(self.file_path, "a") as file:
-            if dset_name in file:
-                del file[dset_name]
-            file[dset_name] = values
+    def save(self, values: np.ndarray, dataset: str | None = None) -> None:
+        """Set the ``values`` for the ``dataset`` dataset."""
+        dataset = dataset or self._get_dataset()
 
-        logger.debug(f"Stored dataset {dset_name} in {self.file_path}")
+        with h5py.File(self.file, "a") as file:
+            if dataset in file:
+                del file[dataset]
+            file[dataset] = values
 
-    def set_attrs(self, dset_name: str, attrs: dict[str, Any]) -> None:
-        """Update the ``attrs`` for the ``dset_name`` dataset."""
-        with h5py.File(self.file_path, "a") as file:
-            if dset_name not in file:
-                raise ValueError(f"Dataset '{dset_name}' not found in {self.file_path}")
-            file[dset_name].attrs.update(to_hdf5_attrs(attrs))
+        logger.debug(f"Stored dataset {dataset} in {self.file}")
 
-        logger.debug(f"Stored attrs for dataset '{dset_name}' in {self.file_path}")
+    def set_attrs(self, attrs: dict[str, Any], dataset: str | None = None) -> None:
+        """Update the ``attrs`` for the ``dataset`` dataset."""
+        dataset = dataset or self._get_dataset()
+
+        with h5py.File(self.file, "a") as file:
+            if dataset not in file:
+                raise ValueError(f"Dataset '{dataset}' not found in {self.file}")
+            file[dataset].attrs.update(to_hdf5_attrs(attrs))
+
+        logger.debug(f"Stored attrs for dataset '{dataset}' in {self.file}")
 
 
 def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, bool]]:
@@ -172,8 +207,6 @@ def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, b
     This way, it should be completely recoverable by the ``complete_pattern`` function
     but be shorter to store.
 
-    Example:
-    --------
     >>> full = {
     ...     "ipsi": {"I": None, "II": True, "III": None},
     ...     "contra": {"I": None, "II": None, "III": None},
@@ -203,8 +236,6 @@ def complete_pattern(
     For each side of the neck, and for each of the ``lnls`` this should in the end
     contain ``True``, ``False`` or ``None``.
 
-    Example:
-    --------
     >>> pattern = {"ipsi": {"II": True}}
     >>> lnls = ["II", "III"]
     >>> complete_pattern(pattern, lnls)
@@ -227,3 +258,16 @@ def complete_pattern(
                 pattern[side][lnl] = bool(pattern[side][lnl])
 
     return pattern
+
+
+def get_cached(func: callable, cache_dir: Path) -> callable:
+    """Return cached ``func`` with a cache at ``cache_dir``."""
+    memory = Memory(
+        location=cache_dir,
+        verbose=(
+            20 * (logger.level <= logging.DEBUG) + 1 * (logger.level <= logging.INFO)
+        ),
+    )
+    cached_compute_priors = memory.cache(func, ignore=["progress_desc"])
+    logger.debug(f"Initialized cache at {cache_dir}")
+    return cached_compute_priors
