@@ -124,7 +124,7 @@ class DataConfig(BaseModel):
         """Get kwargs for :py:meth:``~lymph.types.Model.load_patient_data``."""
         return {
             "patient_data": self.load(**(read_csv_kwargs or {})),
-            **self.model_dump(exclude={"input_file"}, exclude_none=True),
+            **self.model_dump(exclude={"source"}, exclude_none=True),
         }
 
 
@@ -316,14 +316,14 @@ def add_data(
 class SamplingConfig(BaseModel):
     """Settings to configure the MCMC sampling."""
 
-    storage_file: Path = Field(
+    file: Path = Field(
         description="Path to HDF5 file for the results to be stored on or loaded from."
     )
     history_file: Path | None = Field(
         default=None,
         description="Path to store the burn-in metrics in (as CSV file).",
     )
-    dset_name: str = Field(
+    dataset: str = Field(
         default="mcmc",
         description="Name of the dataset in the HDF5 file.",
     )
@@ -380,7 +380,7 @@ class SamplingConfig(BaseModel):
     def load(self) -> np.ndarray:
         """Load the samples from the HDF5 file."""
         return load_model_samples(
-            file_path=self.storage_file,
-            name=self.dset_name,
+            file_path=self.file,
+            name=self.dataset,
             thin=self.thin,
         )

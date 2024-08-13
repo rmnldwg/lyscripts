@@ -10,7 +10,7 @@ file.
 
 Formally, the prevalence is the likelihood of the observed involvement pattern that we
 are interested in, given the model and samples. We compute this by calling the model's
-:py:meth:`~lymph.types.Model.state_dist` method for each of the samples and mutiply
+:py:meth:`~lymph.types.Model.state_dist` method for each of the samples and multiply
 it with the :py:func:`lymph.matrix.generate_observation` to get the likelihood of the
 observed involvement pattern.
 

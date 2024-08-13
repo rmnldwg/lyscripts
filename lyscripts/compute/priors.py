@@ -14,13 +14,12 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from joblib import Memory
 from lydata.utils import ModalityConfig
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
 
-from lyscripts.compute.utils import HDF5FileStorage
+from lyscripts.compute.utils import HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
@@ -35,21 +34,6 @@ from lyscripts.utils import merge_yaml_configs
 logger = logging.getLogger(__name__)
 
 
-class PriorsConfig(BaseModel):
-    """Configure how the priors are computed."""
-
-    storage_file: Path = Field(
-        description="Path to file for storing the computed prior distributions."
-    )
-    dset_name: str | None = Field(
-        default=None,
-        description=(
-            "Name of the dataset in the HDF5 file. If `None`, this will be "
-            "dynamically computed from the scenario."
-        ),
-    )
-
-
 class CmdSettings(BaseSettings):
     """Settings required to compute priors from model configs and samples."""
 
@@ -60,7 +44,7 @@ class CmdSettings(BaseSettings):
         description="Cache directory for storing function calls.",
     )
     sampling: SamplingConfig
-    priors: PriorsConfig
+    priors: HDF5FileStorage = Field(description="Storage for the computed priors.")
     graph: GraphConfig
     model: ModelConfig = ModelConfig()
     distributions: dict[str, DistributionConfig] = Field(
@@ -157,51 +141,37 @@ def compute_priors(
     return np.stack(priors)
 
 
-def get_cached_compute_priors(cache_dir: Path) -> callable:
-    """Return a function that computes priors and caches the results."""
-    memory = Memory(
-        location=cache_dir,
-        verbose=(
-            20 * (logger.level <= logging.DEBUG) + 1 * (logger.level <= logging.INFO)
-        ),
-    )
-    cached_compute_priors = memory.cache(compute_priors, ignore=["progress_desc"])
-    logger.debug(f"Initialized cache at {cache_dir}")
-    return cached_compute_priors
-
-
 def main(args: argparse.Namespace):
     """Compute the prior state distribution for each sample."""
     yaml_configs = merge_yaml_configs(args.configs)
-    settings = CmdSettings(
+    cmd = CmdSettings(
         _cli_settings_source=args.cli_settings_source(parsed_args=args),
         **yaml_configs,
     )
-    logger.debug(settings.model_dump_json(indent=2))
+    logger.debug(cmd.model_dump_json(indent=2))
 
-    hdf5_storage = HDF5FileStorage(settings.priors.storage_file)
-    global_attrs = settings.model_dump(include={"model", "graph", "distributions"})
-    hdf5_storage.set_attrs("/", global_attrs)
+    global_attrs = cmd.model_dump(include={"model", "graph", "distributions"})
+    cmd.priors.set_attrs(attrs=global_attrs, dataset="/")
 
-    samples = settings.sampling.load()
-    cached_compute_priors = get_cached_compute_priors(settings.cache_dir)
-    num_scenarios = len(settings.scenarios)
+    samples = cmd.sampling.load()
+    cached_compute_priors = get_cached(compute_priors, cmd.cache_dir)
+    num_scenarios = len(cmd.scenarios)
 
-    for i, scenario in enumerate(settings.scenarios):
+    for i, scenario in enumerate(cmd.scenarios):
         scenario_fields = {"t_stages", "t_stages_dist", "mode"}
         scenario_attrs = scenario.model_dump(include=scenario_fields)
 
         priors = cached_compute_priors(
-            model_config=settings.model,
-            graph_config=settings.graph,
-            dist_configs=settings.distributions,
+            model_config=cmd.model,
+            graph_config=cmd.graph,
+            dist_configs=cmd.distributions,
             samples=samples,
             progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
             **scenario_attrs,
         )
 
-        hdf5_storage.save(dset_name=f"{i:03d}", values=priors)
-        hdf5_storage.set_attrs(dset_name=f"{i:03d}", attrs=scenario_attrs)
+        cmd.priors.save(values=priors, dataset=f"{i:03d}")
+        cmd.priors.set_attrs(attrs=scenario_attrs, dataset=f"{i:03d}")
 
 
 if __name__ == "__main__":

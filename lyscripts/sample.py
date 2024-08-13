@@ -296,8 +296,8 @@ def init_sampler(settings: CmdSettings, ndim: int, pool: Any) -> emcee.EnsembleS
     """Initialize the ``emcee.EnsembleSampler`` with the given ``settings``."""
     nwalkers = ndim * settings.sampling.walkers_per_dim
     backend = get_hdf5_backend(
-        file_path=settings.sampling.storage_file,
-        dset_name=settings.sampling.dset_name,
+        file_path=settings.sampling.file,
+        dataset=settings.sampling.dataset,
         nwalkers=nwalkers,
         ndim=ndim,
     )
@@ -319,27 +319,27 @@ def main(args: argparse.Namespace) -> None:
     os.environ["OMP_NUM_THREADS"] = "1"
 
     yaml_configs = merge_yaml_configs(args.configs)
-    settings = CmdSettings(
+    cmd = CmdSettings(
         _cli_settings_source=args.cli_settings_source(parsed_args=args),
         **yaml_configs,
     )
-    logger.debug(settings.model_dump_json(indent=2))
+    logger.debug(cmd.model_dump_json(indent=2))
 
     # ugly, but necessary for pickling
     global MODEL
-    MODEL = construct_model(settings.model, settings.graph)
-    MODEL = add_dists(MODEL, settings.distributions)
-    MODEL = add_modalities(MODEL, settings.modalities)
-    MODEL.load_patient_data(**settings.data.get_load_kwargs())
+    MODEL = construct_model(cmd.model, cmd.graph)
+    MODEL = add_dists(MODEL, cmd.distributions)
+    MODEL = add_modalities(MODEL, cmd.modalities)
+    MODEL.load_patient_data(**cmd.data.get_load_kwargs())
     ndim = MODEL.get_num_dims()
 
     # emcee does not support numpy's new random number generator yet.
-    np.random.seed(settings.sampling.seed)
+    np.random.seed(cmd.sampling.seed)
 
-    with get_pool(settings.sampling.cores) as pool:
-        sampler = init_sampler(settings, ndim, pool)
-        run_burnin(sampler, **settings.sampling.model_dump(include=_BURNIN_KWARGS))
-        run_sampling(sampler, **settings.sampling.model_dump(include=_SAMPLING_KWARGS))
+    with get_pool(cmd.sampling.cores) as pool:
+        sampler = init_sampler(cmd, ndim, pool)
+        run_burnin(sampler, **cmd.sampling.model_dump(include=_BURNIN_KWARGS))
+        run_sampling(sampler, **cmd.sampling.model_dump(include=_SAMPLING_KWARGS))
 
 
 if __name__ == "__main__":
