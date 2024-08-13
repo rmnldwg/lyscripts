@@ -80,7 +80,7 @@ def drawn_samples(
             "tests/integration/sample.ly.yaml",
             "--data.source",
             str(data_file),
-            "--sampling.storage_file",
+            "--sampling.file",
             str(sample_file),
         ],
         check=True,
@@ -103,7 +103,7 @@ def priors_file() -> Path:
 def computed_priors(
     sample_file: Path,
     priors_file: Path,
-    dset_name: str = "001",
+    dataset: str = "001",
 ) -> np.ndarray:
     """Compute the priors for the drawn samples."""
     subprocess.run(
@@ -116,14 +116,14 @@ def computed_priors(
             "tests/integration/graph.ly.yaml",
             "tests/integration/distributions.ly.yaml",
             "tests/integration/scenarios.ly.yaml",
-            "--sampling.storage_file",
+            "--sampling.file",
             str(sample_file),
-            "--priors.storage_file",
+            "--priors.file",
             str(priors_file),
         ]
     )
     with h5py.File(priors_file, "r") as h5file:
-        return h5file[dset_name][:]
+        return h5file[dataset][:]
 
 
 @pytest.fixture(scope="module")
