@@ -19,6 +19,7 @@ Warning:
 import argparse
 import logging
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 from lymph import models, types
@@ -27,6 +28,14 @@ from rich import progress
 from lyscripts import utils
 from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
+from lyscripts.configs import (
+    DiagnosisConfig,
+    DistributionConfig,
+    GraphConfig,
+    ModelConfig,
+    add_dists,
+    construct_model,
+)
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
 logger = logging.getLogger(__name__)
@@ -81,6 +90,46 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
     add_scenario_arguments(parser, for_comp="posteriors")
     parser.set_defaults(run_main=main)
+
+
+def compute_posteriors(
+    model_config: ModelConfig,
+    graph_config: GraphConfig,
+    dist_configs: dict[str, DistributionConfig],
+    priors: np.ndarray,
+    diagnosis: DiagnosisConfig,
+    midext: bool | None = None,
+    mode: Literal["HMM", "BN"] = "HMM",
+    progress_desc: str = "Computing posteriors from priors",
+) -> np.ndarray:
+    """Compute posterior state distributions from ``priors``.
+
+    This calls the ``model`` method :py:meth:`~lymph.types.Model.posterior_state_dist`
+    for each of the pre-computed ``priors``, given the specified ``diagnosis`` pattern.
+
+    For the :py:class:`~lymph.models.Midline` model, the ``midext`` argument can be
+    used to specify whether the midline extension is present or not.
+    """
+    model = construct_model(model_config, graph_config)
+    model = add_dists(model, dist_configs)
+    posteriors = []
+    kwargs = {"midext": midext} if isinstance(model, models.Midline) else {}
+
+    for prior in progress.track(
+        sequence=priors,
+        description="[blue]INFO     [/blue]" + progress_desc,
+        total=len(priors),
+    ):
+        posteriors.append(
+            model.posterior_state_dist(
+                given_state_dist=prior,
+                given_diagnosis=diagnosis,
+                mode=mode,
+                **kwargs,
+            )
+        )
+
+    return np.stack(posteriors)
 
 
 def compute_posteriors_using_cache(

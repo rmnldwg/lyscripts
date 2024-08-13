@@ -12,6 +12,7 @@ mode (hidden Markov model or Bayesian network).
 import argparse
 import logging
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 from lydata.utils import ModalityConfig
@@ -111,7 +112,7 @@ def compute_priors(
     samples: np.ndarray,
     t_stages: list[int | str],
     t_stages_dist: list[float],
-    mode: str = "HMM",
+    mode: Literal["HMM", "BN"] = "HMM",
     progress_desc: str = "Computing priors from samples",
 ) -> np.ndarray:
     """Compute prior state distributions from the ``samples`` for the ``model``.
