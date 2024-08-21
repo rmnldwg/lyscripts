@@ -1,9 +1,8 @@
-"""Predict risks of involvements using precomputed posteriors.
+"""Predict risks of involvements for scenarios using drawn MCMC samples.
 
-The posteriors can be created using the :py:mod:`.compute.posteriors` command.
-
-The structure of these scenarios is similar to how scenarios are defined for the
-:py:mod:`.compute.prevalences` script.
+As the priors and posteriors, this computation, too, uses caching and may skip the
+computation of these two initial steps if the cache directory is the same as during
+their computation.
 """
 
 import argparse
@@ -11,15 +10,53 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from lymph import models, types
-from rich.progress import track
+from pydantic import ConfigDict, Field
+from pydantic_settings import BaseSettings, CliSettingsSource
 
-from lyscripts import utils
-from lyscripts.compute.posteriors import compute_posteriors_using_cache
-from lyscripts.compute.utils import HDF5FileCache
-from lyscripts.scenario import Scenario, add_scenario_arguments
+from lyscripts.compute.utils import HDF5FileStorage
+from lyscripts.configs import (
+    DistributionConfig,
+    GraphConfig,
+    InvolvementConfig,
+    ModalityConfig,
+    ModelConfig,
+    SamplingConfig,
+)
+from lyscripts.scenario import Scenario
 
 logger = logging.getLogger(__name__)
+
+
+class CmdSettings(BaseSettings):
+    """Command line settings for the computation of posterior state distributions."""
+
+    model_config = ConfigDict(extra="allow")
+
+    cache_dir: Path = Field(
+        default=Path.cwd() / ".cache",
+        description="Cache directory for storing function calls.",
+    )
+    sampling: SamplingConfig
+    risks: HDF5FileStorage = Field(description="Storage for the computed risks.")
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description=(
+            "Maps names of diagnostic modalities to their specificity/sensitivity."
+        ),
+    )
+    scenarios: list[Scenario] = Field(
+        default=[],
+        description="List of scenarios to compute risks for.",
+    )
 
 
 def _add_parser(
@@ -37,128 +74,49 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments needed to run this script to a `subparsers` instance."""
+    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
+
+    This is called by the parent module that is called via the command line.
+    """
     parser.add_argument(
-        "--posteriors",
-        type=Path,
-        required=True,
-        help="Path to the computed posteriors (HDF5 file).",
-    )
-    parser.add_argument(
-        "--risks",
-        type=Path,
-        required=True,
-        help="Path to file for storing the computed risks.",
-    )
-    parser.add_argument(
-        "--params",
-        type=Path,
-        required=True,
-        help="Path to parameter file defining the model (YAML).",
-    )
-    parser.add_argument(
-        "--scenarios",
-        type=Path,
-        required=False,
+        "--configs",
+        default=[],
+        nargs="*",
         help=(
-            "Path to a YAML file containing a `scenarios` key with a list of "
-            "diagnosis scenarios and involvement patterns of interest to compute the "
-            "risks for."
+            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
+            "previous ones. Command line arguments take precedence over all files."
+        ),
+    )
+    parser.set_defaults(
+        run_main=main,
+        cli_settings_source=CliSettingsSource(
+            settings_cls=CmdSettings,
+            cli_use_class_docs_for_groups=True,
+            root_parser=parser,
         ),
     )
 
-    add_scenario_arguments(parser, for_comp="risks")
-    parser.set_defaults(run_main=main)
 
-
-def compute_risks_using_cache(
-    model: types.Model,
-    scenario: Scenario,
-    posteriors_cache: HDF5FileCache,
-    risks_cache: HDF5FileCache,
-    cache_hit_msg: str = "Risks already computed. Skipping.",
+def compute_risks(
+    model_config: ModelConfig,
+    graph_config: GraphConfig,
+    dist_configs: dict[str, DistributionConfig],
+    modality_configs: dict[str, ModalityConfig],
+    posteriors: np.ndarray,
+    involvement: InvolvementConfig,
     progress_desc: str = "Computing risks from posteriors",
 ) -> np.ndarray:
-    """Compute the risks of involvements for a given scenario."""
-    risks_hash = scenario.md5_hash("risks")
+    """Compute the risk of ``involvement`` from each of the ``posteriors``.
 
-    if risks_hash in risks_cache:
-        logger.info(cache_hit_msg)
-        risks, _ = risks_cache[risks_hash]
-        return risks
-
-    try:
-        posteriors = compute_posteriors_using_cache(
-            model=model,
-            scenario=scenario,
-            priors_cache=None,
-            posteriors_cache=posteriors_cache,
-            cache_hit_msg="Loaded computed posteriors.",
-        )
-    except ValueError as val_err:
-        msg = "No computed posteriors found for the given scenario."
-        logger.error(msg)
-        raise ValueError(msg) from val_err
-
-    kwargs = {"midext": scenario.midext} if isinstance(model, models.Midline) else {}
-    risks = []
-
-    for posterior in track(
-        posteriors,
-        description="[blue]INFO     [/blue]" + progress_desc,
-        total=len(posteriors),
-    ):
-        risks.append(
-            model.marginalize(
-                involvement=scenario.involvement,
-                given_state_dist=posterior,
-                **kwargs,
-            )
-        )
-
-    risks = np.stack(risks)
-    risks_cache[risks_hash] = (risks, scenario.as_dict("risks"))
-    return risks
+    Essentially, this only calls the model's :py:meth:`lymph.models.Model.marginalize`
+    method, as nothing more is necessary than to marginalize the full posterior state
+    distribution over the states that correspond to the involvement of interest.
+    """
 
 
 def main(args: argparse.Namespace):
     """Run the main risk prediction routine."""
-    params = utils.load_yaml_params(args.params)
-    model = utils.create_model(params)
-    lnls = list(params["graph"]["lnl"].keys())
-
-    if args.scenarios is None:
-        # create a single scenario from the stdin arguments...
-        scenarios = [
-            Scenario.from_namespace(
-                namespace=args,
-                lnls=lnls,
-                is_uni=isinstance(model, models.Unilateral),
-                side=params["model"].get("side", "ipsi"),
-            )
-        ]
-        num_scens = len(scenarios)
-    else:
-        # ...or load the scenarios from a YAML file
-        scenarios = Scenario.list_from_params(
-            params=utils.load_yaml_params(args.scenarios),
-            is_uni=isinstance(model, models.Unilateral),
-            side=params["model"].get("side", "ipsi"),
-        )
-        num_scens = len(scenarios)
-        logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
-
-    posteriors_cache = HDF5FileCache(args.posteriors)
-    risks_cache = HDF5FileCache(args.risks)
-
-    for i, scenario in enumerate(scenarios):
-        _risks = compute_risks_using_cache(
-            model=model,
-            scenario=scenario,
-            posteriors_cache=posteriors_cache,
-            risks_cache=risks_cache,
-            progress_desc=f"Computing risks for scenario {i + 1}/{num_scens}",
-        )
+    ...
 
 
 if __name__ == "__main__":
