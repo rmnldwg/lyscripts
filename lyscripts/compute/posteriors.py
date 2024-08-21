@@ -1,19 +1,9 @@
-"""Compute posterior state distributions from priors (see :py:mod:`.compute.priors`).
+"""Compute posterior state distributions.
 
-The posteriors are computed for a given "scenario" (or
-many of them), which typically define a clinical diagnosis w.r.t. the lymphatic
-involvement of a patient.
-
-In the resulting HDF5 file, the posteriors are stored under MD5 hashes of the
-corresponding scenarios, similar to the priors. But the posteriors take into account
-more information.
-
-Warning:
---------
-    The command skips the computation of the priors if it finds them in the cache. But
-    this cache only accounts for the scenario, *NOT* the samples. So, if the samples
-    change, you need to force a recomputation of the priors (e.g., by deleting them).
-
+The posteriors are computed from drawn samples for a list of defined scenarios. If
+priors have already been computed from the samples and the ``--cache_dir`` argument
+is the same as during that computation, the priors will automatically be loaded from
+the cache.
 """
 
 import argparse
@@ -22,23 +12,62 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from lymph import models, types
+from lymph import models
+from pydantic import ConfigDict, Field
+from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
 
 from lyscripts import utils
 from lyscripts.compute.priors import compute_priors
-from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
+from lyscripts.compute.utils import HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DiagnosisConfig,
     DistributionConfig,
     GraphConfig,
+    ModalityConfig,
     ModelConfig,
+    SamplingConfig,
     add_dists,
+    add_modalities,
     construct_model,
 )
-from lyscripts.scenario import Scenario, add_scenario_arguments
+from lyscripts.scenario import Scenario
 
 logger = logging.getLogger(__name__)
+
+
+class CmdSettings(BaseSettings):
+    """Command line settings for the computation of posterior state distributions."""
+
+    model_config = ConfigDict(extra="allow")
+
+    cache_dir: Path = Field(
+        default=Path.cwd() / ".cache",
+        description="Cache directory for storing function calls.",
+    )
+    sampling: SamplingConfig
+    posteriors: HDF5FileStorage = Field(
+        description="Storage for the computed posteriors."
+    )
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description=(
+            "Maps names of diagnostic modalities to their specificity/sensitivity."
+        ),
+    )
+    scenarios: list[Scenario] = Field(
+        default=[],
+        description="List of scenarios to compute posteriors for.",
+    )
 
 
 def _add_parser(
@@ -56,46 +85,34 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments needed to run this script to a `subparsers` instance."""
-    parser.add_argument(
-        "--priors",
-        type=Path,
-        required=True,
-        help=(
-            "Path to the computed priors (HDF5 file). They must have been "
-            "computed from the same model and scenarios as the posteriors."
-        ),
-    )
-    parser.add_argument(
-        "--posteriors",
-        type=Path,
-        required=True,
-        help="Path to file for storing the computed posterior distributions.",
-    )
-    parser.add_argument(
-        "--params",
-        type=Path,
-        required=True,
-        help="Path to parameter file defining the model (YAML).",
-    )
-    parser.add_argument(
-        "--scenarios",
-        type=Path,
-        required=False,
-        help=(
-            "Path to a YAML file containing a `scenarios` key with a list of "
-            "diagnosis scenarios to compute the posteriors for."
-        ),
-    )
+    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
 
-    add_scenario_arguments(parser, for_comp="posteriors")
-    parser.set_defaults(run_main=main)
+    This is called by the parent module that is called via the command line.
+    """
+    parser.add_argument(
+        "--configs",
+        default=[],
+        nargs="*",
+        help=(
+            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
+            "previous ones. Command line arguments take precedence over all files."
+        ),
+    )
+    parser.set_defaults(
+        run_main=main,
+        cli_settings_source=CliSettingsSource(
+            settings_cls=CmdSettings,
+            cli_use_class_docs_for_groups=True,
+            root_parser=parser,
+        ),
+    )
 
 
 def compute_posteriors(
     model_config: ModelConfig,
     graph_config: GraphConfig,
     dist_configs: dict[str, DistributionConfig],
+    modality_configs: dict[str, ModalityConfig],
     priors: np.ndarray,
     diagnosis: DiagnosisConfig,
     midext: bool | None = None,
@@ -112,6 +129,7 @@ def compute_posteriors(
     """
     model = construct_model(model_config, graph_config)
     model = add_dists(model, dist_configs)
+    model = add_modalities(model, modality_configs)
     posteriors = []
     kwargs = {"midext": midext} if isinstance(model, models.Midline) else {}
 
@@ -132,104 +150,53 @@ def compute_posteriors(
     return np.stack(posteriors)
 
 
-def compute_posteriors_using_cache(
-    model: types.Model,
-    scenario: Scenario,
-    priors_cache: HDF5FileCache | None,
-    posteriors_cache: HDF5FileCache,
-    cache_hit_msg: str = "Posteriors already computed. Skipping.",
-    progress_desc: str = "Computing posteriors from priors",
-) -> np.ndarray:
-    """Compute posteriors from prior state distributions.
-
-    This will call the ``model`` method
-    :py:meth:`~lymph.types.Model.posterior_state_dist` for each of the ``priors``,
-    given the specified ``diagnosis`` pattern.
-    """
-    posteriors_hash = scenario.md5_hash("posteriors")
-
-    if posteriors_hash in posteriors_cache:
-        logger.info(cache_hit_msg)
-        posteriors, _ = posteriors_cache[posteriors_hash]
-        return posteriors
-
-    try:
-        priors = compute_priors(
-            model_config=model,
-            cache=priors_cache,
-            scenario=scenario,
-            cache_hit_msg="Loaded computed priors.",
-        )
-    except ValueError as val_err:
-        msg = "No computed priors found for the given scenario."
-        logger.error(msg)
-        raise ValueError(msg) from val_err
-
-    kwargs = {"midext": scenario.midext} if isinstance(model, models.Midline) else {}
-    posteriors = []
-
-    for prior in progress.track(
-        sequence=priors,
-        description="[blue]INFO     [/blue]" + progress_desc,
-        total=len(priors),
-    ):
-        posteriors.append(
-            model.posterior_state_dist(
-                given_state_dist=prior,
-                given_diagnosis=scenario.diagnosis,
-                **kwargs,
-            )
-        )
-
-    posteriors = np.stack(posteriors)
-    posteriors_cache[posteriors_hash] = (posteriors, scenario.as_dict("posteriors"))
-    return posteriors
-
-
 def main(args: argparse.Namespace) -> None:
     """Compute posteriors from priors or drawn samples."""
-    params = utils.load_yaml_params(args.params)
-    model = utils.create_model(params)
-    lnls = list(params["graph"]["lnl"].keys())
+    yaml_confis = utils.merge_yaml_configs(args.configs)
+    cmd = CmdSettings(
+        _cli_settings_source=args.cli_settings_source(parsed_args=args),
+        **yaml_confis,
+    )
+    logger.debug(cmd.model_dump_json(indent=2))
 
-    if args.scenarios is None:
-        # create a single scenario from the stdin arguments...
-        scenarios = [
-            Scenario.from_namespace(
-                namespace=args,
-                lnls=lnls,
-                is_uni=isinstance(model, models.Unilateral),
-                side=params["model"].get("side", "ipsi"),
-            )
-        ]
-        num_scens = len(scenarios)
-    else:
-        # ...or load the scenarios from a YAML file
-        scenarios = Scenario.list_from_params(
-            params=utils.load_yaml_params(args.scenarios),
-            is_uni=isinstance(model, models.Unilateral),
-            side=params["model"].get("side", "ipsi"),
-        )
-        num_scens = len(scenarios)
-        logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
+    global_attrs = cmd.model_dump(
+        include={"model", "graph", "distributions", "modalities"},
+    )
+    cmd.posteriors.set_attrs(attrs=global_attrs, dataset="/")
 
-    priors_cache = HDF5FileCache(args.priors)
-    posteriors_cache = HDF5FileCache(args.posteriors)
+    samples = cmd.sampling.load()
+    cached_compute_priors = get_cached(compute_priors, cmd.cache_dir)
+    cached_compute_posteriors = get_cached(compute_posteriors, cmd.cache_dir)
+    num_scenarios = len(cmd.scenarios)
 
-    for i, scenario in enumerate(scenarios):
-        utils.assign_modalities(
-            model=model,
-            config=params["modalities"],
-            subset=get_modality_subset(scenario.diagnosis),
-            clear=True,
+    for i, scenario in enumerate(cmd.scenarios):
+        _fields = {"t_stages", "t_stages_dist", "mode"}
+        prior_kwargs = scenario.model_dump(include=_fields)
+
+        _priors = cached_compute_priors(
+            model_config=cmd.model,
+            graph_config=cmd.graph,
+            dist_configs=cmd.distributions,
+            samples=samples,
+            progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
+            **prior_kwargs,
         )
-        _posteriors = compute_posteriors_using_cache(
-            model=model,
-            scenario=scenario,
-            priors_cache=priors_cache,
-            posteriors_cache=posteriors_cache,
-            progress_desc=f"Computing posteriors for scenario {i + 1}/{num_scens}",
+
+        _fields = {"diagnosis", "midext", "mode"}
+        posterior_kwargs = scenario.model_dump(include=_fields)
+
+        posteriors = cached_compute_posteriors(
+            model_config=cmd.model,
+            graph_config=cmd.graph,
+            dist_configs=cmd.distributions,
+            modality_configs=cmd.modalities,
+            priors=_priors,
+            progress_desc=f"Computing posteriors for scenario {i + 1}/{num_scenarios}",
+            **posterior_kwargs,
         )
+
+        cmd.posteriors.save(values=posteriors, dataset=f"{i:03d}")
+        cmd.posteriors.set_attrs(attrs=posterior_kwargs, dataset=f"{i:03d}")
 
 
 if __name__ == "__main__":

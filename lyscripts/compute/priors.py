@@ -1,12 +1,7 @@
 """Given samples drawn during an MCMC round, compute the (prior) state distributions.
 
-This is done for each sample. This may then later on be used to compute risks and
-prevalences more quickly.
-
-The computed priors are stored in an HDF5 file under a hash key of the scenario they
-were computed for. This scenario consists of the T-stages it was computed for and the
-distribution that was used to marginalize over them, as well as the model's computation
-mode (hidden Markov model or Bayesian network).
+This is done for each sample and for a list of specified scenarios. The computation is
+cached at a location specified by the ``--cache_dir`` argument using ``joblib``.
 """
 
 import argparse
@@ -15,7 +10,6 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from lydata.utils import ModalityConfig
 from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings, CliSettingsSource
 from rich import progress
@@ -53,12 +47,6 @@ class CmdSettings(BaseSettings):
         description=(
             "Mapping of model T-categories to predefined distributions over "
             "diagnose times."
-        ),
-    )
-    modalities: dict[str, ModalityConfig] = Field(
-        default={},
-        description=(
-            "Maps names of diagnostic modalities to their specificity/sensitivity."
         ),
     )
     scenarios: list[ScenarioConfig] = Field(
@@ -118,9 +106,8 @@ def compute_priors(
     """Compute prior state distributions from the ``samples`` for the ``model``.
 
     This will call the ``model`` method :py:meth:`~lymph.types.Model.state_dist`
-    for each of the ``samples``. If ``t_stage`` is not provided, the priors will be
-    computed by marginalizing over the provided ``t_stage_dist``. Otherwise, the
-    priors will be computed for the given ``t_stage``.
+    for each of the ``samples``. The prior state distributions are computed for
+    each of the ``t_stages`` and marginalized over using the ``t_stages_dist``.
     """
     model = construct_model(model_config, graph_config)
     model = add_dists(model, dist_configs)
@@ -159,8 +146,8 @@ def main(args: argparse.Namespace):
     num_scenarios = len(cmd.scenarios)
 
     for i, scenario in enumerate(cmd.scenarios):
-        scenario_fields = {"t_stages", "t_stages_dist", "mode"}
-        scenario_attrs = scenario.model_dump(include=scenario_fields)
+        _fields = {"t_stages", "t_stages_dist", "mode"}
+        prior_kwargs = scenario.model_dump(include=_fields)
 
         priors = cached_compute_priors(
             model_config=cmd.model,
@@ -168,11 +155,11 @@ def main(args: argparse.Namespace):
             dist_configs=cmd.distributions,
             samples=samples,
             progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
-            **scenario_attrs,
+            **prior_kwargs,
         )
 
         cmd.priors.save(values=priors, dataset=f"{i:03d}")
-        cmd.priors.set_attrs(attrs=scenario_attrs, dataset=f"{i:03d}")
+        cmd.priors.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
 
 
 if __name__ == "__main__":
