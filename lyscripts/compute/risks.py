@@ -12,8 +12,12 @@ from pathlib import Path
 import numpy as np
 from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings, CliSettingsSource
+from rich import progress
 
-from lyscripts.compute.utils import HDF5FileStorage
+from lyscripts import utils
+from lyscripts.compute.posteriors import compute_posteriors
+from lyscripts.compute.priors import compute_priors
+from lyscripts.compute.utils import HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
@@ -21,6 +25,9 @@ from lyscripts.configs import (
     ModalityConfig,
     ModelConfig,
     SamplingConfig,
+    add_dists,
+    add_modalities,
+    construct_model,
 )
 from lyscripts.scenario import Scenario
 
@@ -112,11 +119,84 @@ def compute_risks(
     method, as nothing more is necessary than to marginalize the full posterior state
     distribution over the states that correspond to the involvement of interest.
     """
+    model = construct_model(model_config, graph_config)
+    model = add_dists(model, dist_configs)
+    model = add_modalities(model, modality_configs)
+    risks = []
+
+    for posterior in progress.track(
+        sequence=posteriors,
+        description="[blue]INFO     [/blue]" + progress_desc,
+        total=len(posteriors),
+    ):
+        risks.append(
+            model.marginalize(involvement=involvement, given_state_dist=posterior)
+        )
+
+    return np.stack(risks)
 
 
 def main(args: argparse.Namespace):
     """Run the main risk prediction routine."""
-    ...
+    yaml_confis = utils.merge_yaml_configs(args.configs)
+    cmd = CmdSettings(
+        _cli_settings_source=args.cli_settings_source(parsed_args=args),
+        **yaml_confis,
+    )
+    logger.debug(cmd.model_dump_json(indent=2))
+
+    global_attrs = cmd.model_dump(
+        include={"model", "graph", "distributions", "modalities"},
+    )
+    cmd.posteriors.set_attrs(attrs=global_attrs, dataset="/")
+
+    samples = cmd.sampling.load()
+    cached_compute_priors = get_cached(compute_priors, cmd.cache_dir)
+    cached_compute_posteriors = get_cached(compute_posteriors, cmd.cache_dir)
+    cached_compute_risks = get_cached(compute_risks, cmd.cache_dir)
+    num_scenarios = len(cmd.scenarios)
+
+    for i, scenario in enumerate(cmd.scenarios):
+        _fields = {"t_stages", "t_stages_dist", "mode"}
+        prior_kwargs = scenario.model_dump(include=_fields)
+
+        _priors = cached_compute_priors(
+            model_config=cmd.model,
+            graph_config=cmd.graph,
+            dist_configs=cmd.distributions,
+            samples=samples,
+            progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
+            **prior_kwargs,
+        )
+
+        _fields = {"diagnosis", "midext", "mode"}
+        posterior_kwargs = scenario.model_dump(include=_fields)
+
+        _posteriors = cached_compute_posteriors(
+            model_config=cmd.model,
+            graph_config=cmd.graph,
+            dist_configs=cmd.distributions,
+            modality_configs=cmd.modalities,
+            priors=_priors,
+            progress_desc=f"Computing posteriors for scenario {i + 1}/{num_scenarios}",
+            **posterior_kwargs,
+        )
+
+        _fields = {"involvement"}
+        risk_kwargs = scenario.model_dump(include=_fields)
+
+        risks = cached_compute_risks(
+            model_config=cmd.model,
+            graph_config=cmd.graph,
+            dist_configs=cmd.distributions,
+            modality_configs=cmd.modalities,
+            posteriors=_posteriors,
+            progress_desc=f"Computing risks for scenario {i + 1}/{num_scenarios}",
+            **risk_kwargs,
+        )
+
+        cmd.risks.save(values=risks, dataset=f"{i:03d}")
+        cmd.risks.set_attrs(attrs=risk_kwargs, dataset=f"{i:03d}")
 
 
 if __name__ == "__main__":
