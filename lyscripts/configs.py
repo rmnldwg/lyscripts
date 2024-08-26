@@ -222,8 +222,13 @@ def construct_model(
 ) -> Model:
     """Construct a model from a ``model_config``.
 
-    The ``dist_map`` should map a name to a function that will be used as distribution
-    over diagnosis times.
+    The default/expected use of this is to specify a model class from the
+    :py:mod:`lymph` package and pass the necessary arguments to its constructor.
+    However, it is also possible to load a model from an external Python file via the
+    ``external`` attribute of the ``model_config`` argument. In this case, a symbol
+    with name ``model`` must be defined in the file that is to be loaded. Note that
+    no check is performed on the model's compatibility with the command/pipeline it is
+    used in.
     """
     if model_config.external is not None:
         return _construct_model_from_external(model_config.external)
