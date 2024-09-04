@@ -211,6 +211,35 @@
       "title": "GraphConfig",
       "type": "object"
     },
+    "HDF5FileStorage": {
+      "description": "HDF5 file storage for in- and outputs of computations.",
+      "properties": {
+        "file": {
+          "description": "Path to the HDF5 file. Parent directories are created if needed.",
+          "format": "path",
+          "title": "File",
+          "type": "string"
+        },
+        "dataset": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the dataset in the HDF5 file. Save/load methods can override this.",
+          "title": "Dataset"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "HDF5FileStorage",
+      "type": "object"
+    },
     "InvolvementConfig": {
       "description": "Config that defines an ipsi- and contralateral involvement pattern.",
       "properties": {
@@ -410,42 +439,13 @@
       "title": "ModelConfig",
       "type": "object"
     },
-    "PriorsConfig": {
-      "description": "Configure how the priors are computed.",
-      "properties": {
-        "storage_file": {
-          "description": "Path to file for storing the computed prior distributions.",
-          "format": "path",
-          "title": "Storage File",
-          "type": "string"
-        },
-        "dset_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of the dataset in the HDF5 file. If `None`, this will be dynamically computed from the scenario.",
-          "title": "Dset Name"
-        }
-      },
-      "required": [
-        "storage_file"
-      ],
-      "title": "PriorsConfig",
-      "type": "object"
-    },
     "SamplingConfig": {
       "description": "Settings to configure the MCMC sampling.",
       "properties": {
-        "storage_file": {
+        "file": {
           "description": "Path to HDF5 file for the results to be stored on or loaded from.",
           "format": "path",
-          "title": "Storage File",
+          "title": "File",
           "type": "string"
         },
         "history_file": {
@@ -462,10 +462,10 @@
           "description": "Path to store the burn-in metrics in (as CSV file).",
           "title": "History File"
         },
-        "dset_name": {
+        "dataset": {
           "default": "mcmc",
           "description": "Name of the dataset in the HDF5 file.",
-          "title": "Dset Name",
+          "title": "Dataset",
           "type": "string"
         },
         "cores": {
@@ -545,7 +545,7 @@
         }
       },
       "required": [
-        "storage_file"
+        "file"
       ],
       "title": "SamplingConfig",
       "type": "object"
@@ -664,7 +664,12 @@
       "$ref": "#/$defs/SamplingConfig"
     },
     "priors": {
-      "$ref": "#/$defs/PriorsConfig"
+      "allOf": [
+        {
+          "$ref": "#/$defs/HDF5FileStorage"
+        }
+      ],
+      "description": "Storage for the computed priors."
     },
     "graph": {
       "$ref": "#/$defs/GraphConfig"
@@ -692,15 +697,6 @@
       "title": "Distributions",
       "type": "object"
     },
-    "modalities": {
-      "additionalProperties": {
-        "$ref": "#/$defs/ModalityConfig"
-      },
-      "default": {},
-      "description": "Maps names of diagnostic modalities to their specificity/sensitivity.",
-      "title": "Modalities",
-      "type": "object"
-    },
     "scenarios": {
       "default": [],
       "description": "List of scenarios to compute priors for.",
@@ -709,6 +705,15 @@
       },
       "title": "Scenarios",
       "type": "array"
+    },
+    "modalities": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ModalityConfig"
+      },
+      "default": {},
+      "description": "Maps names of diagnostic modalities to their specificity/sensitivity.",
+      "title": "Modalities",
+      "type": "object"
     },
     "data": {
       "$ref": "#/$defs/DataConfig"

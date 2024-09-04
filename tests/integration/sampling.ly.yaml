@@ -1,8 +1,8 @@
 sampling:
   seed: 42
-  walkers_per_dim: 5
+  walkers_per_dim: 2
   check_interval: 10
   trust_factor: 10
   relative_thresh: 0.1
-  thin: 2
-  nsteps: 50
+  thin: 1
+  nsteps: 10
