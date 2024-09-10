@@ -10,7 +10,7 @@ import lyscripts
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "lyscripts"
-copyright = "2024, Roman Ludwig"  # noqa: A001
+copyright = "2022, Roman Ludwig"  # noqa: A001
 author = "Roman Ludwig"
 gh_username = "rmnldwg"
 version = lyscripts.__version__
