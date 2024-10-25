@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
-from lyscripts.plot.utils import COLORS, save_figure
+from lyscripts.plot.utils import COLORS, save_figure, SUBSITE_COLORS
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,8 @@ def _add_arguments(parser: argparse.ArgumentParser):
 def main(args: argparse.Namespace):
     tmp = LinearSegmentedColormap.from_list("tmp", [COLORS['green'], COLORS['red']], N=128)
     mixture_df = pd.read_csv(args.input)
+    filtered_keys = [key for key in SUBSITE_COLORS if key in mixture_df.columns]
+    mixture_df = mixture_df[filtered_keys]
 
     # Transpose the matrix to rotate by 90°
     matrix_rotated = mixture_df.T

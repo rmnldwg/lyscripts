@@ -73,6 +73,11 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "-s", "--seed", type=int, default=42,
         help="Seed value to reproduce the same sampling round."
     )
+    parser.add_argument(
+        "-sp", "--starting_point", type=bool, default=None,
+        help="Starting point for optimization if we do not want to start from a random point"
+    )
+
 
     parser.set_defaults(run_main=main)
 
@@ -98,7 +103,7 @@ def check_convergence(params_history, likelihood_history, steps_back_list, absol
     return False
 
 
-def run_EM(tolerance):
+def run_EM(tolerance, history_dir = None):
     """Run the EM algorithm to determine the optimal parameters.
     """
     is_converged = False
@@ -120,7 +125,13 @@ def run_EM(tolerance):
         # Append current params and likelihood to history
         params_history.append(params.copy())
         likelihood_history.append(MIXTURE.likelihood(use_complete = False))
-        
+        if history_dir != None:
+            llh_history = pd.DataFrame(likelihood_history)
+            llh_history.columns = ['likelihoods']
+            llh_history.to_csv(history_dir + '/llh.csv', index=False)
+            param_history = pd.DataFrame(params_history)
+            param_history.to_csv(history_dir + '/params.csv', index=False)
+            MIXTURE.get_mixture_coefs().to_csv(history_dir + '/mixture_coef.csv', index=False)
         # Check if converged
         if iteration >= 3:  # Ensure enough history is available
             is_converged = check_convergence(params_history, likelihood_history,list(range(1,look_back_steps+1)),tolerance)
@@ -134,6 +145,7 @@ def main(args: argparse.Namespace) -> None:
 
     params = load_yaml_params(args.params)
     inference_data = load_patient_data(args.input)
+
     # ugly, but necessary for pickling
     global MIXTURE
     MIXTURE = create_mixture(params)
@@ -152,10 +164,10 @@ def main(args: argparse.Namespace) -> None:
     MIXTURE.set_params(**starting_values)
     MIXTURE.normalize_mixture_coefs()
     tolerance = params['model'].get('likelihood_tolerance', 0.01)
-    params_history, likelihood_history = run_EM(tolerance = tolerance)    
-    
     history_dir = params['general']['history_dir']
     logger.info(f"Saving history to {history_dir}.")
+    params_history, likelihood_history = run_EM(tolerance = tolerance, history_dir = history_dir)
+    
     llh_history = pd.DataFrame(likelihood_history)
     llh_history.columns = ['likelihoods']
     llh_history.to_csv(history_dir + '/llh.csv', index=False)
