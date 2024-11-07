@@ -55,11 +55,7 @@ import yaml
 
 import h5py
 import matplotlib.pyplot as plt
-from tueplots import figsizes, fontsizes
 from lyscripts.plot.utils import COLORS as USZ
-
-from helpers import generate_location_colors
-
 
 def create_parser() -> argparse.ArgumentParser:
     """Assemble the parser for the command line arguments."""
