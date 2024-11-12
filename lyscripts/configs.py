@@ -155,6 +155,13 @@ class DiagnosisConfig(BaseModel):
         description="Observed diagnoses by different modalities on the contra neck.",
     )
 
+    def to_involvement(self, modality: str) -> InvolvementConfig:
+        """Convert the diagnosis pattern to an involvement pattern for ``modality``."""
+        return InvolvementConfig(
+            ipsi=self.ipsi.get(modality, {}),
+            contra=self.contra.get(modality, {}),
+        )
+
 
 class ScenarioConfig(BaseModel):
     """Define a scenario for which e.g. prevalences and risks may be computed."""
