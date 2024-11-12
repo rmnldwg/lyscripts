@@ -29,7 +29,8 @@ from pydantic_settings import (
     BaseSettings,
     CliSettingsSource,
 )
-from rich.progress import Progress, TimeElapsedColumn, track
+from rich.progress import Progress, ProgressColumn, Task, TimeElapsedColumn, track
+from rich.text import Text
 
 from lyscripts.configs import (
     DataConfig,
@@ -83,6 +84,27 @@ class CmdSettings(BaseSettings):
     )
     data: DataConfig
     sampling: SamplingConfig
+
+
+class CompletedItersColumn(ProgressColumn):
+    """A column that displays the total number of iterations."""
+
+    def render(self, task: Task) -> Text:
+        """Render total iterations."""
+        if task.completed is None:
+            return Text("? it", style="progress.data.steps")
+        return Text(f"{task.completed} it", style="progress.data.steps")
+
+
+class ItersPerSecondColumn(ProgressColumn):
+    """A column that displays the number of iterations per second."""
+
+    def render(self, task: Task) -> Text:
+        """Render iterations per second."""
+        speed = task.finished_speed or task.speed
+        if speed is None:
+            return Text("? it/s", style="progress.data.speed")
+        return Text(f"{speed:.2f} it/s", style="progress.data.speed")
 
 
 def _add_parser(
@@ -204,8 +226,14 @@ def run_burnin(
     history = get_burnin_history(history_file)
     previous_accepted = 0
 
+    progress_columns = Progress.get_default_columns()
+    if max_burnin is None:
+        progress_columns.append(CompletedItersColumn())
+
     with Progress(
         *Progress.get_default_columns(),
+        ItersPerSecondColumn(),
+        CompletedItersColumn(),
         TimeElapsedColumn(),
         console=console,
     ) as progress:
