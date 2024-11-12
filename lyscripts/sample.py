@@ -181,16 +181,19 @@ def get_starting_state(sampler: emcee.EnsembleSampler) -> np.ndarray:
 
 
 def get_burnin_history(file: Path | None) -> pd.DataFrame:
-    """Try to load the burn-in history from a CSV file.
+    """Try to load the history of an interrupted burn-in phase from a file.
 
-    Return an empty DataFrame if no history is found.
+    It will look for the given ``file``, but with the suffix ``.tmp``, indicating that
+    a previous run was interrupted and can be continued.
+
+    If no file is found, an empty DataFrame is returned.
     """
-    if file is None or not file.exists():
+    if file is None or not file.with_suffix(".tmp").exists():
         return pd.DataFrame(
             columns=["steps", "acor_times", "accept_fracs", "max_log_probs"],
         ).set_index("steps")
 
-    return pd.read_csv(file, index_col="steps")
+    return pd.read_csv(file.with_suffix(".tmp"), index_col="steps")
 
 
 def is_converged(
@@ -264,7 +267,7 @@ def run_burnin(
             ]
             logger.debug(history.iloc[-1].to_dict())
             if history_file is not None:
-                history.to_csv(history_file, index=True)
+                history.to_csv(history_file.with_suffix(".tmp"), index=True)
 
             if max_burnin is None and is_converged(
                 iteration=sampler.iteration,
@@ -275,6 +278,9 @@ def run_burnin(
             ):
                 logger.info(f"Sampling converged after {sampler.iteration} steps.")
                 break
+
+    if history_file is not None:
+        history_file.with_suffix(".tmp").rename(history_file)
 
 
 def run_sampling(
