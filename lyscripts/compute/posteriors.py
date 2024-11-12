@@ -13,60 +13,38 @@ from typing import Literal
 
 import numpy as np
 from lymph import models
-from pydantic import ConfigDict, Field
-from pydantic_settings import BaseSettings, CliSettingsSource
+from pydantic import Field
+from pydantic_settings import CliSettingsSource
 from rich import progress
 
 from lyscripts import utils
 from lyscripts.compute.priors import compute_priors
-from lyscripts.compute.utils import HDF5FileStorage, get_cached
+from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DiagnosisConfig,
     DistributionConfig,
     GraphConfig,
     ModalityConfig,
     ModelConfig,
-    SamplingConfig,
     add_dists,
     add_modalities,
     construct_model,
 )
-from lyscripts.scenario import Scenario
 
 logger = logging.getLogger(__name__)
 
 
-class CmdSettings(BaseSettings):
+class CmdSettings(ComputeCmdSettings):
     """Command line settings for the computation of posterior state distributions."""
 
-    model_config = ConfigDict(extra="allow")
-
-    cache_dir: Path = Field(
-        default=Path.cwd() / ".cache",
-        description="Cache directory for storing function calls.",
-    )
-    sampling: SamplingConfig
-    posteriors: HDF5FileStorage = Field(
-        description="Storage for the computed posteriors."
-    )
-    graph: GraphConfig
-    model: ModelConfig = ModelConfig()
-    distributions: dict[str, DistributionConfig] = Field(
-        default={},
-        description=(
-            "Mapping of model T-categories to predefined distributions over "
-            "diagnose times."
-        ),
-    )
     modalities: dict[str, ModalityConfig] = Field(
         default={},
         description=(
             "Maps names of diagnostic modalities to their specificity/sensitivity."
         ),
     )
-    scenarios: list[Scenario] = Field(
-        default=[],
-        description="List of scenarios to compute posteriors for.",
+    posteriors: HDF5FileStorage = Field(
+        description="Storage for the computed posteriors."
     )
 
 

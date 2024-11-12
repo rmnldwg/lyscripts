@@ -8,9 +8,43 @@ from typing import Annotated, Any
 import h5py
 import numpy as np
 from joblib import Memory
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic_settings import BaseSettings
+
+from lyscripts.configs import (
+    DistributionConfig,
+    GraphConfig,
+    ModelConfig,
+    SamplingConfig,
+)
+from lyscripts.scenario import Scenario
 
 logger = logging.getLogger(__name__)
+
+
+class ComputeCmdSettings(BaseSettings):
+    """Command line settings for the computation of posterior state distributions."""
+
+    model_config = ConfigDict(extra="allow")
+
+    cache_dir: Path = Field(
+        default=Path.cwd() / ".cache",
+        description="Cache directory for storing function calls.",
+    )
+    sampling: SamplingConfig
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
+    scenarios: list[Scenario] = Field(
+        default=[],
+        description="List of scenarios to compute risks for.",
+    )
 
 
 def is_hdf5_compatible(value: Any) -> bool:

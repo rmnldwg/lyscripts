@@ -10,60 +10,38 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from pydantic import ConfigDict, Field
-from pydantic_settings import BaseSettings, CliSettingsSource
+from pydantic import Field
+from pydantic_settings import CliSettingsSource
 from rich import progress
 
 from lyscripts import utils
 from lyscripts.compute.posteriors import compute_posteriors
 from lyscripts.compute.priors import compute_priors
-from lyscripts.compute.utils import HDF5FileStorage, get_cached
+from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
     InvolvementConfig,
     ModalityConfig,
     ModelConfig,
-    SamplingConfig,
     add_dists,
     add_modalities,
     construct_model,
 )
-from lyscripts.scenario import Scenario
 
 logger = logging.getLogger(__name__)
 
 
-class CmdSettings(BaseSettings):
+class CmdSettings(ComputeCmdSettings):
     """Command line settings for the computation of posterior state distributions."""
 
-    model_config = ConfigDict(extra="allow")
-
-    cache_dir: Path = Field(
-        default=Path.cwd() / ".cache",
-        description="Cache directory for storing function calls.",
-    )
-    sampling: SamplingConfig
-    risks: HDF5FileStorage = Field(description="Storage for the computed risks.")
-    graph: GraphConfig
-    model: ModelConfig = ModelConfig()
-    distributions: dict[str, DistributionConfig] = Field(
-        default={},
-        description=(
-            "Mapping of model T-categories to predefined distributions over "
-            "diagnose times."
-        ),
-    )
     modalities: dict[str, ModalityConfig] = Field(
         default={},
         description=(
             "Maps names of diagnostic modalities to their specificity/sensitivity."
         ),
     )
-    scenarios: list[Scenario] = Field(
-        default=[],
-        description="List of scenarios to compute risks for.",
-    )
+    risks: HDF5FileStorage = Field(description="Storage for the computed risks.")
 
 
 def _add_parser(
@@ -138,17 +116,17 @@ def compute_risks(
 
 def main(args: argparse.Namespace):
     """Run the main risk prediction routine."""
-    yaml_confis = utils.merge_yaml_configs(args.configs)
+    yaml_configs = utils.merge_yaml_configs(args.configs)
     cmd = CmdSettings(
         _cli_settings_source=args.cli_settings_source(parsed_args=args),
-        **yaml_confis,
+        **yaml_configs,
     )
     logger.debug(cmd.model_dump_json(indent=2))
 
     global_attrs = cmd.model_dump(
         include={"model", "graph", "distributions", "modalities"},
     )
-    cmd.posteriors.set_attrs(attrs=global_attrs, dataset="/")
+    cmd.risks.set_attrs(attrs=global_attrs, dataset="/")
 
     samples = cmd.sampling.load()
     cached_compute_priors = get_cached(compute_priors, cmd.cache_dir)

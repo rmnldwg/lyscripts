@@ -10,17 +10,15 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from pydantic import ConfigDict, Field
-from pydantic_settings import BaseSettings, CliSettingsSource
+from pydantic import Field
+from pydantic_settings import CliSettingsSource
 from rich import progress
 
-from lyscripts.compute.utils import HDF5FileStorage, get_cached
+from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
     ModelConfig,
-    SamplingConfig,
-    ScenarioConfig,
     add_dists,
     construct_model,
 )
@@ -29,30 +27,10 @@ from lyscripts.utils import merge_yaml_configs
 logger = logging.getLogger(__name__)
 
 
-class CmdSettings(BaseSettings):
+class CmdSettings(ComputeCmdSettings):
     """Settings required to compute priors from model configs and samples."""
 
-    model_config = ConfigDict(extra="allow")
-
-    cache_dir: Path = Field(
-        default=Path.cwd() / ".cache",
-        description="Cache directory for storing function calls.",
-    )
-    sampling: SamplingConfig
     priors: HDF5FileStorage = Field(description="Storage for the computed priors.")
-    graph: GraphConfig
-    model: ModelConfig = ModelConfig()
-    distributions: dict[str, DistributionConfig] = Field(
-        default={},
-        description=(
-            "Mapping of model T-categories to predefined distributions over "
-            "diagnose times."
-        ),
-    )
-    scenarios: list[ScenarioConfig] = Field(
-        default=[],
-        description="List of scenarios to compute priors for.",
-    )
 
 
 def _add_parser(
