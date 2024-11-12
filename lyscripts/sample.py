@@ -87,13 +87,18 @@ class CmdSettings(BaseSettings):
 
 
 class CompletedItersColumn(ProgressColumn):
-    """A column that displays the total number of iterations."""
+    """A column that displays the completed number of iterations."""
+
+    def __init__(self, table_column=None, it: int = 0):
+        """Initialize the column with number of previous iterations."""
+        super().__init__(table_column)
+        self.it = it
 
     def render(self, task: Task) -> Text:
         """Render total iterations."""
         if task.completed is None:
             return Text("? it", style="progress.data.steps")
-        return Text(f"{task.completed} it", style="progress.data.steps")
+        return Text(f"{task.completed + self.it} it", style="progress.data.steps")
 
 
 class ItersPerSecondColumn(ProgressColumn):
@@ -157,7 +162,7 @@ def log_prob_fn(theta: ParamsType, inverse_temp: float = 1.0) -> tuple[float, fl
     return inverse_temp * MODEL.likelihood(given_params=theta), inverse_temp
 
 
-def get_starting_state(sampler):
+def get_starting_state(sampler: emcee.EnsembleSampler) -> np.ndarray:
     """Try to extract a starting state from a ``sampler``.
 
     Create a random starting state if no one was found.
@@ -202,12 +207,12 @@ def is_converged(
     )
 
 
-def _get_columns() -> list[ProgressColumn]:
+def _get_columns(it: int = 0) -> list[ProgressColumn]:
     """Get the default progress columns for the MCMC sampling."""
     return [
         *Progress.get_default_columns(),
         ItersPerSecondColumn(),
-        CompletedItersColumn(),
+        CompletedItersColumn(it=it),
         TimeElapsedColumn(),
     ]
 
@@ -236,7 +241,7 @@ def run_burnin(
     history = get_burnin_history(history_file)
     previous_accepted = 0
 
-    with Progress(*_get_columns(), console=console) as progress:
+    with Progress(*_get_columns(it=sampler.iteration), console=console) as progress:
         task = progress.add_task(
             description="[blue]INFO     [/blue]Burn-in phase ",
             total=max_burnin,
