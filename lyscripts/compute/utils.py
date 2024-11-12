@@ -16,8 +16,8 @@ from lyscripts.configs import (
     GraphConfig,
     ModelConfig,
     SamplingConfig,
+    ScenarioConfig,
 )
-from lyscripts.scenario import Scenario
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class ComputeCmdSettings(BaseSettings):
             "diagnose times."
         ),
     )
-    scenarios: list[Scenario] = Field(
+    scenarios: list[ScenarioConfig] = Field(
         default=[],
         description="List of scenarios to compute risks for.",
     )

@@ -7,9 +7,14 @@ risk prediction, this uses caching and computes the priors first.
 
 import argparse
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
+import lydata  # noqa: F401
 import numpy as np
+import pandas as pd
+from lydata import C, Q
+from lydata.accessor import NoneQ
 from lymph import models
 from pydantic import Field
 from pydantic_settings import CliSettingsSource
@@ -28,6 +33,7 @@ from lyscripts.configs import (
     GraphConfig,
     ModalityConfig,
     ModelConfig,
+    ScenarioConfig,
     add_dists,
     add_modalities,
     construct_model,
@@ -128,6 +134,45 @@ def compute_prevalences(
     return np.stack(prevalences)
 
 
+def get_query(diagnosis: DiagnosisConfig) -> Q:
+    """Transform a diagnosis into a query for the data."""
+    result = NoneQ()
+    for side in ["ipsi", "contra"]:
+        for modality, pattern in getattr(diagnosis, side, {}).items():
+            for lnl, value in pattern.items():
+                column = (modality, side, lnl)
+                result &= C(column) == value
+    return result
+
+
+def observe_prevalence(
+    data: pd.DataFrame,
+    scenario_config: ScenarioConfig,
+    mapping: dict[int, str] | Callable[[int], str] | None = None,
+) -> tuple[int, int]:
+    """Extract prevalence defined in a ``scenario`` from the ``data``.
+
+    ``mapping`` defines how the T-stages in the data are supposed to be mapped to the
+    T-stages defined in the ``scenario``.
+
+    Warning:
+    --------
+        When computing prevalences for unilateral models, the contralateral diagnosis
+        will still be considered for computing the prevalence in the *data*.
+
+    """
+    mapping = mapping or {0: "early", 1: "ealy", 2: "early", 3: "late", 4: "late"}
+    data["tumor", "1", "t_stage"] = data.ly.t_stage.map(mapping)
+
+    has_t_stage = C("t_stage").isin(scenario_config.t_stages)
+    has_midext = C("midext") == scenario_config.midext
+    portion = data.ly.portion(
+        query=get_query(scenario_config.diagnosis),
+        given=has_t_stage & has_midext,
+    )
+    return portion.match, portion.total
+
+
 def main(args: argparse.Namespace):
     """Run the main prevalence prediction routine."""
     yaml_configs = utils.merge_yaml_configs(args.configs)
@@ -172,7 +217,7 @@ def main(args: argparse.Namespace):
             progress_desc=f"Computing prevalences for scenario {i + 1}/{num_scenarios}",
             **prevalence_kwargs,
         )
-
+        # TODO: Add observation of prevalence in the data.
         cmd.prevalences.save(values=prevalences, dataset=f"{i:03d}")
         cmd.prevalences.set_attrs(attrs=prevalence_kwargs, dataset=f"{i:03d}")
 
