@@ -202,6 +202,16 @@ def is_converged(
     )
 
 
+def _get_columns() -> list[ProgressColumn]:
+    """Get the default progress columns for the MCMC sampling."""
+    return [
+        *Progress.get_default_columns(),
+        ItersPerSecondColumn(),
+        CompletedItersColumn(),
+        TimeElapsedColumn(),
+    ]
+
+
 def run_burnin(
     sampler: emcee.EnsembleSampler,
     max_burnin: int | None = None,
@@ -226,17 +236,7 @@ def run_burnin(
     history = get_burnin_history(history_file)
     previous_accepted = 0
 
-    progress_columns = Progress.get_default_columns()
-    if max_burnin is None:
-        progress_columns.append(CompletedItersColumn())
-
-    with Progress(
-        *Progress.get_default_columns(),
-        ItersPerSecondColumn(),
-        CompletedItersColumn(),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
+    with Progress(*_get_columns(), console=console) as progress:
         task = progress.add_task(
             description="[blue]INFO     [/blue]Burn-in phase ",
             total=max_burnin,
