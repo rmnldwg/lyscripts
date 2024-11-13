@@ -109,7 +109,7 @@ class DataConfig(BaseModel):
         description="Side of the neck to load data for. Only for Unilateral models.",
     )
     mapping: dict[Literal[0, 1, 2, 3, 4], int | str] = Field(
-        default={i: "early" if i <= 2 else "late" for i in range(5)},
+        default_factory=lambda: {i: "early" if i <= 2 else "late" for i in range(5)},
         description="Optional mapping of numeric T-stages to model T-stages.",
     )
 

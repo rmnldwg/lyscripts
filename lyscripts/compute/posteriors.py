@@ -174,6 +174,7 @@ def main(args: argparse.Namespace) -> None:
         )
 
         cmd.posteriors.save(values=posteriors, dataset=f"{i:03d}")
+        cmd.posteriors.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
         cmd.posteriors.set_attrs(attrs=posterior_kwargs, dataset=f"{i:03d}")
 
 

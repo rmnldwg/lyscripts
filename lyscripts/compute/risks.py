@@ -174,6 +174,8 @@ def main(args: argparse.Namespace):
         )
 
         cmd.risks.save(values=risks, dataset=f"{i:03d}")
+        cmd.risks.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
+        cmd.risks.set_attrs(attrs=posterior_kwargs, dataset=f"{i:03d}")
         cmd.risks.set_attrs(attrs=risk_kwargs, dataset=f"{i:03d}")
 
 

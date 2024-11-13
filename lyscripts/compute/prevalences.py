@@ -14,7 +14,7 @@ import lydata  # noqa: F401
 import numpy as np
 import pandas as pd
 from lydata import C, Q
-from lydata.accessor import NoneQ
+from lydata.accessor import NoneQ, QueryPortion
 from lymph import models
 from pydantic import Field
 from pydantic_settings import CliSettingsSource
@@ -28,6 +28,7 @@ from lyscripts.compute.utils import (
     get_cached,
 )
 from lyscripts.configs import (
+    DataConfig,
     DiagnosisConfig,
     DistributionConfig,
     GraphConfig,
@@ -54,6 +55,7 @@ class CmdSettings(ComputeCmdSettings):
     prevalences: HDF5FileStorage = Field(
         description="Storage for the computed prevalences.",
     )
+    data: DataConfig
 
 
 def _add_parser(
@@ -123,10 +125,11 @@ def compute_prevalences(
         total=len(priors),
     ):
         obs_dist = model.obs_dist(given_state_dist=prior)
+        involvement = diagnosis.to_involvement(next(iter(modality_configs)))
         prevalences.append(
             model.marginalize(
                 given_state_dist=obs_dist,
-                involvement=diagnosis.to_involvement(next(iter(modality_configs))),
+                involvement=involvement.model_dump(),
                 **kwargs,
             )
         )
@@ -134,7 +137,7 @@ def compute_prevalences(
     return np.stack(prevalences)
 
 
-def get_query(diagnosis: DiagnosisConfig) -> Q:
+def generate_query_from_diagnosis(diagnosis: DiagnosisConfig) -> Q:
     """Transform a diagnosis into a query for the data."""
     result = NoneQ()
     for side in ["ipsi", "contra"]:
@@ -149,28 +152,38 @@ def observe_prevalence(
     data: pd.DataFrame,
     scenario_config: ScenarioConfig,
     mapping: dict[int, str] | Callable[[int], str] | None = None,
-) -> tuple[int, int]:
+) -> QueryPortion:
     """Extract prevalence defined in a ``scenario`` from the ``data``.
 
     ``mapping`` defines how the T-stages in the data are supposed to be mapped to the
     T-stages defined in the ``scenario``.
 
-    Warning:
-    --------
-        When computing prevalences for unilateral models, the contralateral diagnosis
-        will still be considered for computing the prevalence in the *data*.
+    It returns the number of patients that match the given scenario and the total
+    number of patients that are considered. E.g., in the example below we 79 patients
+    are of late T-stage and have a tumor extending over the midline. Of those, 30 were
+    diagnosed with contralateral involvement in LNL II based on a CT scan.
 
+    >>> data = next(lydata.load_datasets(year=2021, institution="usz"))
+    >>> scenario_config = ScenarioConfig(
+    ...     t_stages=["late"],
+    ...     midext=True,
+    ...     diagnosis=DiagnosisConfig(contra={"CT": {"II": True}}),
+    ... )
+    >>> observe_prevalence(data, scenario_config)
+    (np.int64(7), np.int64(79))
     """
-    mapping = mapping or {0: "early", 1: "ealy", 2: "early", 3: "late", 4: "late"}
+    mapping = mapping or DataConfig.model_fields["mapping"].default_factory()
     data["tumor", "1", "t_stage"] = data.ly.t_stage.map(mapping)
 
     has_t_stage = C("t_stage").isin(scenario_config.t_stages)
-    has_midext = C("midext") == scenario_config.midext
-    portion = data.ly.portion(
-        query=get_query(scenario_config.diagnosis),
+    if scenario_config.midext is None:
+        has_midext = NoneQ()
+    else:
+        has_midext = C("midext") == scenario_config.midext
+    return data.ly.portion(
+        query=generate_query_from_diagnosis(scenario_config.diagnosis),
         given=has_t_stage & has_midext,
     )
-    return portion.match, portion.total
 
 
 def main(args: argparse.Namespace):
@@ -214,12 +227,26 @@ def main(args: argparse.Namespace):
             dist_configs=cmd.distributions,
             modality_configs=cmd.modalities,
             priors=_priors,
+            diagnosis=scenario.diagnosis,
+            midext=scenario.midext,
             progress_desc=f"Computing prevalences for scenario {i + 1}/{num_scenarios}",
-            **prevalence_kwargs,
         )
-        # TODO: Add observation of prevalence in the data.
+
+        portion = observe_prevalence(
+            data=cmd.data.load(),
+            scenario_config=scenario,
+            mapping=cmd.data.mapping,
+        )
         cmd.prevalences.save(values=prevalences, dataset=f"{i:03d}")
+        cmd.prevalences.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
         cmd.prevalences.set_attrs(attrs=prevalence_kwargs, dataset=f"{i:03d}")
+        cmd.prevalences.set_attrs(
+            attrs={
+                "num_match": portion.match,
+                "num_total": portion.total,
+            },
+            dataset=f"{i:03d}",
+        )
 
 
 if __name__ == "__main__":
