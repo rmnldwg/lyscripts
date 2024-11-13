@@ -389,10 +389,14 @@ class SamplingConfig(BaseModel):
         ),
     )
 
-    def load(self) -> np.ndarray:
-        """Load the samples from the HDF5 file."""
+    def load(self, thin: int = 1) -> np.ndarray:
+        """Load the samples from the HDF5 file.
+
+        Note that the ``thin`` represents another round of thinning and is usually
+        not necessary if the samples were already thinned during the sampling process.
+        """
         return load_model_samples(
             file_path=self.file,
             name=self.dataset,
-            thin=self.thin,
+            thin=thin,
         )
