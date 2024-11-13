@@ -5,8 +5,8 @@ It also contains helpers for reporting the script's progress via a slightly cust
 occurring issues to the right place.
 """
 
+import logging
 import warnings
-from logging import LogRecord
 from pathlib import Path
 from typing import Any, Literal
 
@@ -33,7 +33,7 @@ CIRCL = "[bold blue]∘[/bold blue]"
 WARN = "[bold yellow]Δ[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
 
-
+logger = logging.getLogger(__name__)
 console = Console()
 
 
@@ -67,7 +67,7 @@ class CustomProgress(Progress):
 class CustomRichHandler(RichHandler):
     """Uses `func_filepath` from the `extra` dict to modify `pathname`."""
 
-    def emit(self, record: LogRecord) -> None:
+    def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record."""
         if (
             "func_filepath" in record.__dict__
@@ -399,12 +399,13 @@ def load_patient_data(
     return pd.read_csv(file_path, **read_csv_kwargs)
 
 
-@log_state()
 @check_input_file_exists
 def load_yaml_params(file_path: Path) -> dict:
     """Load parameters from a YAML ``file``."""
     with open(file_path, encoding="utf-8") as file:
-        return yaml.safe_load(file)
+        loaded_params = yaml.safe_load(file)
+        logger.info(f"Loaded YAML parameters from {file_path}")
+        return loaded_params
 
 
 @log_state()
@@ -475,10 +476,11 @@ def make_pattern(
     return dict(zip(lnls, from_list or [None] * len(lnls), strict=False))
 
 
-@log_state()
 def merge_yaml_configs(files: list[Path]) -> dict:
     """Merge the YAML configuration files and return the merged dictionary."""
     yaml_params = {}
     for file in files:
         yaml_params = deep_update(yaml_params, load_yaml_params(file))
+
+    logger.info(f"Merged {len(files)} YAML config files.")
     return yaml_params
