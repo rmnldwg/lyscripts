@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-from lydata.loader import LyDatasetConfig
+from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
 from lymph import models
 from lymph.types import Model, PatternType
@@ -98,7 +98,7 @@ class ModelConfig(BaseModel):
 class DataConfig(BaseModel):
     """Where to load the data from and how to feed it into the model."""
 
-    source: FilePath | LyDatasetConfig = Field(
+    source: FilePath | LyDataset = Field(
         description=(
             "Either a path to a CSV file or a config that specifies how and where "
             "to fetch the data from."
@@ -114,8 +114,8 @@ class DataConfig(BaseModel):
     )
 
     def load(self, **read_csv_kwargs) -> pd.DataFrame:
-        """Load data from path or the :py:class:``~lydata.loader.LyDatasetConfig``."""
-        if isinstance(self.source, LyDatasetConfig):
+        """Load data from path or the :py:class:``~lydata.loader.LyDataset``."""
+        if isinstance(self.source, LyDataset):
             return self.source.load(**read_csv_kwargs)
 
         return load_patient_data(self.source, **read_csv_kwargs)
