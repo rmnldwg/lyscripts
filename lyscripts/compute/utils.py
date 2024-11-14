@@ -1,6 +1,7 @@
 """Utilities for precomputing the priors and posteriors."""
 
 import ast
+import functools
 import logging
 from pathlib import Path
 from typing import Annotated, Any
@@ -77,8 +78,10 @@ def from_hdf5_attrs(mapping: h5py.AttributeManager) -> dict[str, Any]:
     return attrs
 
 
-def get_modality_subset(diagnosis: dict[str, Any]) -> set[str]:
-    """Get the subset of modalities used in the ``scenario``.
+def extract_modalities(diagnosis: dict[str, Any]) -> set[str]:
+    """Get the set of modalities used in the ``diagnosis``.
+
+    This is not used in the main apps anymore, but since it may be useful, I keep it.
 
     >>> diagnosis = {
     ...     "ipsi": {
@@ -232,7 +235,7 @@ class HDF5FileStorage(BaseModel):
                 raise ValueError(f"Dataset '{dataset}' not found in {self.file}")
             file[dataset].attrs.update(to_hdf5_attrs(attrs))
 
-        logger.debug(f"Stored attrs for dataset '{dataset}' in {self.file}")
+        logger.debug(f"Stored attrs {attrs} for dataset '{dataset}' in {self.file}")
 
 
 def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, bool]]:
@@ -296,12 +299,20 @@ def complete_pattern(
 
 def get_cached(func: callable, cache_dir: Path) -> callable:
     """Return cached ``func`` with a cache at ``cache_dir``."""
-    memory = Memory(
-        location=cache_dir,
-        verbose=(
-            20 * (logger.level <= logging.DEBUG) + 1 * (logger.level <= logging.INFO)
-        ),
-    )
-    cached_compute_priors = memory.cache(func, ignore=["progress_desc"])
-    logger.debug(f"Initialized cache at {cache_dir}")
-    return cached_compute_priors
+    memory = Memory(location=cache_dir, verbose=0)
+    cached_func = memory.cache(func, ignore=["progress_desc"])
+    logger.info(f"Initialized cache for {func.__name__} at {cache_dir}")
+
+    @functools.wraps(func)
+    def log_cache_info_wrapper(*args, **kwargs):
+        logger.debug(f"Calling {func.__name__}({args}, {kwargs})")
+        if cached_func.check_call_in_cache(*args, **kwargs):
+            logger.info(f"Cache hit for {func.__name__}, returning stored result")
+        else:
+            logger.info(f"Cache miss for {func.__name__}, computing result")
+
+        result = cached_func(*args, **kwargs)
+        logger.debug(f"Computed {result = }")
+        return result
+
+    return log_cache_info_wrapper

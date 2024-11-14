@@ -387,7 +387,6 @@ def get_modalities_subset(
     return selected_modalities
 
 
-@log_state()
 @check_input_file_exists
 def load_patient_data(
     file_path: Path,
@@ -396,7 +395,10 @@ def load_patient_data(
     """Load patient data from a CSV file stored at ``file``."""
     if "header" not in read_csv_kwargs:
         read_csv_kwargs["header"] = [0, 1, 2]
-    return pd.read_csv(file_path, **read_csv_kwargs)
+
+    data = pd.read_csv(file_path, **read_csv_kwargs)
+    logger.info(f"Loaded {len(data)} patient records from {file_path}")
+    return data
 
 
 @check_input_file_exists
@@ -408,7 +410,6 @@ def load_yaml_params(file_path: Path) -> dict:
         return loaded_params
 
 
-@log_state()
 @check_input_file_exists
 def load_model_samples(
     file_path: Path,
@@ -419,10 +420,11 @@ def load_model_samples(
 ) -> np.ndarray:
     """Load MCMC samples stored in HDF5 file at ``file_path`` under a key ``name``."""
     backend = HDFBackend(file_path, name=name, read_only=True)
-    return backend.get_chain(flat=flat, discard=discard, thin=thin)
+    samples = backend.get_chain(flat=flat, discard=discard, thin=thin)
+    logger.info(f"Loaded samples with shape {samples.shape} from {file_path}")
+    return samples
 
 
-@log_state()
 @check_output_dir_exists
 def get_hdf5_backend(
     file_path: Path,
@@ -433,8 +435,10 @@ def get_hdf5_backend(
 ) -> HDFBackend:
     """Open an HDF5 file at ``file_path`` and return a backend."""
     backend = HDFBackend(file_path, name=dataset)
+    logger.info(f"Opened HDF5 file at {file_path}")
 
     if reset:
+        logger.info(f"Resetting backend at {file_path} to {nwalkers=} and {ndim=}")
         backend.reset(nwalkers, ndim)
 
     return backend
