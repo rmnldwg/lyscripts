@@ -1,44 +1,61 @@
 """Prevalence prediction module.
 
-Predict prevalences of observed involvement pattern using the samples or prior state
-distributions that were previously inferred or computed. These computed prevalences can
-be compared to the prevalence of the respective pattern in the data, if provided.
-
-This may make use of :py:mod:`.compute.priors` to compute and cache the prior state
-distributions in an HDF5 file. The prevalences themselves are also stored in an HDF5
-file.
-
-Formally, the prevalence is the likelihood of the observed involvement pattern that we
-are interested in, given the model and samples. We compute this by calling the model's
-:py:meth:`~lymph.types.Model.state_dist` method for each of the samples and mutiply
-it with the :py:func:`lymph.matrix.generate_observation` to get the likelihood of the
-observed involvement pattern.
-
-Warning:
-    The command skips the computation of the priors if it finds them in the cache. But
-    this cache only accounts for the scenario, *NOT* the samples. So, if the samples
-    change, you need to force a recomputation of the priors (e.g., by deleting them).
+This computes the prevalence of an observed involvement pattern, given a trained model.
+It can also compare this prediction to the observed prevalence in the data. As for the
+risk prediction, this uses caching and computes the priors first.
 """
-# pylint: disable=logging-fstring-interpolation
+
 import argparse
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
-import h5py
+import lydata  # noqa: F401
 import numpy as np
 import pandas as pd
-from lymph import models, types
-from rich.progress import track
+from lydata import C, Q
+from lydata.accessor import NoneQ, QueryPortion
+from lymph import models
+from pydantic import Field
+from pydantic_settings import CliSettingsSource
+from rich import progress
 
 from lyscripts import utils
-from lyscripts.compute.priors import compute_priors_using_cache
-from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
-from lyscripts.data import accessor  # nopycln: import
-from lyscripts.scenario import Scenario, add_scenario_arguments
+from lyscripts.compute.priors import compute_priors
+from lyscripts.compute.utils import (
+    ComputeCmdSettings,
+    HDF5FileStorage,
+    get_cached,
+)
+from lyscripts.configs import (
+    DataConfig,
+    DiagnosisConfig,
+    DistributionConfig,
+    GraphConfig,
+    ModalityConfig,
+    ModelConfig,
+    ScenarioConfig,
+    add_dists,
+    add_modalities,
+    construct_model,
+)
 
 logger = logging.getLogger(__name__)
+
+
+class CmdSettings(ComputeCmdSettings):
+    """Command line settings for the computation of prevalences."""
+
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description=(
+            "Maps names of diagnostic modalities to their specificity/sensitivity."
+        ),
+    )
+    prevalences: HDF5FileStorage = Field(
+        description="Storage for the computed prevalences.",
+    )
+    data: DataConfig
 
 
 def _add_parser(
@@ -56,234 +73,179 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments needed to run this script to a ``subparsers`` instance."""
-    parser.add_argument(
-        "--priors", type=Path, required=True,
-        help=(
-            "Path to the prior state distributions (HDF5 file). If samples are "
-            "provided, this will be used as output to store the computed posteriors. "
-            "If no samples are provided, this will be used as input to load the priors."
-        )
-    )
-    parser.add_argument(
-        "--prevalences", type=Path, required=True,
-        help="Path to the HDF5 file for storing the computed prevalences."
-    )
-    parser.add_argument(
-        "--data", type=Path, required=False,
-        help="Path to the patient data (CSV file)."
-    )
-    parser.add_argument(
-        "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file defining the model (YAML)."
-    )
-    parser.add_argument(
-        "--scenarios", type=Path, required=False,
-        help=(
-            "Path to a YAML file containing a `scenarios` key with a list of "
-            "involvement scenarios to compute the posteriors for."
-        )
-    )
+    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
 
-    add_scenario_arguments(parser, for_comp="prevalences")
-    parser.set_defaults(run_main=main)
-
-
-def does_midext_match(
-    data: pd.DataFrame,
-    midext: bool | None = None
-) -> pd.Index:
-    """Return indices of ``data`` where ``midline_ext`` of the patients matches."""
-    midext_col = data["tumor", "1", "extension"]
-    if midext is None:
-        return pd.Series([True] * len(data))
-
-    return midext_col == midext
-
-
-def compute_observed_prevalence(
-    data: pd.DataFrame,
-    scenario: Scenario,
-    mapping: dict[int, str] | Callable[[int], str] | None = None,
-) -> np.ndarray:
-    """Extract prevalence defined in a ``scenario`` from the ``data``.
-
-    ``mapping`` defines how the T-stages in the data are supposed to be mapped to the
-    T-stages defined in the ``scenario``.
-
-    Warning:
-        When computing prevalences for unilateral models, the contralateral diagnosis
-        will still be considered for computing the prevalence in the *data*.
+    This is called by the parent module that is called via the command line.
     """
-    # when looking at the data, we always consider both sides
-    is_uni = scenario.is_uni
-    scenario.is_uni = False
-
-    modality = get_modality_subset(scenario.diagnosis).pop()
-    diagnosis_pattern = scenario.get_pattern(get_from="diagnosis", modality=modality)
-
-    # reset `is_uni` to the original value. Otherwise hash computation will fail.
-    scenario.is_uni = is_uni
-
-    if mapping is not None:
-        data.ly.map_t_stage(mapping)
-
-    has_t_stage = data.ly.t_stage.isin(scenario.t_stages)
-    has_midext = data.ly.is_midext(scenario.midext)
-    eligible_data = data.loc[has_t_stage & has_midext].reset_index()
-    does_pattern_match = eligible_data.ly.match(diagnosis_pattern, modality)
-
-    try:
-        matching_data = eligible_data.loc[does_pattern_match]
-        len_matching_data = len(matching_data)
-    except KeyError:
-        # return X, X if no actual pattern was selected
-        len_matching_data = len(eligible_data)
-
-    return len_matching_data, len(eligible_data)
-
-
-def observe_prevalence_using_cache(
-    data: pd.DataFrame,
-    scenario: Scenario,
-    cache: HDF5FileCache,
-    mapping: dict[int, Any] | Callable[[int], Any] = None
-):
-    """Compute and cache the observed prevalence for a given ``scenario``."""
-    num_match, num_total = compute_observed_prevalence(
-        data=data.copy(),
-        scenario=scenario,
-        mapping=mapping,
+    parser.add_argument(
+        "--configs",
+        default=[],
+        nargs="*",
+        help=(
+            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
+            "previous ones. Command line arguments take precedence over all files."
+        ),
     )
-    scenario_hash = scenario.md5_hash("prevalences")
-    with h5py.File(cache.file_path, "a") as file:
-        file[scenario_hash].attrs["num_match"] = num_match
-        file[scenario_hash].attrs["num_total"] = num_total
+    parser.set_defaults(
+        run_main=main,
+        cli_settings_source=CliSettingsSource(
+            settings_cls=CmdSettings,
+            cli_use_class_docs_for_groups=True,
+            root_parser=parser,
+        ),
+    )
 
 
-def compute_prevalences_using_cache(
-    model: types.Model,
-    scenario: dict[str, Any],
-    priors_cache: HDF5FileCache,
-    prevalences_cache: HDF5FileCache,
-    cache_hit_msg: str = "Prevalences already computed. Skipping.",
+def compute_prevalences(
+    model_config: ModelConfig,
+    graph_config: GraphConfig,
+    dist_configs: dict[str, DistributionConfig],
+    modality_configs: dict[str, ModalityConfig],
+    priors: np.ndarray,
+    diagnosis: DiagnosisConfig,
+    midext: bool | None = None,
     progress_desc: str = "Computing prevalences from priors",
 ) -> np.ndarray:
-    """Compute prevalences from ``priors``."""
-    if len(model.get_all_modalities()) != 1:
-        raise ValueError(
-            "Exactly one modality must be set in the model for computing prevalences."
-        )
-    modality = next(iter(model.get_all_modalities()))
-    diagnosis_pattern = scenario.get_pattern(get_from="diagnosis", modality=modality)
+    """Compute the prevalence of a diagnosis given the priors and the model."""
+    model = construct_model(model_config, graph_config)
+    model = add_dists(model, dist_configs)
 
-    prevalences_hash = scenario.md5_hash("prevalences")
-    if prevalences_hash in prevalences_cache:
-        logger.info(cache_hit_msg)
-        prevalences, _ = prevalences_cache[prevalences_hash]
-        return prevalences
-
-    try:
-        priors = compute_priors_using_cache(
-            model=model,
-            cache=priors_cache,
-            scenario=scenario,
-            cache_hit_msg="Loaded computed priors.",
-        )
-    except ValueError as val_err:
-        msg = "No computed priors found for the given scenario."
+    if len(modality_configs) != 1:
+        msg = "Only one modality is supported for prevalence prediction."
         logger.error(msg)
-        raise ValueError(msg) from val_err
+        raise ValueError(msg)
 
-    is_midline = isinstance(model, models.Midline)
-    kwargs = {"midext": scenario.midext} if is_midline else {}
+    model = add_modalities(model, modality_configs)
     prevalences = []
+    kwargs = {"midext": midext} if isinstance(model, models.Midline) else {}
 
-    for prior in track(
+    for prior in progress.track(
         sequence=priors,
         description="[blue]INFO     [/blue]" + progress_desc,
         total=len(priors),
     ):
         obs_dist = model.obs_dist(given_state_dist=prior)
-        # marginalizing the distribution over observational states is not quite the
-        # intended use of the method. But as long as exactly one modality is set in
-        # the model, this should work as expected, because then the observation matrix
-        # is square and the `obs_dist` has the same shape as the `state_dist`.
-        prev = model.marginalize(
-            involvement=diagnosis_pattern,
-            given_state_dist=obs_dist,
-            **kwargs,
-        )
-        if is_midline:
-            # divide by the marginal likelihood of the midline extension status. This
-            # is necessary because although we trat midline extension as a random
-            # variable, it *is* part of a scenario.
-            prev /= model.marginalize(
-                involvement=None,
+        involvement = diagnosis.to_involvement(next(iter(modality_configs)))
+        prevalences.append(
+            model.marginalize(
                 given_state_dist=obs_dist,
+                involvement=involvement.model_dump(),
                 **kwargs,
             )
-        prevalences.append(prev)
+        )
 
-    prevalences = np.stack(prevalences)
-    prevalences_cache[prevalences_hash] = (prevalences, scenario.as_dict("prevalences"))
-    return prevalences
+    return np.stack(prevalences)
+
+
+def generate_query_from_diagnosis(diagnosis: DiagnosisConfig) -> Q:
+    """Transform a diagnosis into a query for the data."""
+    result = NoneQ()
+    for side in ["ipsi", "contra"]:
+        for modality, pattern in getattr(diagnosis, side, {}).items():
+            for lnl, value in pattern.items():
+                column = (modality, side, lnl)
+                result &= C(column) == value
+    return result
+
+
+def observe_prevalence(
+    data: pd.DataFrame,
+    scenario_config: ScenarioConfig,
+    mapping: dict[int, str] | Callable[[int], str] | None = None,
+) -> QueryPortion:
+    """Extract prevalence defined in a ``scenario`` from the ``data``.
+
+    ``mapping`` defines how the T-stages in the data are supposed to be mapped to the
+    T-stages defined in the ``scenario``.
+
+    It returns the number of patients that match the given scenario and the total
+    number of patients that are considered. E.g., in the example below we 79 patients
+    are of late T-stage and have a tumor extending over the midline. Of those, 30 were
+    diagnosed with contralateral involvement in LNL II based on a CT scan.
+
+    >>> data = next(lydata.load_datasets(year=2021, institution="usz"))
+    >>> scenario_config = ScenarioConfig(
+    ...     t_stages=["late"],
+    ...     midext=True,
+    ...     diagnosis=DiagnosisConfig(contra={"CT": {"II": True}}),
+    ... )
+    >>> observe_prevalence(data, scenario_config)
+    (np.int64(7), np.int64(79))
+    """
+    mapping = mapping or DataConfig.model_fields["mapping"].default_factory()
+    data["tumor", "1", "t_stage"] = data.ly.t_stage.map(mapping)
+
+    has_t_stage = C("t_stage").isin(scenario_config.t_stages)
+    if scenario_config.midext is None:
+        has_midext = NoneQ()
+    else:
+        has_midext = C("midext") == scenario_config.midext
+    return data.ly.portion(
+        query=generate_query_from_diagnosis(scenario_config.diagnosis),
+        given=has_t_stage & has_midext,
+    )
 
 
 def main(args: argparse.Namespace):
-    """Function to run the risk prediction routine."""
-    params = utils.load_yaml_params(args.params)
-    model = utils.create_model(params)
-    lnls = list(params["graph"]["lnl"].keys())
-    data = utils.load_patient_data(args.data) if args.data is not None else None
+    """Run the main prevalence prediction routine."""
+    yaml_configs = utils.merge_yaml_configs(args.configs)
+    cmd = CmdSettings(
+        _cli_settings_source=args.cli_settings_source(parsed_args=args),
+        **yaml_configs,
+    )
+    logger.debug(cmd.model_dump_json(indent=2))
 
-    if args.scenarios is None:
-        # create a single scenario from the stdin arguments...
-        scenarios = [Scenario.from_namespace(
-            namespace=args,
-            lnls=lnls,
-            is_uni=isinstance(model, models.Unilateral),
-            side=params["model"].get("side", "ipsi"),
-        )]
-        num_scens = len(scenarios)
-    else:
-        # ...or load the scenarios from a YAML file
-        scenarios = Scenario.list_from_params(
-            params=utils.load_yaml_params(args.scenarios),
-            is_uni=isinstance(model, models.Unilateral),
-            side=params["model"].get("side", "ipsi"),
-        )
-        num_scens = len(scenarios)
-        logger.info(f"Using {num_scens} loaded scenarios. May ignore some arguments.")
+    global_attrs = cmd.model_dump(
+        include={"model", "graph", "distributions", "modalities"},
+    )
+    cmd.prevalences.set_attrs(attrs=global_attrs, dataset="/")
 
-    priors_cache = HDF5FileCache(args.priors)
-    prevalences_cache = HDF5FileCache(args.prevalences)
+    samples = cmd.sampling.load()
+    cached_compute_priors = get_cached(compute_priors, cmd.cache_dir)
+    cached_compute_prevalences = get_cached(compute_prevalences, cmd.cache_dir)
+    num_scenarios = len(cmd.scenarios)
 
-    for i, scenario in enumerate(scenarios):
-        utils.assign_modalities(
-            model=model,
-            config=params["modalities"],
-            subset=get_modality_subset(scenario.diagnosis),
-            clear=True,
+    for i, scenario in enumerate(cmd.scenarios):
+        _fields = {"t_stages", "t_stages_dist", "mode"}
+        prior_kwargs = scenario.model_dump(include=_fields)
+
+        _priors = cached_compute_priors(
+            model_config=cmd.model,
+            graph_config=cmd.graph,
+            dist_configs=cmd.distributions,
+            samples=samples,
+            progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
+            **prior_kwargs,
         )
 
-        _predicted_prevalences = compute_prevalences_using_cache(
-            model=model,
-            scenario=scenario,
-            priors_cache=priors_cache,
-            prevalences_cache=prevalences_cache,
-            progress_desc=f"Computing prevalences for scenario {i+1}/{num_scens}",
+        _fields = {"diagnosis", "midext"}
+        prevalence_kwargs = scenario.model_dump(include=_fields)
+
+        prevalences = cached_compute_prevalences(
+            model_config=cmd.model,
+            graph_config=cmd.graph,
+            dist_configs=cmd.distributions,
+            modality_configs=cmd.modalities,
+            priors=_priors,
+            diagnosis=scenario.diagnosis,
+            midext=scenario.midext,
+            progress_desc=f"Computing prevalences for scenario {i + 1}/{num_scenarios}",
         )
 
-        if data is None:
-            continue
-
-        logger.info(f"Compute observed prevalence for scenario {i+1}/{num_scens}.")
-        observe_prevalence_using_cache(
-            data=data,
-            scenario=scenario,
-            cache=prevalences_cache,
-            mapping=params["model"].get("mapping", None),
+        portion = observe_prevalence(
+            data=cmd.data.load(),
+            scenario_config=scenario,
+            mapping=cmd.data.mapping,
+        )
+        cmd.prevalences.save(values=prevalences, dataset=f"{i:03d}")
+        cmd.prevalences.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
+        cmd.prevalences.set_attrs(attrs=prevalence_kwargs, dataset=f"{i:03d}")
+        cmd.prevalences.set_attrs(
+            attrs={
+                "num_match": portion.match,
+                "num_total": portion.total,
+            },
+            dataset=f"{i:03d}",
         )
 
 

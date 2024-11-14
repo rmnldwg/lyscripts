@@ -1,0 +1,12 @@
+graph:
+  tumor:
+    T: [II, III]
+  lnl:
+    II: [III]
+    III: []
+
+params:
+  TtoII_spread: 0.3
+  TtoIII_spread: 0.1
+  IItoIII_spread: 0.2
+  late_p: 0.7

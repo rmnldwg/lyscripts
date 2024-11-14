@@ -1,7 +1,5 @@
-"""
-Plot computed risks and prevalences into a beautiful histogram.
-"""
-# pylint: disable=logging-fstring-interpolation
+"""Plot computed risks and prevalences into a beautiful histogram."""
+
 import argparse
 import logging
 from pathlib import Path
@@ -38,53 +36,55 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments to the parser."""
     parser.add_argument(
-        "input", type=Path,
-        help="File path of the computed risks or prevalences (HDF5)"
+        "input", type=Path, help="File path of the computed risks or prevalences (HDF5)"
     )
-    parser.add_argument(
-        "output", type=Path,
-        help="Output path for the plot"
-    )
+    parser.add_argument("output", type=Path, help="Output path for the plot")
 
     parser.add_argument(
-        "--names", nargs="+",
-        help="List of names of computed risks/prevalences to combine into one plot"
+        "--names",
+        nargs="+",
+        help="List of names of computed risks/prevalences to combine into one plot",
+    )
+    parser.add_argument("--title", type=str, help="Title of the plot")
+    parser.add_argument(
+        "--bins",
+        default=60,
+        type=int,
+        help="Number of bins to put the computed values into",
     )
     parser.add_argument(
-        "--title", type=str,
-        help="Title of the plot"
-    )
-    parser.add_argument(
-        "--bins", default=60, type=int,
-        help="Number of bins to put the computed values into"
-    )
-    parser.add_argument(
-        "--mplstyle", default="./.mplstyle", type=Path,
-        help="Path to the MPL stylesheet"
+        "--mplstyle",
+        default="./.mplstyle",
+        type=Path,
+        help="Path to the MPL stylesheet",
     )
 
     parser.set_defaults(run_main=main)
 
 
 def main(args: argparse.Namespace):
-    """Function to run the histogram plotting."""
+    """Run the histogram plotting."""
     use_mpl_stylesheet(args.mplstyle)
 
     contents = []
     for name in args.names:
         color = next(COLOR_CYCLE)
-        contents.append(Histogram.from_hdf5(
-            filename=args.input,
-            dataname=name,
-            color=color,
-        ))
-        logger.info(f"Added histogram {name} to figure")
-        try:
-            contents.append(BetaPosterior.from_hdf5(
+        contents.append(
+            Histogram.from_hdf5(
                 filename=args.input,
                 dataname=name,
                 color=color,
-            ))
+            )
+        )
+        logger.info(f"Added histogram {name} to figure")
+        try:
+            contents.append(
+                BetaPosterior.from_hdf5(
+                    filename=args.input,
+                    dataname=name,
+                    color=color,
+                )
+            )
         except KeyError:
             logger.warning(f"No observation data available for dataset {name}")
         else:
@@ -95,7 +95,7 @@ def main(args: argparse.Namespace):
         axes=ax,
         contents=contents,
         hist_kwargs={"nbins": args.bins},
-        percent_lims=(5., 5.)
+        percent_lims=(5.0, 5.0),
     )
     ax.legend()
     logger.info("Drawn figure")

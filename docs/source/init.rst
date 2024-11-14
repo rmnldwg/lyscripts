@@ -20,6 +20,7 @@ Submodules
 
     app/init
     compute/init
+    configs
     data/init
     decorators
     evaluate

@@ -1,19 +1,16 @@
-"""
-Learn the spread probabilities of the HMM for lymphatic tumor progression using
-the preprocessed data as input and MCMC as sampling method.
+"""Learn the model params from preprocessed input data using MCMC sampling.
 
-This is the central script performing for our project on modelling lymphatic spread
-in head & neck cancer. We use it for model comparison via the thermodynamic
-integration functionality and use the sampled parameter estimates for risk
-predictions. This risk estimate may in turn some day guide clinicians to make more
-objective decisions with respect to defining the *elective clinical target volume*
-(CTV-N) in radiotherapy.
+This command allows us to infer the parameters of a predefined probabilistic model
+from detailed per-patient lymph node level involvement data.
+
+The model, data, and sampling configuration can be specified in one or several YAML
+files, and/or via command line arguments.
 """
-# pylint: disable=logging-fstring-interpolation
+
 import argparse
 import logging
 import os
-from collections import namedtuple
+from typing import Any
 
 try:
     from multiprocess import Pool
@@ -25,17 +22,94 @@ from pathlib import Path
 import emcee
 import numpy as np
 import pandas as pd
-from lymph import models
-from rich.progress import Progress, TimeElapsedColumn, track
+from lydata.utils import ModalityConfig
+from lymph.types import ParamsType
+from pydantic import ConfigDict, Field
+from pydantic_settings import (
+    BaseSettings,
+    CliSettingsSource,
+)
+from rich.progress import Progress, ProgressColumn, Task, TimeElapsedColumn, track
+from rich.text import Text
 
+from lyscripts.configs import (
+    DataConfig,
+    DistributionConfig,
+    GraphConfig,
+    ModelConfig,
+    SamplingConfig,
+    add_dists,
+    add_modalities,
+    construct_model,
+)
 from lyscripts.utils import (
-    create_model,
-    initialize_backend,
-    load_patient_data,
-    load_yaml_params,
+    console,
+    get_hdf5_backend,
+    merge_yaml_configs,
 )
 
 logger = logging.getLogger(__name__)
+
+_BURNIN_KWARGS = {
+    "max_burnin",
+    "check_interval",
+    "trust_factor",
+    "relative_thresh",
+    "history_file",
+}
+_SAMPLING_KWARGS = {"nsteps", "thin"}
+
+
+class CmdSettings(BaseSettings):
+    """Settings required for the MCMC sampling."""
+
+    model_config = ConfigDict(extra="allow")
+    # Note that `mode_config` above refers to pydantic's configuration of this Python
+    # data  model class. While the `model` field below refers to the statistical model
+    # from the `lymph-models` package.
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description=(
+            "Maps names of diagnostic modalities to their specificity/sensitivity."
+        ),
+    )
+    data: DataConfig
+    sampling: SamplingConfig
+
+
+class CompletedItersColumn(ProgressColumn):
+    """A column that displays the completed number of iterations."""
+
+    def __init__(self, table_column=None, it: int = 0):
+        """Initialize the column with number of previous iterations."""
+        super().__init__(table_column)
+        self.it = it
+
+    def render(self, task: Task) -> Text:
+        """Render total iterations."""
+        if task.completed is None:
+            return Text("? it", style="progress.data.steps")
+        return Text(f"{task.completed + self.it} it", style="progress.data.steps")
+
+
+class ItersPerSecondColumn(ProgressColumn):
+    """A column that displays the number of iterations per second."""
+
+    def render(self, task: Task) -> Text:
+        """Render iterations per second."""
+        speed = task.finished_speed or task.speed
+        if speed is None:
+            return Text("? it/s", style="progress.data.speed")
+        return Text(f"{speed:.2f} it/s", style="progress.data.speed")
 
 
 def _add_parser(
@@ -58,74 +132,41 @@ def _add_arguments(parser: argparse.ArgumentParser):
     This is called by the parent module that is called via the command line.
     """
     parser.add_argument(
-        "-i", "--input", type=Path, required=True,
-        help="Path to training data files"
-    )
-    parser.add_argument(
-        "-o", "--output", type=Path, required=True,
-        help="Path to the HDF5 file to store the results in"
-    )
-    parser.add_argument(
-        "--history", type=Path, nargs="?",
-        help="Path to store the burnin history in (as CSV file)."
-    )
-
-    parser.add_argument(
-        "-w", "--walkers-per-dim", type=int, default=10,
-        help="Number of walkers per dimension",
-    )
-    parser.add_argument(
-        "-b", "--burnin", type=int, nargs="?",
-        help="Number of burnin steps. If not provided, sampler runs until convergence."
-    )
-    parser.add_argument(
-        "--check-interval", type=int, default=100,
-        help="Check convergence every `check_interval` steps."
-    )
-    parser.add_argument(
-        "--trust-fac", type=float, default=50.,
-        help="Factor to trust the autocorrelation time for convergence."
-    )
-    parser.add_argument(
-        "--rel-thresh", type=float, default=0.05,
-        help="Relative threshold for convergence."
-    )
-    parser.add_argument(
-        "-n", "--nsteps", type=int, default=100,
-        help="Number of MCMC samples to draw, irrespective of thinning."
-    )
-    parser.add_argument(
-        "-t", "--thin", type=int, default=10,
-        help="Thinning factor for the MCMC chain."
-    )
-    parser.add_argument(
-        "-p", "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file."
-    )
-    parser.add_argument(
-        "-c", "--cores", type=int, nargs="?",
+        "--configs",
+        default=[],
+        nargs="*",
         help=(
-            "Number of parallel workers (CPU cores/threads) to use. If not provided, "
-            "it will use all cores. If set to zero, multiprocessing will not be used."
-        )
+            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
+            "previous ones. Command line arguments take precedence over all files."
+        ),
     )
-    parser.add_argument(
-        "-s", "--seed", type=int, default=42,
-        help="Seed value to reproduce the same sampling round."
+    parser.set_defaults(
+        run_main=main,
+        cli_settings_source=CliSettingsSource(
+            settings_cls=CmdSettings,
+            cli_use_class_docs_for_groups=True,
+            root_parser=parser,
+        ),
     )
-
-    parser.set_defaults(run_main=main)
 
 
 MODEL = None
 
-def log_prob_fn(theta: np.array) -> float:
-    """log probability function using global variables because of pickling."""
-    return MODEL.likelihood(given_params=theta)
+
+def log_prob_fn(theta: ParamsType, inverse_temp: float = 1.0) -> tuple[float, float]:
+    """Compute log-prob using global variables because of pickling.
+
+    An inverse temperature ``inverse_temp`` can be provided for thermodynamic
+    integration.
+    """
+    return inverse_temp * MODEL.likelihood(given_params=theta), inverse_temp
 
 
-def get_starting_state(sampler):
-    """Try to extract a starting state from a `sampler`."""
+def get_starting_state(sampler: emcee.EnsembleSampler) -> np.ndarray:
+    """Try to extract a starting state from a ``sampler``.
+
+    Create a random starting state if no one was found.
+    """
     try:
         state = sampler.backend.get_last_sample()
         logger.info(
@@ -134,79 +175,112 @@ def get_starting_state(sampler):
         )
     except AttributeError:
         state = np.random.uniform(size=(sampler.nwalkers, sampler.ndim))
+        logger.debug(f"No stored samples found. Starting from random state {state}.")
 
     return state
 
 
-BurninHistory = namedtuple(
-    typename="BurninHistory",
-    field_names=["steps", "acor_times", "accept_fracs", "max_log_probs"],
-)
-"""Namedtuple to store the burnin history."""
+def get_burnin_history(file: Path | None) -> pd.DataFrame:
+    """Try to load the history of an interrupted burn-in phase from a file.
+
+    It will look for the given ``file``, but with the suffix ``.tmp``, indicating that
+    a previous run was interrupted and can be continued.
+
+    If no file is found, an empty DataFrame is returned.
+    """
+    if file is None or not file.with_suffix(".tmp").exists():
+        return pd.DataFrame(
+            columns=["steps", "acor_times", "accept_fracs", "max_log_probs"],
+        ).set_index("steps")
+
+    return pd.read_csv(file.with_suffix(".tmp"), index_col="steps")
+
+
+def is_converged(
+    iteration: int,
+    new_acor_time: float,
+    old_acor_time: float,
+    trust_factor: float,
+    relative_thresh: float,
+) -> bool:
+    """Check if the chain has converged based on the autocorrelation time."""
+    return (
+        new_acor_time * trust_factor < iteration
+        and np.abs(new_acor_time - old_acor_time) / new_acor_time < relative_thresh
+    )
+
+
+def _get_columns(it: int = 0) -> list[ProgressColumn]:
+    """Get the default progress columns for the MCMC sampling."""
+    return [
+        *Progress.get_default_columns(),
+        ItersPerSecondColumn(),
+        CompletedItersColumn(it=it),
+        TimeElapsedColumn(),
+    ]
 
 
 def run_burnin(
     sampler: emcee.EnsembleSampler,
-    burnin: int | None = None,
+    max_burnin: int | None = None,
     check_interval: int = 100,
-    trust_fac: float = 50.0,
-    rel_thresh: float = 0.05,
-) -> BurninHistory:
-    """Run the burnin phase of the MCMC sampling.
+    trust_factor: float = 50.0,
+    relative_thresh: float = 0.05,
+    history_file: Path | None = None,
+) -> None:
+    """Run the burn-in phase of the MCMC sampling.
 
-    This will run the sampler for ``burnin`` steps or (if ``burnin`` is `None`) until
-    convergence is reached. The convergence criterion is based on the autocorrelation
-    time of the chain, which is computed every `check_interval` steps. The chain is
-    considered to have converged if the autocorrelation time is smaller than
-    `trust_fac` times the number of iterations and the relative change in the
-    autocorrelation time is smaller than `rel_thresh`.
+    This will run the sampler for ``max_burnin`` steps or (if ``max_burnin`` is `None`)
+    until convergence is reached. The convergence criterion is based on the
+    autocorrelation time of the chain, which is computed every ``check_interval`` steps.
+    The chain is considered to have converged if the autocorrelation time is smaller
+    than ``trust_factor`` times the number of iterations and the relative change in the
+    autocorrelation time is smaller than ``relative_thresh``.
 
-    The samples of the burnin phase will be stored, such that one can resume a
-    cancelled run. Also, metrics collected during the burnin phase will be returned
-    in a :py:obj:`.BurninHistory` namedtuple. This may be used for plotting and
-    diagnostics.
+    The samples of the burn-in phase will be stored in the backend of the ``sampler``.
+    A history of some burn-in metrics will be stored at ``history_path`` if provided.
     """
     state = get_starting_state(sampler)
-    history = BurninHistory([], [], [], [])
-    num_accepted = 0
+    history = get_burnin_history(history_file)
+    previous_accepted = 0
 
-    with Progress(
-        *Progress.get_default_columns(),
-        TimeElapsedColumn(),
-    ) as progress:
+    with Progress(*_get_columns(it=sampler.iteration), console=console) as progress:
         task = progress.add_task(
             description="[blue]INFO     [/blue]Burn-in phase ",
-            total=burnin,
+            total=max_burnin,
         )
-        while sampler.iteration < (burnin or np.inf):
-            for state in sampler.sample(state, iterations=check_interval):
+        while sampler.iteration < (max_burnin or np.inf):
+            for state in sampler.sample(state, iterations=check_interval):  # noqa: B007, B020
                 progress.update(task, advance=1)
 
             new_acor_time = sampler.get_autocorr_time(tol=0).mean()
-            old_acor_time = history.acor_times[-1] if len(history.acor_times) > 0 else np.inf
+            old_acor_time = history.iloc[-1].acor_times if len(history) > 0 else np.inf
 
-            new_accept_frac = (
-                (np.sum(sampler.backend.accepted) - num_accepted)
-                / (sampler.nwalkers * check_interval)
-            )
-            num_accepted = np.sum(sampler.backend.accepted)
+            newly_accepted = np.sum(sampler.backend.accepted) - previous_accepted
+            new_accept_frac = newly_accepted / (sampler.nwalkers * check_interval)
+            previous_accepted = np.sum(sampler.backend.accepted)
 
-            history.steps.append(sampler.iteration)
-            history.acor_times.append(new_acor_time)
-            history.accept_fracs.append(new_accept_frac)
-            history.max_log_probs.append(np.max(state.log_prob))
+            history.loc[sampler.iteration] = [
+                new_acor_time,
+                new_accept_frac,
+                np.max(state.log_prob),
+            ]
+            logger.debug(history.iloc[-1].to_dict())
+            if history_file is not None:
+                history.to_csv(history_file.with_suffix(".tmp"), index=True)
 
-            is_converged = burnin is None
-            is_converged &= new_acor_time * trust_fac < sampler.iteration
-            is_converged &= np.abs(new_acor_time - old_acor_time) / new_acor_time < rel_thresh
-
-            if is_converged:
+            if max_burnin is None and is_converged(
+                iteration=sampler.iteration,
+                new_acor_time=new_acor_time,
+                old_acor_time=old_acor_time,
+                trust_factor=trust_factor,
+                relative_thresh=relative_thresh,
+            ):
+                logger.info(f"Sampling converged after {sampler.iteration} steps.")
                 break
 
-    if is_converged:
-        logger.info(f"Converged after {sampler.iteration} steps.")
-    logger.info(f"Acceptance fraction: {sampler.acceptance_fraction.mean():.2%}")
-    return history
+    if history_file is not None:
+        history_file.with_suffix(".tmp").rename(history_file)
 
 
 def run_sampling(
@@ -214,87 +288,97 @@ def run_sampling(
     nsteps: int,
     thin: int,
 ) -> None:
-    """Run the MCMC sampling phase to produce `nsteps` samples.
+    """Run the MCMC sampling phase to produce ``nsteps`` samples.
 
-    This sampling will definitely produce `nsteps` samples, irrespective of the `thin`
-    parameter, which controls how many steps in between two stored samples are skipped.
-    The samples will be stored in the backend of the `sampler`.
+    This sampling will definitely produce ``nsteps`` samples, irrespective of the
+    ``thin`` parameter, which controls how many steps in between two stored samples are
+    skipped. The samples will be stored in the backend of the ``sampler``.
 
-    Note that this will reset the `sampler`'s backend, assuming the stored samples are
-    from the burnin phase.
+    Note that this will reset the ``sampler``'s backend, assuming the stored samples are
+    from the burn-in phase.
     """
     state = get_starting_state(sampler)
+    logger.debug("Resetting backend of sampler.")
     sampler.backend.reset(sampler.nwalkers, sampler.ndim)
 
     for _sample in track(
         sequence=sampler.sample(state, iterations=nsteps * thin, thin=thin, store=True),
         description="[blue]INFO     [/blue]Sampling phase",
         total=nsteps * thin,
+        console=console,
     ):
-        continue
+        pass
 
 
 class DummyPool:
     """Dummy class to allow for no multiprocessing."""
-    def __enter__(self):
-        return None
 
-    def __exit__(self, *args):
-        pass
+    def __enter__(self) -> None:
+        """Enter the context manager."""
+        ...
+
+    def __exit__(self, *args) -> None:
+        """Exit the context manager."""
+        ...
+
+
+def get_pool(num_cores: int | None) -> Any | DummyPool:  # type: ignore
+    """Get a ``multiprocess(ing)`` pool or ``DummyPool``.
+
+    Returns a ``multiprocess(ing)`` pool with ``num_cores`` cores if ``num_cores`` is
+    not ``None``. Otherwise, a ``DummyPool`` is returned.
+    """
+    return Pool(num_cores) if num_cores is not None else DummyPool()
+
+
+def init_sampler(settings: CmdSettings, ndim: int, pool: Any) -> emcee.EnsembleSampler:
+    """Initialize the ``emcee.EnsembleSampler`` with the given ``settings``."""
+    nwalkers = ndim * settings.sampling.walkers_per_dim
+    backend = get_hdf5_backend(
+        file_path=settings.sampling.file,
+        dataset=settings.sampling.dataset,
+        nwalkers=nwalkers,
+        ndim=ndim,
+    )
+    return emcee.EnsembleSampler(
+        nwalkers,
+        ndim,
+        log_prob_fn,
+        kwargs={"inverse_temp": settings.sampling.inverse_temp},
+        moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)],
+        backend=backend,
+        pool=pool,
+        blobs_dtype=[("inverse_temp", np.float64)],
+    )
 
 
 def main(args: argparse.Namespace) -> None:
-    """Main function to run the MCMC sampling."""
+    """Run the MCMC sampling."""
     # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
     os.environ["OMP_NUM_THREADS"] = "1"
 
-    params = load_yaml_params(args.params)
-    inference_data = load_patient_data(args.input)
+    yaml_configs = merge_yaml_configs(args.configs)
+    cmd = CmdSettings(
+        _cli_settings_source=args.cli_settings_source(parsed_args=args),
+        **yaml_configs,
+    )
+    logger.debug(cmd.model_dump_json(indent=2))
 
     # ugly, but necessary for pickling
     global MODEL
-    MODEL = create_model(params)
-
-    mapping = params["model"].get("mapping", None)
-    if isinstance(MODEL, models.Unilateral):
-        side = params["model"].get("side", "ipsi")
-        MODEL.load_patient_data(inference_data, side=side, mapping=mapping)
-    else:
-        MODEL.load_patient_data(inference_data, mapping=mapping)
-
+    MODEL = construct_model(cmd.model, cmd.graph)
+    MODEL = add_dists(MODEL, cmd.distributions)
+    MODEL = add_modalities(MODEL, cmd.modalities)
+    MODEL.load_patient_data(**cmd.data.get_load_kwargs())
     ndim = MODEL.get_num_dims()
-    nwalkers = ndim * args.walkers_per_dim
 
     # emcee does not support numpy's new random number generator yet.
-    np.random.seed(args.seed)
-    hdf5_backend = initialize_backend(args.output, nwalkers, ndim)
-    moves_mix = [(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
+    np.random.seed(cmd.sampling.seed)
 
-    if args.cores == 0:
-        real_or_dummy_pool = DummyPool()
-    else:
-        real_or_dummy_pool = Pool(args.cores)
-
-    with real_or_dummy_pool as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_prob_fn,
-            moves=moves_mix,
-            backend=hdf5_backend,
-            pool=pool,
-        )
-        burnin_history = run_burnin(
-            sampler,
-            burnin=args.burnin,
-            check_interval=args.check_interval,
-            trust_fac=args.trust_fac,
-            rel_thresh=args.rel_thresh,
-        )
-        run_sampling(sampler, nsteps=args.nsteps, thin=args.thin)
-
-    if args.history is not None:
-        logger.info(f"Saving burnin history to {args.history}.")
-        burnin_history_df = pd.DataFrame(burnin_history._asdict()).set_index("steps")
-        burnin_history_df.to_csv(args.history, index=True)
+    with get_pool(cmd.sampling.cores) as pool:
+        sampler = init_sampler(cmd, ndim, pool)
+        run_burnin(sampler, **cmd.sampling.model_dump(include=_BURNIN_KWARGS))
+        run_sampling(sampler, **cmd.sampling.model_dump(include=_SAMPLING_KWARGS))
 
 
 if __name__ == "__main__":

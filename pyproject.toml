@@ -32,8 +32,12 @@ dependencies = [
     "rich",
     "rich-argparse",
     "pyyaml",
-    "lymph-model >= 1.2.1",
+    "lymph-model >= 1.2.3",
     "deprecated",
+    "joblib",
+    "pydantic",
+    "pydantic-settings",
+    "lydata == 0.1.2",
 ]
 dynamic = ["version"]
 
@@ -42,22 +46,17 @@ source = "https://github.com/rmnldwg/lyscripts"
 documentation = "https://rmnldwg.github.io/lyscripts"
 
 [project.optional-dependencies]
-dev = [
-    "pre-commit",
-]
 docs = [
     "sphinx",
     "sphinx-book-theme",
     "sphinx-autodoc-typehints",
     "sphinxcontrib-programoutput",
-    "m2r",
+    "myst_parser",
+    "autodoc_pydantic",
 ]
 test = [
     "pytest",
-    "pytest-mpl"
-]
-app = [
-    "streamlit"
+    "pytest-mpl",
 ]
 
 [project.scripts]
@@ -78,6 +77,17 @@ testpaths = "."
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "C", "R", "U", "D", "I", "S", "T", "A", "N"]
+ignore = ["D409"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+"**/{tests,docs}/*" = [
+    "D103",
+    "E402",
+    "S101",
+    "S603",
+    "S607",
+]
 
 
 # git-cliff ~ default configuration file

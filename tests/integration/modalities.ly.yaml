@@ -1,0 +1,5 @@
+modalities:
+  imaging:
+    spec: 0.85
+    sens: 0.85
+    kind: clinical

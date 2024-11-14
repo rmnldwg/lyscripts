@@ -1,19 +1,20 @@
-"""
-This is the top-level module of the `lyscripts` package. It contains the
-:py:func:`.main` function that is used to start the command line interface (CLI) for
-the package.
+"""Top-level module of the `lyscripts` package.
 
-Also, it configures the logging system and sets the metadate of the package.
+It contains the :py:func:`.main` function that is used to start the command line
+interface (CLI) for the package.
+
+Also, it configures the logging system and sets the metadata of the package.
 """
+
 import argparse
 import logging
 import re
 
 import pandas as pd
-import rich
+import rich.text
 from rich_argparse import RichHelpFormatter
 
-from lyscripts import app, compute, data, evaluate, plot, sample, temp_schedule
+from lyscripts import compute, data, evaluate, plot, sample, temp_schedule
 from lyscripts._version import version
 from lyscripts.utils import CustomRichHandler, console
 
@@ -41,6 +42,7 @@ class RichDefaultHelpFormatter(
 
     .. _rich: https://rich.readthedocs.io/en/stable/introduction.html
     """
+
     def _rich_fill_text(
         self,
         text: rich.text.Text,
@@ -67,21 +69,15 @@ class RichDefaultHelpFormatter(
 
 RichDefaultHelpFormatter.styles["argparse.syntax"] = "red"
 RichDefaultHelpFormatter.styles["argparse.formula"] = "green"
-RichDefaultHelpFormatter.highlights.append(
-    r"\$(?P<formula>[^$]*)\$"
-)
+RichDefaultHelpFormatter.highlights.append(r"\$(?P<formula>[^$]*)\$")
 RichDefaultHelpFormatter.styles["argparse.bold"] = "bold"
-RichDefaultHelpFormatter.highlights.append(
-    r"\*(?P<bold>[^*]*)\*"
-)
+RichDefaultHelpFormatter.highlights.append(r"\*(?P<bold>[^*]*)\*")
 RichDefaultHelpFormatter.styles["argparse.italic"] = "italic"
-RichDefaultHelpFormatter.highlights.append(
-    r"_(?P<italic>[^_]*)_"
-)
+RichDefaultHelpFormatter.highlights.append(r"_(?P<italic>[^_]*)_")
 
 
 def exit_cli(args: argparse.Namespace):
-    """Exit the cmd line tool"""
+    """Exit the cmd line tool."""
     if args.version:
         logger.info(f"lyscripts {__version__}")
     else:
@@ -95,13 +91,16 @@ def main():
         description=re.sub(r"\s+", " ", main.__doc__)[1:],
         formatter_class=RichDefaultHelpFormatter,
     )
-    parser.set_defaults(run_main=exit_cli)
-    parser.add_argument(
-        "-v", "--version", action="store_true",
-        help="Display the version of lyscripts"
+    parser.set_defaults(
+        run_main=exit_cli,
+        cli_settings_source=None,
     )
     parser.add_argument(
-        "--log-level", default="INFO",
+        "-v", "--version", action="store_true", help="Display the version of lyscripts"
+    )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     )
 
@@ -109,7 +108,6 @@ def main():
 
     # the individual scripts add `ArgumentParser` instances and their arguments to
     # this `subparsers` object
-    app._add_parser(subparsers, help_formatter=parser.formatter_class)
     compute._add_parser(subparsers, help_formatter=parser.formatter_class)
     data._add_parser(subparsers, help_formatter=parser.formatter_class)
     evaluate._add_parser(subparsers, help_formatter=parser.formatter_class)

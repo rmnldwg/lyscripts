@@ -1,7 +1,5 @@
-"""
-Join datasets from different sources (but of the same format) into one.
-"""
-# pylint: disable=logging-fstring-interpolation
+"""Join datasets from different sources (but of the same format) into one."""
+
 import argparse
 import logging
 import warnings
@@ -35,12 +33,19 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments to the parser."""
     parser.add_argument(
-        "-i", "--inputs", nargs='+', type=Path, required=True,
-        help="List of paths to inference-ready CSV datasets to concatenate."
+        "-i",
+        "--inputs",
+        nargs="+",
+        type=Path,
+        required=True,
+        help="List of paths to inference-ready CSV datasets to concatenate.",
     )
     parser.add_argument(
-        "-o", "--output", type=Path, required=True,
-        help="Location to store the concatenated CSV file."
+        "-o",
+        "--output",
+        type=Path,
+        required=True,
+        help="Location to store the concatenated CSV file.",
     )
 
     parser.set_defaults(run_main=main)
@@ -52,9 +57,7 @@ def load_and_join_tables(input_paths: list[Path]):
     for path in input_paths:
         input_table = load_patient_data(path).convert_dtypes()
         concatenated_table = pd.concat(
-            [concatenated_table, input_table],
-            axis="index",
-            ignore_index=True
+            [concatenated_table, input_table], axis="index", ignore_index=True
         )
         logger.info(f"+ concatenated data from {path}")
     return concatenated_table

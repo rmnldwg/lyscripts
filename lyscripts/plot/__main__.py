@@ -1,10 +1,13 @@
+"""Run the plot module as a script."""
+
 import argparse
 
 from lyscripts import RichDefaultHelpFormatter, exit_cli
 from lyscripts.plot import corner, histograms, thermo_int
 
-# I need another __main__ guard here, because otherwise pdoc tries to run this
-if __name__ == "__main__":
+
+def main(args: argparse.Namespace) -> None:
+    """Run the main function of the selected subcommand."""
     parser = argparse.ArgumentParser(
         prog="lyscripts plot",
         description=__doc__,
@@ -20,4 +23,8 @@ if __name__ == "__main__":
     thermo_int._add_parser(subparsers, help_formatter=parser.formatter_class)
 
     args = parser.parse_args()
-    args.run_main(args)
+    args.run_main(args, parser)
+
+
+if __name__ == "__main__":
+    main()
