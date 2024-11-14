@@ -291,7 +291,7 @@ def test_computed_priors(
             "samples": drawn_samples,
         }
     )
-    assert cached_compute_priors.check_call_in_cache(**kwargs)
+    assert cached_compute_priors._cached_func.check_call_in_cache(**kwargs)
     cached_output = cached_compute_priors(**kwargs)
     assert np.allclose(computed_priors, cached_output)
 
