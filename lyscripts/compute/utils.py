@@ -105,49 +105,6 @@ def extract_modalities(diagnosis: dict[str, Any]) -> set[str]:
     return modality_set
 
 
-class HDF5FileCache:
-    """HDF5 file acting as a cache for expensive arrays."""
-
-    def __init__(self, file_path: Path, attrs: dict[str, Any] | None = None) -> None:
-        """Initialize the cache with the given ``file_path``."""
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        self.file_path = file_path
-        logger.info(f"Initialized HDF5 storage at {file_path}")
-
-        if attrs is not None:
-            with h5py.File(self.file_path, "a") as file:
-                file.attrs.update(to_hdf5_attrs(attrs))
-
-    def __getitem__(self, key: bytes | str) -> tuple[np.ndarray, dict[str, Any]]:
-        """Get the array and attributes stored under the given ``key``."""
-        with h5py.File(self.file_path, "r") as file:
-            array = file[key][()]
-            attrs = dict(file[key].attrs)
-
-        logger.debug(f"Loaded dataset {key} from {self.file_path}")
-        return array, attrs
-
-    def __setitem__(
-        self,
-        key: bytes | str,
-        value: tuple[np.ndarray, dict[str, Any]],
-    ) -> None:
-        """Store the given ``value`` under the given ``key``."""
-        array, attrs = value
-        with h5py.File(self.file_path, "a") as file:
-            if key in file:
-                del file[key]
-            file[key] = array
-            file[key].attrs.update(to_hdf5_attrs(attrs))
-
-        logger.debug(f"Stored dataset {key} in {self.file_path}")
-
-    def __contains__(self, key: bytes | str) -> bool:
-        """Check if the given ``key`` is in the cache."""
-        with h5py.File(self.file_path, "a") as file:
-            return key in file
-
-
 def ensure_parent_dir(path: Path) -> Path:
     """Create the parent directory of the given ``path``."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -244,6 +201,8 @@ def reduce_pattern(pattern: dict[str, dict[str, bool]]) -> dict[str, dict[str, b
     This way, it should be completely recoverable by the ``complete_pattern`` function
     but be shorter to store.
 
+    Unused but maybe useful for some cases. Keeping it in here for now.
+
     >>> full = {
     ...     "ipsi": {"I": None, "II": True, "III": None},
     ...     "contra": {"I": None, "II": None, "III": None},
@@ -272,6 +231,8 @@ def complete_pattern(
 
     For each side of the neck, and for each of the ``lnls`` this should in the end
     contain ``True``, ``False`` or ``None``.
+
+    Unused but maybe useful for some cases. Keeping it in here for now.
 
     >>> pattern = {"ipsi": {"II": True}}
     >>> lnls = ["II", "III"]
@@ -315,4 +276,5 @@ def get_cached(func: callable, cache_dir: Path) -> callable:
         logger.debug(f"Computed {result = }")
         return result
 
+    log_cache_info_wrapper._cached_func = cached_func
     return log_cache_info_wrapper
