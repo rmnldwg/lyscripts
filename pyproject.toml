@@ -43,7 +43,7 @@ dynamic = ["version"]
 
 [project.urls]
 source = "https://github.com/rmnldwg/lyscripts"
-documentation = "https://rmnldwg.github.io/lyscripts"
+documentation = "https://lyscripts.readthedocs.io"
 
 [project.optional-dependencies]
 docs = [
