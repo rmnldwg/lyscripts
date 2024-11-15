@@ -1,9 +1,10 @@
-"""
-This module provides decorators that can be used to avoid repetitive snippets of code,
-e.g. safely opening files or logging the state of a function call.
+"""Decorators to avoid repetitive snippets of code.
+
+E.g. safely opening files or logging the state of a function call.
 
 This is *not* a command line tool.
 """
+
 import functools
 import logging
 from collections.abc import Callable
@@ -56,8 +57,7 @@ def assemble_signature(*args, **kwargs) -> str:
     """Assemble the signature of the function call."""
     args_str = ", ".join(str(arg) for arg in args)
     kwargs_str = ", ".join(f"{key}={value}" for key, value in kwargs.items())
-    signature = ", ".join([args_str, kwargs_str])
-    return signature
+    return ", ".join([args_str, kwargs_str])
 
 
 def log_state(log_level: int = logging.INFO) -> Callable:
@@ -66,13 +66,12 @@ def log_state(log_level: int = logging.INFO) -> Callable:
     The log message will simply be the function name where underscores are replaced
     with spaces. The `log_level` can be set in the decorator call.
     """
-    # pylint: disable=logging-fstring-interpolation
-    # pylint: disable=logging-not-lazy
     def log_decorator(func: Callable):
-        """The decorator wrapping the decorated function."""
+        """Decorate function for which to add logs."""
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            """The wrapper around the decorated function."""
+            """Execute decorated function."""
             logger = logging.getLogger(func.__module__)
             signature = assemble_signature(*args, **kwargs)
             logger.debug(f"Executing {func.__name__}({signature}).")
@@ -101,9 +100,10 @@ def log_state(log_level: int = logging.INFO) -> Callable:
 
 def check_input_file_exists(loading_func: Callable) -> Callable:
     """Check if the file path provided to the `loading_func` exists."""
+
     @wraps(loading_func)
     def inner(file_path: str, *args, **kwargs) -> Any:
-        """Wrapped loading function."""
+        """Execute wrapped loading function."""
         file_path = Path(file_path)
         if not file_path.is_file():
             raise FileNotFoundError(f"File {file_path} does not exist.")
@@ -115,9 +115,10 @@ def check_input_file_exists(loading_func: Callable) -> Callable:
 
 def check_output_dir_exists(saving_func: Callable) -> Callable:
     """Make sure the parent directory of the saved file exists."""
+
     @wraps(saving_func)
     def inner(file_path: str, *args, **kwargs) -> Any:
-        """Wrapped saving function."""
+        """Execute wrapped saving function."""
         file_path = Path(file_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
 

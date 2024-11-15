@@ -18,13 +18,12 @@ Submodules
 .. toctree::
     :maxdepth: 1
 
-    app/init
     compute/init
+    configs
     data/init
     decorators
     evaluate
     plot/init
     sample
-    scenario
     temp_schedule
     utils

@@ -1,0 +1,6 @@
+scenarios:
+  - t_stages: [early]
+    mode: "HMM"
+  - t_stages: [early, late]
+    t_stages_dist: [0.7, 0.3]
+    mode: "HMM"

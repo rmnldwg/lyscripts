@@ -1,0 +1,4 @@
+model:
+  class_name: Unilateral
+  constructor: binary
+  max_time: 10

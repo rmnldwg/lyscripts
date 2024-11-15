@@ -1,5 +1,4 @@
-"""
-Consumes raw data and transforms it into a CSV of the format that `LyProX`_ understands.
+"""Consumes raw data and transforms it into a CSV that `LyProX`_ understands.
 
 To do so, it needs a dictionary that defines a mapping from raw columns to the LyProX
 style data format. See the documentation of the :py:func:`.transform_to_lyprox` function
@@ -7,7 +6,7 @@ for more information.
 
 .. _LyProX: https://lyprox.org
 """
-# pylint: disable=logging-fstring-interpolation
+
 import argparse
 import importlib.util
 import logging
@@ -44,38 +43,54 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments to the parser."""
     parser.add_argument(
-        "-i", "--input", type=Path, required=True,
-        help="Location of raw CSV data."
+        "-i", "--input", type=Path, required=True, help="Location of raw CSV data."
     )
     parser.add_argument(
-        "-r", "--header-rows", nargs="+", default=[0], type=int,
-        help="List with header row indices of raw file."
+        "-r",
+        "--header-rows",
+        nargs="+",
+        default=[0],
+        type=int,
+        help="List with header row indices of raw file.",
     )
     parser.add_argument(
-        "-o", "--output", type=Path, required=True,
-        help="Location to store the lyproxified CSV file."
+        "-o",
+        "--output",
+        type=Path,
+        required=True,
+        help="Location to store the lyproxified CSV file.",
     )
     parser.add_argument(
-        "-m", "--mapping", type=Path, required=True,
+        "-m",
+        "--mapping",
+        type=Path,
+        required=True,
         help=(
             "Location of the Python file that contains column mapping instructions. "
             "This must contain a dictionary with the name 'column_map'."
-        )
+        ),
     )
     parser.add_argument(
-        "--drop-rows", nargs="+", type=int, default=[],
+        "--drop-rows",
+        nargs="+",
+        type=int,
+        default=[],
         help=(
             "Delete rows of specified indices. Counting of rows start at 0 _after_ "
             "the `header-rows`."
-        )
+        ),
     )
     parser.add_argument(
-        "--drop-cols", nargs="+", type=int, default=[],
+        "--drop-cols",
+        nargs="+",
+        type=int,
+        default=[],
         help="Delete columns of specified indices.",
     )
     parser.add_argument(
-        "--add-index", action="store_true",
-        help="If the data doesn't contain an index, add one by enumerating the patients"
+        "--add-index",
+        action="store_true",
+        help="If the data doesn't contain an index, add it by enumerating the patients",
     )
 
     parser.set_defaults(run_main=main)
@@ -130,13 +145,15 @@ def get_instruction_depth(nested_column_map: dict[tuple, dict[str, Any]]) -> int
             "Leaf of column map must be a dictionary with 'func' or 'default' key."
         )
 
+    raise ValueError("Empty column map.")
+
 
 def generate_markdown_docs(
     nested_column_map: dict[tuple, dict[str, Any]],
     depth: int = 0,
     indent_len: int = 4,
 ) -> str:
-    """Generate a markdown nested, ordered list as documentation for the column map.
+    r"""Generate a markdown nested, ordered list as documentation for the column map.
 
     A key in the doctionary is supposed to be documented, when its value is a dictionary
     containing a ``"__doc__"`` key.
@@ -152,7 +169,7 @@ def generate_markdown_docs(
     ...     },
     ... }
     >>> generate_markdown_docs(nested_column_map)
-    '1. **`patient:`** some patient info\\n    1. **`age:`** age of the patient\\n'
+    '1. **`patient:`** some patient info\n    1. **`age:`** age of the patient\n'
     """
     md_docs = ""
     indent = " " * indent_len * depth
@@ -170,16 +187,15 @@ def generate_markdown_docs(
 
 @log_state()
 def transform_to_lyprox(
-    raw: pd.DataFrame,
-    column_map: dict[tuple, dict[str, Any]]
+    raw: pd.DataFrame, column_map: dict[tuple, dict[str, Any]]
 ) -> pd.DataFrame:
-    """Transform ``raw`` data frame into table that can be uploaded directly to `LyProX`_.
+    """Transform ``raw`` data into table that can be uploaded directly to `LyProX`_.
 
     To do so, it uses instructions in the `colum_map` dictionary, that needs to have
     a particular structure:
 
     For each column in the final 'lyproxified' `pd.DataFrame`, one entry must exist in
-    the `column_map` dctionary. E.g., for the column corresponding to a patient's age,
+    the `column_map` dictionary. E.g., for the column corresponding to a patient's age,
     the dictionary should contain a key-value pair of this shape:
 
     .. code-block:: python
@@ -249,22 +265,18 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     involvement.
     """
     len_before = len(data)
-    left_data = data.loc[
-                data["tumor", "1", "side"] != "right"
-            ]
-    right_data = data.loc[
-                data["tumor", "1", "side"] == "right"
-            ]
+    left_data = data.loc[data["tumor", "1", "side"] != "right"]
+    right_data = data.loc[data["tumor", "1", "side"] == "right"]
 
     left_data = left_data.rename(columns={"left": "ipsi"}, level=1)
     left_data = left_data.rename(columns={"right": "contra"}, level=1)
     right_data = right_data.rename(columns={"left": "contra"}, level=1)
     right_data = right_data.rename(columns={"right": "ipsi"}, level=1)
 
-    data = pd.concat(
-                [left_data, right_data], ignore_index=True
-            )
-    assert len_before == len(data), "Number of patients changed"
+    data = pd.concat([left_data, right_data], ignore_index=True)
+    if len_before != len(data):
+        raise RuntimeError("Number of patients changed")
+
     return data
 
 
@@ -295,7 +307,9 @@ def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
 def main(args: argparse.Namespace):
     """Run the lyproxify main function."""
     raw: pd.DataFrame = load_patient_data(args.input, header=args.header_rows)
-    raw = clean_header(raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows))
+    raw = clean_header(
+        raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows)
+    )
 
     cols_to_drop = raw.columns[args.drop_cols]
     trimmed = raw.drop(cols_to_drop, axis="columns")

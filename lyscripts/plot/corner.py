@@ -1,5 +1,4 @@
-"""
-Generate a corner plot of the drawn samples.
+"""Generate a corner plot of the drawn samples.
 
 A corner plot is a combination of 1D and 2D marginals of probability distributions.
 The library I use for this is built on `matplotlib` and is called
@@ -7,7 +6,7 @@ The library I use for this is built on `matplotlib` and is called
 
 .. _corner: https://github.com/dfm/corner.py
 """
-# pylint: disable=logging-fstring-interpolation
+
 import argparse
 import logging
 from pathlib import Path
@@ -37,17 +36,14 @@ def _add_parser(
 
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments to the parser."""
+    parser.add_argument("model", type=Path, help="Path to model output files (HDF5).")
+    parser.add_argument("output", type=Path, help="Path to output corner plot (SVG).")
     parser.add_argument(
-        "model", type=Path,
-        help="Path to model output files (HDF5)."
-    )
-    parser.add_argument(
-        "output", type=Path,
-        help="Path to output corner plot (SVG)."
-    )
-    parser.add_argument(
-        "-p", "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file"
+        "-p",
+        "--params",
+        default="./params.yaml",
+        type=Path,
+        help="Path to parameter file",
     )
 
     parser.set_defaults(run_main=main)

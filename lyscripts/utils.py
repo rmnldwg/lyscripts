@@ -1,13 +1,12 @@
-"""
-This module contains frequently used functions and decorators that are used throughout
-the subcommands to load e.g. YAML specifications or model definitions.
+"""Frequently used functions & decorators to load e.g. YAML specs or model definitions.
 
 It also contains helpers for reporting the script's progress via a slightly customized
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
-occuring issues to the right place.
+occurring issues to the right place.
 """
+
+import logging
 import warnings
-from logging import LogRecord
 from pathlib import Path
 from typing import Any, Literal
 
@@ -17,6 +16,7 @@ import yaml
 from deprecated import deprecated
 from emcee.backends import HDFBackend
 from lymph import diagnosis_times, models, types
+from pydantic._internal._utils import deep_update
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
@@ -28,33 +28,22 @@ from lyscripts.decorators import (
     log_state,
 )
 
-try:
-    import streamlit
-    from streamlit.runtime.scriptrunner import get_script_run_ctx
-    streamlit.status = streamlit.spinner
-except ImportError:
-    def get_script_run_ctx() -> bool:
-        """A mock for the `get_script_run_ctx` function of `streamlit`."""
-        return None
-
-
 CROSS = "[bold red]✗[/bold red]"
 CIRCL = "[bold blue]∘[/bold blue]"
 WARN = "[bold yellow]Δ[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
 
-
+logger = logging.getLogger(__name__)
 console = Console()
 
 
 class LyScriptsWarning(Warning):
-    """
-    Exception that can be raised by methods if they want the `LyScriptsReport` instance
-    to not stop and print a traceback, but display some message appropriately.
+    """Propagate messages through the `report_state` decorator.
 
-    Essentially, this is a way for decorated functions to propagate messages through
-    the `report_state` decorator.
+    This exception can be raised by methods if they want the `LyScriptsReport` instance
+    to not stop and print a traceback, but display some message appropriately.
     """
+
     def __init__(self, *args: object, level: str = "info") -> None:
         """Extract the `level` of the message (can be "info", "warning" or "error")."""
         self.level = level
@@ -62,14 +51,11 @@ class LyScriptsWarning(Warning):
         super().__init__(*args)
 
 
-def is_streamlit_running() -> bool:
-    """Checks if code is running inside a `streamlit` app."""
-    return get_script_run_ctx() is not None
-
-
 class CustomProgress(Progress):
     """Small wrapper around rich's `Progress` initializing my custom columns."""
-    def __init__( self, **kwargs: dict):
+
+    def __init__(self, **kwargs: dict):
+        """Initialize the `Progress` instance with custom columns."""
         columns = [
             SpinnerColumn(finished_text=CHECK),
             *Progress.get_default_columns(),
@@ -80,7 +66,8 @@ class CustomProgress(Progress):
 
 class CustomRichHandler(RichHandler):
     """Uses `func_filepath` from the `extra` dict to modify `pathname`."""
-    def emit(self, record: LogRecord) -> None:
+
+    def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record."""
         if (
             "func_filepath" in record.__dict__
@@ -97,13 +84,15 @@ class CustomRichHandler(RichHandler):
 
 
 def binom_pmf(support: list[int] | np.ndarray, p: float = 0.5):
-    """Binomial PMF"""
+    """Binomial PMF."""
     max_time = len(support) - 1
-    if p > 1. or p < 0.:
+    if p > 1.0 or p < 0.0:
         raise ValueError("Binomial prob must be btw. 0 and 1")
-    q = 1. - p
-    binom_coeff = factorial(max_time) / (factorial(support) * factorial(max_time - support))
-    return binom_coeff * p**support * q**(max_time - support)
+    q = 1.0 - p
+    binom_coeff = factorial(max_time) / (
+        factorial(support) * factorial(max_time - support)
+    )
+    return binom_coeff * p**support * q ** (max_time - support)
 
 
 FUNCS = {
@@ -115,7 +104,7 @@ def graph_from_config(graph_params: dict) -> dict[tuple[str, str], list[str]]:
     """Build graph dictionary for the `lymph` models from the YAML params."""
     lymph_graph = {}
 
-    if not "tumor" in graph_params and "lnl" in graph_params:
+    if "tumor" not in graph_params or "lnl" not in graph_params:
         raise KeyError("Parameters must define tumors and LNLs")
 
     for node_type, node_dict in graph_params.items():
@@ -150,11 +139,12 @@ def _create_model_from_v0(params: dict[str, Any]) -> types.Model:
 
     if "model" in params:
         model_cls = getattr(models, params["model"]["class"])
-        if not "is_symmetric" in params["model"]["kwargs"]:
+        if "is_symmetric" not in params["model"]["kwargs"]:
             warnings.warn(
                 "The keywords `base_symmetric`, `trans_symmetric`, and `use_mixing` "
                 "have been deprecated. Please use `is_symmetric` instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
             params["model"]["kwargs"]["is_symmetric"] = {
                 "tumor_spread": params["model"]["kwargs"].pop("base_symmetric", False),
@@ -200,7 +190,7 @@ def assign_modalities(
     to the ``model``.
 
     Example:
-
+    -------
     >>> from_config = {
     ...     "CT": {"spec": 0.76, "sens": 0.81},
     ...     "MRI": [0.63, 0.86, "pathological"],
@@ -217,6 +207,7 @@ def assign_modalities(
     >>> assign_modalities(model, from_config, subset=["CT"])
     >>> model.get_all_modalities()   # doctest: +NORMALIZE_WHITESPACE
     {'CT': Clinical(spec=0.76, sens=0.81, is_trinary=False)}
+
     """
     if clear:
         model.clear_modalities()
@@ -241,7 +232,7 @@ def create_distribution(config: dict[str, Any]) -> diagnosis_times.Distribution:
     kwargs = config.get("kwargs", {})
 
     if (type_ := config.get("frozen")) is not None:
-        kwargs.update({"support": np.arange(max_time+1)})
+        kwargs.update({"support": np.arange(max_time + 1)})
         distribution = diagnosis_times.Distribution(FUNCS[type_](**kwargs))
     elif (type_ := config.get("parametric")) is not None:
         distribution = diagnosis_times.Distribution(FUNCS[type_], max_time, **kwargs)
@@ -396,28 +387,29 @@ def get_modalities_subset(
     return selected_modalities
 
 
-@log_state()
 @check_input_file_exists
 def load_patient_data(
     file_path: Path,
-    header: list[int] | None = None,
+    **read_csv_kwargs: dict,
 ) -> pd.DataFrame:
     """Load patient data from a CSV file stored at ``file``."""
-    if header is None:
-        header = [0,1,2]
-    return pd.read_csv(file_path, header=header)
+    if "header" not in read_csv_kwargs:
+        read_csv_kwargs["header"] = [0, 1, 2]
+
+    data = pd.read_csv(file_path, **read_csv_kwargs)
+    logger.info(f"Loaded {len(data)} patient records from {file_path}")
+    return data
 
 
-@log_state()
 @check_input_file_exists
 def load_yaml_params(file_path: Path) -> dict:
     """Load parameters from a YAML ``file``."""
     with open(file_path, encoding="utf-8") as file:
-        params = yaml.safe_load(file)
-    return params
+        loaded_params = yaml.safe_load(file)
+        logger.info(f"Loaded YAML parameters from {file_path}")
+        return loaded_params
 
 
-@log_state()
 @check_input_file_exists
 def load_model_samples(
     file_path: Path,
@@ -426,24 +418,27 @@ def load_model_samples(
     discard: int = 0,
     thin: int = 1,
 ) -> np.ndarray:
-    """Load MCMC samples stored in an HDF5 file at ``file_path`` under a key ``name``."""
+    """Load MCMC samples stored in HDF5 file at ``file_path`` under a key ``name``."""
     backend = HDFBackend(file_path, name=name, read_only=True)
-    return backend.get_chain(flat=flat, discard=discard, thin=thin)
+    samples = backend.get_chain(flat=flat, discard=discard, thin=thin)
+    logger.info(f"Loaded samples with shape {samples.shape} from {file_path}")
+    return samples
 
 
-@log_state()
 @check_output_dir_exists
-def initialize_backend(
+def get_hdf5_backend(
     file_path: Path,
+    dataset: str = "mcmc",
     nwalkers: int | None = None,
     ndim: int | None = None,
-    name: str = "mcmc",
     reset: bool = False,
 ) -> HDFBackend:
     """Open an HDF5 file at ``file_path`` and return a backend."""
-    backend = HDFBackend(file_path, name=name)
+    backend = HDFBackend(file_path, name=dataset)
+    logger.info(f"Opened HDF5 file at {file_path}")
 
     if reset:
+        logger.info(f"Resetting backend at {file_path} to {nwalkers=} and {ndim=}")
         backend.reset(nwalkers, ndim)
 
     return backend
@@ -457,6 +452,7 @@ TrueChoices = Literal["true", "t", "yes", "y", "involved", "metastatic"]
 
 FalseChoices = Literal["false", "f", "no", "n", "healthy", "benign"]
 """Type alias for what is interpreted as healthy/benign involvement of an LNL."""
+
 
 def optional_bool(value: NoneChoices | TrueChoices | FalseChoices) -> bool | None:
     """Convert a string to a boolean or ``None``.
@@ -481,4 +477,14 @@ def make_pattern(
     lnls: list[str],
 ) -> dict[str, bool | None]:
     """Create a dictionary from a list of bools and Nones."""
-    return dict(zip(lnls, from_list or [None] * len(lnls)))
+    return dict(zip(lnls, from_list or [None] * len(lnls), strict=False))
+
+
+def merge_yaml_configs(files: list[Path]) -> dict:
+    """Merge the YAML configuration files and return the merged dictionary."""
+    yaml_params = {}
+    for file in files:
+        yaml_params = deep_update(yaml_params, load_yaml_params(file))
+
+    logger.info(f"Merged {len(files)} YAML config files.")
+    return yaml_params

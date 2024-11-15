@@ -1,10 +1,13 @@
+"""Run the data module as a script."""
+
 import argparse
 
 from lyscripts import RichDefaultHelpFormatter, exit_cli
 from lyscripts.data import enhance, filter, generate, join, split
 
-# I need another __main__ guard here, because otherwise pdoc tries to run this
-if __name__ == "__main__":
+
+def main(args: argparse.Namespace):
+    """Run the main script."""
     parser = argparse.ArgumentParser(
         prog="lyscripts data",
         description=__doc__,
@@ -22,4 +25,8 @@ if __name__ == "__main__":
     filter._add_parser(subparsers, help_formatter=parser.formatter_class)
 
     args = parser.parse_args()
-    args.run_main(args)
+    args.run_main(args, parser)
+
+
+if __name__ == "__main__":
+    main()
