@@ -2,7 +2,127 @@
 
 All notable changes to this project will be documented in this file.
 
-<a name="1.0.0.a2"></a>
+## [1.0.0.a3] - 2024-11-15
+
+### Bug Fixes
+
+- (**plot**) Turn off label by passing `None`.
+- (**plot**) Don't fail on wrong wrong in `.draw()`.
+- Polish dataclass configuration.
+- Make pydantic work with subparsers.
+- (**data**) Correct argument name of save function.
+- (**comp**) Add distributions & fix dir type for priors.
+- (**config**) Don't thin samples twice.
+
+### Documentation
+
+- (**configs**) Add to sphinx docs.
+- Add intersphinx link to lydata.
+- (**config**) Improve `construct_model` docstring.
+- Correct copyright year.
+- Clean up refs to deleted modules.
+- Fix links to documentation in readme.
+
+### Features
+
+- (**config**) Write new methods to assemble model.
+- (**plot**) Add func `split_legends()`. Related [#60].\
+  This allows the user to separate many plot's labels into a number of
+  different legends.
+- (**configs**) Add graph config.
+- (**sample**) Better config management.\
+  The new sample command can merge configurations from multiple YAML files
+  as well as the command line. It does a better job at reporting progress
+  when the log-level is set to debug and it more consistently stores
+  samples and metric logs during burn-in.
+- (**sample**) Add JSON schema for params.\
+  With this JSON schema one can get auto-completion in most popular
+  code editors for the configs of most commands.
+- (**config**) Allow loading external model.\
+  It is now possible to not only specify a model using a fixed YAML
+  schema, but also via a plain Python file that defines a global `model`
+  variable.
+- (**sample**) Add inverse temperature.\
+  With this addition, it is now in principle possible to do thermodynamic
+  integration. But it is not yet fully fleshed out for a nice user
+  experience.
+- Add tiny script to generate JSON schema.\
+  The script creates a JSON schema based on all CLI commands' settings.
+- (**comp**) Rewrite posteriors command that uses pydantic and joblib
+- (**comp**) Rewrite risks command that uses pydantic and joblib
+- (**sample**) Add iterations/second column to burnin progress display.
+- (**sample**) Show total iterations to sampling progress display.
+- (**config**) Allow converting diagnosis to involvement.
+- (**compute**) Rewrite prevalence command that uses pydantic and joblib
+
+### Miscellaneous Tasks
+
+- Bump pre-commit hooks.
+- Add ruff linting rules.
+- Switch to ruff, drop pycln & isort.
+- Run ruff & clean up codebase.
+- Ignore some ruff rules in tests dir.
+
+### Styling
+
+- More cleanup to satisfy ruff.
+- Improve docstrings and code style a bit.
+
+### Testing
+
+- Add some basic testing for config.
+- (**data**) Basic integration test for `generate`.
+- Add sampling step to integration tests.
+- (**config**) Check the external loading feature.
+- Extend & unify integration test for priors.
+
+### Build
+
+- Remove upper cap in dependencies.
+- Bump lymph-model to 1.2.3.
+- Remove `dev` from optional dependencies.\
+  This is because a lot of dev tools like ruff, pre-commit, ... are
+  installed globally (e.g. with pipx) instead of per venv.
+- Bump `lydata` dependency to 0.2.0.
+
+### Change
+
+- (**plot**) Improve beta post & hist. Fixes [60].\
+  The histograms and beta posteriors are now better implemented, allowing
+  a user to extend the `draw()` function's abilities by adding classes
+  similar to `Histogram` and `BetaPosterior`.
+- (**plot**) More flexible labels.
+- Use pydantic over dacite.
+- Switch to pydantic config for sampling (WIP).
+- (**compute**) Use pydantic & joblib over dataclasses and custom caching.
+- ⚠ **BREAKING** (**compute**) Add priors joblib cache
+- ⚠ **BREAKING** (**data**) Replace the `generate` cmd.\
+  This was just supposed to be a little script to generate data for an
+  integration test, but it turns out that it could just be used to update
+  the old `generate` command.
+  BREAKING CHANGES: `generate` command is better configurable
+- (**config**) Merge sample/sampling configs.
+- Use lydata's `ModalityConfig`.\
+  Since the [lydata](https://github.com/rmnldwg/lydata) package is
+  evolving quickly, I added it as a dependency and moved the first bit of
+  code over there.
+- Enable use of lydata to load patient data.
+- (**comp**) HDF5 file storage more versatile.
+- (**sample**) Store history in .tmp file.\
+  This serves an indication about whether or not a burn-in sampling round
+  has been interrupted. The sampler may then continue from where it left off.
+- ⚠ **BREAKING** (**compute**) Update prevalence computation.
+- More useful YAML load/merge logging.
+- Improve logging of some utilities.
+
+### Remove
+
+- Outdated streamlit app.
+- Temporary test file.
+- Delete remaining streamlit code.
+- ⚠ **BREAKING** Unused HDF5 cache and scenarios.\
+  Both these things are superseded by better stuff based on pydantic.
+
 ## [1.0.0.a2] - 2024-04-28
 
 ### 🚀 Features
@@ -37,8 +157,6 @@ All notable changes to this project will be documented in this file.
 
 - Branch '57-lyproxify-loads-wrong-number-of-header-rows' into 'dev'
 
-
-<a name="1.0.0.a1"></a>
 ## [1.0.0.a1] - 2024-04-03
 
 ### 🚀 Features
@@ -143,8 +261,6 @@ All notable changes to this project will be documented in this file.
 
 - [**breaking**] Midline_ext in create_patient_row for now
 
-
-<a name="1.0.0.a0"></a>
 ## [1.0.0.a0] - 2023-12-20
 
 ### Bug Fixes
@@ -177,154 +293,152 @@ All notable changes to this project will be documented in this file.
 
 - [**breaking**] Delete unnecessary functions
 
-
-<a name="0.7.3"></a>
 ## [0.7.3] - 2023-08-29
 
 ### Bug Fixes
+
 - **data:** `enhance` command is now deterministic, fixes [#40]
 - **plot:** correct color keyword arguments & swap arguments in `save_figure` function, fixes [#45]
 - **sample:** use global numpy random state, fixes [#31]
 
 ### Maintenance
+
 - fix upper version bound of lymph-model package
 
 ### Testing
+
 - **sample:** add test for determinism of sampling, related to [#31]
 
-
-<a name="0.7.2"></a>
 ## [0.7.2] - 2023-07-31
 
 ### Bug Fixes
+
 - `enhance`: fix bug introduced in [0.7.1]
 
-
-<a name="0.7.1"></a>
 ## [0.7.1] - 2023-07-31
 
 ### Bug Fixes
+
 - `enhance`: negative sublevels don't overwrite superlevels anymore. Fixes [#44].
 
 ### Maintenance
+
 - bump pre-commit hooks
 
-
-<a name="0.7.0"></a>
 ## [0.7.0] - 2023-06-26
 
 ### Bug Fixes
+
 - add modalities from params in synthetic data generation
 
 ### Features
+
 - add extensible & versatile logging decorator
 - add `--log-level` option to top-level lyscripts command
 - add log-level to `log_state` decorator
 
 ### Other
+
 - all commands now use the logging library for status updates/ouputs. This fixes [#2].
 
-
-<a name="0.6.9"></a>
 ## [0.6.9] - 2023-06-21
 
 ### Bug Fixes
+
 - change the indentation length in the generated markdown data documentation to 4 spaces. Fixes [#41].
 
-
-<a name="0.6.8"></a>
 ## [0.6.8] - 2023-05-30
 
 ### Bug Fixes
+
 - flattening error in `lyproxify`
 - more robust lyproxify working again
 
 ### Documentation
+
 - add detail to docstring of `lyproxify` func
 
 ### Features
+
 - add func to generate md docs from column map
 - add two new dict modifying functions
 
-
-<a name="0.6.7"></a>
 ## [0.6.7] - 2023-05-23
 
 ### Bug Fixes
+
 - make flatten/unflatten funcs more consistent
 - add `max_depth` option for `flatten` function
 - bump isort version to avoid error
 
 ### Features
+
 - add `unflatten` function
 
-
-<a name="0.6.6"></a>
 ## [0.6.6] - 2022-12-01
 
 ### Bug Fixes
+
 - pull another function out of a `rich` context, this time in the `join` command. Related to [#33].
 
-
-<a name="0.6.5"></a>
 ## [0.6.5] - 2022-12-01
 
 ### Bug Fixes
+
 - swap arguments in the `save_figure` call of the `corner` command
 - pull a function using [`rich`] to report its status out of an enclosing [`rich`] context. This fixes [#33].
 
-
-<a name="0.6.4"></a>
 ## [0.6.4] - 2022-12-01
 
 ### Bug Fixes
+
 - `hist_kwargs` now overrides the default plot settings for `Histogram`. This fixes [#30]
 
 ### Features
+
 - the `lyscripts sample` command now has an argument `--seed` with the aim of making sampling runs reproducible via a random number generator seed. However, it seems as if the [`emcee`] package does not properly support this as runs using the same seed still produce different results. Related to, but not resolving [#31].
 
-
-<a name="0.6.3"></a>
 ## [0.6.3] - 2022-11-25
 
 ### Bug Fixes
-- `lyproxify`: apply re-indexing only _after_ excluding patients
+
+- `lyproxify`: apply re-indexing only *after* excluding patients
 - fix `SettingWithCopyWarning` during re-indexing in `lyproxify`
 
-
-<a name="0.6.2"></a>
 ## [0.6.2] - 2022-11-25
 
 ### Bug Fixes
+
 - `lyproxify` cleans empty header cell names
 
 ### Documentation
+
 - update lyproxify's `main` docstring
 - improve `report_state` & `exclude_patients` documentation
 - update top-level `lyproxify` help in README.md
 
 ### Features
+
 - allow muting `report_state` decorator globally for a decorated function, while also allowing to override the verbosity per function call
 - allow adding an index column during `lyproxify`
 - add options to `lyproxify` for dropping rows and columns before starting transformation of raw data
 - the `report_state` decorator can now be configured to exit the program when encountering an unexpected exception
 
-
-<a name="0.6.1"></a>
 ## [0.6.1] - 2022-11-24
 
 ### Features
+
 - add new command under `lyscripts data` to preprocess any raw data into a format that can be parsed by [LyProX]. Fixes [#25]
 
-
-<a name="0.6.0"></a>
 ## [0.6.0] - 2022-11-23
 
 ### Bug Fixes
+
 - display errors and stop, but don't reraise
 - add & update main entry point for script use
 
 ### Code Refactoring
+
 - use `lyscripts.utils` consistently across data commands
 - use `lyscripts.utils` for `evaluate` script
 - pull out method to compare prevalence for one sample
@@ -336,11 +450,13 @@ All notable changes to this project will be documented in this file.
 - put data commands in separate submodule, fixes [#5] (**BREAKING CHANGE!**)
 
 ### Documentation
+
 - expand documentation on data, plot & predict subcommands
 - enrich the module documentation of predict scripts
 - update docstrings of data commands
 
 ### Features
+
 - add YAML scenario output to prevalence app
 - working version of prevalence app
 - add prevalence plot to app
@@ -355,15 +471,15 @@ All notable changes to this project will be documented in this file.
 - start implementing streamlit apps
 
 ### Testing
+
 - add GitHub action for tests
 - fix missing import for corner doctests
 - generally, the module is now partially covered by unit tests
 
-
-<a name="0.5.11"></a>
 ## [0.5.11] - 2022-11-06
 
 ### Bug Fixes
+
 - remove useless import & rename prediction `utils`
 - histogram & respective posterior have same color
 - fix two bugs detected during integration test:
@@ -374,6 +490,7 @@ All notable changes to this project will be documented in this file.
 - fix small inconsistency in script call
 
 ### Code Refactoring
+
 - use function for loading YAML in all scripts
 - further modularize tasks, e.g. params loading
 - rename test modules
@@ -389,15 +506,18 @@ All notable changes to this project will be documented in this file.
 - risk & prevalence share method to clean pattern
 
 ### Documentation
+
 - update help in predict's docstrings
 
 ### Features
+
 - write decorators for general tasks
 - add nice helper functions to plot (fixes [#21])
 - risk & prevalence can use thinned samples
 - write neat recursive functions to flatten dictionaries
 
 ### Testing
+
 - implement more `utils` tests
 - add test to the `save_figure` utility
 - add test to new params loader
@@ -406,92 +526,100 @@ All notable changes to this project will be documented in this file.
 - write simple tests for prevalence prediction
 - add doctest & pytest for predict `utils`
 
-
-<a name="0.5.10"></a>
 ## [0.5.10] - 2022-10-13
 
 ### Bug Fixes
+
 - pick correct consensus method for enhancement ([#17])
 - sample does not crash when `pools` not given ([#16])
 - add thinning to convergence sampling, too ([#15])
 
 ### Documentation
+
 - fix typos & add favicon to docs
 
-<a name="0.5.9"></a>
 ## [0.5.9] - 2022-09-16
 
 ### Documentation
+
 - don't use relative path for social card
 
 ### Features
+
 - `sample` command has a new optional argument `--pools` with which one can adjust the number of multiprocessing pools used during the sampling procedure. Fixes [#13]
 
-<a name="0.5.8"></a>
 ## [0.5.8] - 2022-09-12
 
 ### Bug Fixes
+
 - The function `get_midline_ext_prob` in the prevalence prediction now
 does not throw an error anymore when unilateral data is provided, but
 returns `None` instead. Fixes [#11]
 
 ### Features
+
 - add entry points to CLI. This enables one to call `lyscripts ...` directly, instead of having to use `python -m lyscripts ...` all the time.
 
 ### Documentation
+
 - add social card to README
 - remove `python -m` prefix from command usage in docstrings
 
-<a name="0.5.7"></a>
 ## [0.5.7] - 2022-08-29
 
 ### Bug Fixes
+
 - fix `enhance`'s issue with varying LNLs across modalities ([#8])
 
 ### Features
+
 - add progress bar to `enhance` script
 
-<a name="0.5.6"></a>
 ## [0.5.6] - 2022-08-29
 
 ### Bug Fixes
+
 - can choose list of defined mods in params. This allows one to choose different lists of modalities for e.g. the `enhance` script and the `sampling` one.
 
 ### Documentation
+
 - correct typos in the changed docstrings
 - update docstring of changed scripts
 
-<a name="0.5.5"></a>
 ## [0.5.5] - 2022-08-25
 
 ### Bug Fixes
+
 - clean script was using deprecated lymph.utils. This script has now been incorporated into these scripts.
 
 ### Documentation
+
 - update README and add docstrings about `enhance`
 
 ### Features
+
 - add enhancement scipt that computes additional diagnostic modalities, combining existing ones.
 
-<a name="0.5.4"></a>
 ## [0.5.4] - 2022-08-24
 
 ### Documentation
+
 - add call signature to docs every subcommand's `main()`
 - add badges, installation & usage to README
 - fix pdoc issue with importing `__main__` files
 
 ### Maintenance
+
 - make pyproject.toml look nice on PyPI
 - tell git to ignore docs dir
 - set up git-chglog for creating changelogs
 - add pre-commit hook to check commit msg
 
-
-<a name="0.5.3"></a>
 ## [0.5.3] - 2022-08-22
 
-[unreleased]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a2...HEAD
+<!-- markdownlint-disable-file MD024 -->
+
+[1.0.0.a3]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a2...1.0.0.a3
 [1.0.0.a2]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a1...1.0.0.a2
 [1.0.0.a1]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a0...1.0.0.a1
 [1.0.0.a0]: https://github.com/rmnldwg/lyscripts/compare/0.7.3...1.0.0.a0
