@@ -169,7 +169,7 @@ def generate_markdown_docs(
     ...     },
     ... }
     >>> generate_markdown_docs(nested_column_map)
-    '1. **`patient:`** some patient info\\n    1. **`age:`** age of the patient\\n'
+    '1. **`patient:`** some patient info\n    1. **`age:`** age of the patient\n'
     """
     md_docs = ""
     indent = " " * indent_len * depth

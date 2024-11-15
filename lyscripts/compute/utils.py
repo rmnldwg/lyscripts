@@ -90,7 +90,7 @@ def extract_modalities(diagnosis: dict[str, Any]) -> set[str]:
     ...      },
     ...     "contra": {"MRI": {"II": False, "III": None}},
     ... }
-    >>> sorted(get_modality_subset(diagnosis))
+    >>> sorted(extract_modalities(diagnosis))
     ['MRI', 'PET']
     """
     modality_set = set()

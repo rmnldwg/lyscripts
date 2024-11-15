@@ -170,7 +170,7 @@ def observe_prevalence(
     ...     diagnosis=DiagnosisConfig(contra={"CT": {"II": True}}),
     ... )
     >>> observe_prevalence(data, scenario_config)
-    (np.int64(7), np.int64(79))
+    QueryPortion(match=np.int64(7), total=np.int64(79))
     """
     mapping = mapping or DataConfig.model_fields["mapping"].default_factory()
     data["tumor", "1", "t_stage"] = data.ly.t_stage.map(mapping)
