@@ -140,8 +140,6 @@ def run_EM(tolerance, history_dir = None):
 
 def main(args: argparse.Namespace) -> None:
     """Main function to run the EM algorithm for a mixture model"""
-    # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
-    os.environ["OMP_NUM_THREADS"] = "1"
 
     params = load_yaml_params(args.params)
     inference_data = load_patient_data(args.input)
