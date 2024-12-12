@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from lymph import models
 from lymixture import LymphMixture
-from lymixture.em import sample_fixed_mixture, sample_model_params, _set_params, _get_params
+from lymixture.em import sample_fixed_mixture, sample_model_params, expectation
 from rich.progress import Progress, TimeElapsedColumn, track
 
 
@@ -74,6 +74,14 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "-o", "--output", type=Path,
         help="Output path for samples"
     )
+    parser.add_argument(
+        "-d", "--data", type=Path, required=True,
+        help="Path to the data file."
+    )
+    parser.add_argument(
+        "-c", "--continue_sampling", type=bool, default = False,
+        help="Continue sampling from previous run stored in the output backend"
+    )
 
 
     parser.set_defaults(run_main=main)
@@ -90,8 +98,8 @@ def main(args: argparse.Namespace) -> None:
 
     params = load_yaml_params(args.params)
     model_params = pd.read_csv(args.model_params,header = [0])
-    mixture_df = pd.read_csv(args.mixtures_coefs)
-    inference_data = load_patient_data(args.input)
+    mixture_df = pd.read_csv(args.mixture_coefs)
+    inference_data = load_patient_data(args.data)
     param_dict = dict(model_params.iloc[-1])
     # ugly, but necessary for pickling
     global MIXTURE
@@ -106,13 +114,12 @@ def main(args: argparse.Namespace) -> None:
     else:
         raise "Only Unilateral has been implemented so far"
 
-    
     MIXTURE.set_params(**param_dict)
-    MIXTURE.set_resps(mixture_df)
+    MIXTURE.set_resps(expectation(MIXTURE, param_dict))
     if args.mode == "fixed_mixture":
-        backend, samples = sample_fixed_mixture(MIXTURE, steps = params['sampling'].get('steps'),filename = args.output+"fixed_mixture")
+        backend, samples = sample_fixed_mixture(MIXTURE, steps = params["sampling"].get("steps",),filename = str(args.output)+"/fixed_mixture.hdf5", continue_sampling = args.continue_sampling)
     elif args.mode == "fixed_latent":
-        backend, samples = sample_model_params(MIXTURE, steps = params['sampling'].get('steps'),filename = args.output+"fixed_latent")
+        backend, samples = sample_model_params(MIXTURE, steps = params["sampling"].get("steps"),filename = str(args.output)+"/fixed_latent.hdf5", continue_sampling = args.continue_sampling)
     
 
 if __name__ == "__main__":

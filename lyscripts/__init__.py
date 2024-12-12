@@ -13,7 +13,7 @@ import pandas as pd
 import rich
 from rich_argparse import RichHelpFormatter
 
-from lyscripts import plot, app, compute, data, evaluate, mixture_fit, temp_schedule
+from lyscripts import plot, app, compute, data, evaluate, mixture_fit, temp_schedule, mixture_sample
 from lyscripts._version import version
 from lyscripts.utils import CustomRichHandler, console
 
@@ -116,6 +116,7 @@ def main():
     plot._add_parser(subparsers, help_formatter=parser.formatter_class)
     mixture_fit._add_parser(subparsers, help_formatter=parser.formatter_class)
     temp_schedule._add_parser(subparsers, help_formatter=parser.formatter_class)
+    mixture_sample._add_parser(subparsers, help_formatter=parser.formatter_class)
 
     args = parser.parse_args()
 
