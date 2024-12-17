@@ -64,7 +64,7 @@ app = [
 lyscripts = "lyscripts:main"
 
 [tool.setuptools.packages.find]
-include = ["lyscripts"]
+include = ["lyscripts","lyscripts.*"]
 
 [tool.setuptools_scm]
 write_to = "lyscripts/_version.py"

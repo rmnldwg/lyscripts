@@ -15,13 +15,9 @@ except ModuleNotFoundError:
 
 from pathlib import Path
 
-import emcee
-import numpy as np
 import pandas as pd
 from lymph import models
-from lymixture import LymphMixture
 from lymixture.em import sample_fixed_mixture, sample_model_params, expectation
-from rich.progress import Progress, TimeElapsedColumn, track
 
 
 from lyscripts.utils import (
@@ -98,7 +94,6 @@ def main(args: argparse.Namespace) -> None:
 
     params = load_yaml_params(args.params)
     model_params = pd.read_csv(args.model_params,header = [0])
-    mixture_df = pd.read_csv(args.mixture_coefs)
     inference_data = load_patient_data(args.data)
     param_dict = dict(model_params.iloc[-1])
     # ugly, but necessary for pickling

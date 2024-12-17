@@ -33,6 +33,8 @@ COLORS = {
     "green": "#00afa5",
     "red": "#ae0060",
     "gray": "#c5d5db",
+    "light_blue": "#00A8D8",
+    "dark_grey_experimental": "#404756",
 }
 COLOR_CYCLE = cycle(COLORS.values())
 CM_PER_INCH = 2.54

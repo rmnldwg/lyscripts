@@ -6,8 +6,7 @@ or prediction process. At the moment, three subcommands are grouped under
 import argparse
 from pathlib import Path
 
-from lyscripts.plot import corner, histograms, thermo_int, mixture_plot, simplex_plot
-
+from lyscripts.plot import corner, histograms, thermo_int, mixture_plot, simplex_plot, mixture_sampling_plotter
 
 def _add_parser(
     subparsers: argparse._SubParsersAction,
@@ -26,4 +25,4 @@ def _add_parser(
     thermo_int._add_parser(subparsers, help_formatter=parser.formatter_class)
     mixture_plot._add_parser(subparsers, help_formatter=parser.formatter_class)
     simplex_plot._add_parser(subparsers, help_formatter=parser.formatter_class)
-
+    mixture_sampling_plotter._add_parser(subparsers, help_formatter=parser.formatter_class)
