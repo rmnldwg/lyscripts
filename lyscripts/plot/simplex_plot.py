@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 
-from lyscripts.plot.utils import COLORS, SUBSITE_COLORS, save_figure, p_to_xyz, add_perpendicular_crosses_3d
+from lyscripts.plot.utils import COLORS, SUBSITE_COLORS, save_figure, add_perpendicular_ticks, p_to_xyz, add_perpendicular_crosses_3d
 from lyscripts.utils import load_yaml_params
 from matplotlib.ticker import StrMethodFormatter
 
@@ -96,31 +96,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
 #     bottom_ax.set_yticks([])
 #     bottom_ax.grid(axis="x", alpha=0.5, color=USZ["gray"], linestyle=":")
 #     plt.savefig(args.output, bbox_inches="tight", dpi=300)
-
-# Function to add perpendicular ticks as short lines
-def add_perpendicular_ticks(x1, y1, x2, y2, tick_length=0.01):
-    num_ticks = 6  # Number of ticks including 0% and 100%
-    for i in range(num_ticks):
-        t = i / (num_ticks - 1)
-        x_tick = x1 + t * (x2 - x1)
-        y_tick = y1 + t * (y2 - y1)
-        
-        # Vector along the line
-        dx = x2 - x1
-        dy = y2 - y1
-        
-        # Perpendicular vector
-        perp_dx = -dy
-        perp_dy = dx
-        
-        # Normalize the perpendicular vector
-        length = np.sqrt(perp_dx**2 + perp_dy**2)
-        perp_dx /= length
-        perp_dy /= length
-        
-        # Draw tick as a short perpendicular line
-        plt.plot([x_tick - tick_length * perp_dx, x_tick + tick_length * perp_dx], [y_tick - tick_length * perp_dy, y_tick + tick_length * perp_dy], color='gray', linewidth=0.8)
-        plt.text(x_tick, y_tick, f'{int(100 - t * 100)}%', fontsize=8, ha='right', va='bottom')
 
 def plot_3d_simplex(mixture_df, data, output, component_names = False):
     data = pd.read_csv(data, header=[0, 1, 2])
