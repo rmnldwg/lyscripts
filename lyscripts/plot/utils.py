@@ -485,3 +485,27 @@ def add_perpendicular_crosses_3d(ax, x1, y1, z1, x2, y2, z2, tick_length=0.03):
                 [z_tick - perp_vec2[2], z_tick + perp_vec2[2]], color='gray', linewidth=0.8)
         
         ax.text(x_tick, y_tick, z_tick, f'{int(100 - t * 100)}%', fontsize=6, ha='right', va='bottom')
+        
+def add_perpendicular_ticks(x1, y1, x2, y2, tick_length=0.01):
+    num_ticks = 6  # Number of ticks including 0% and 100%
+    for i in range(num_ticks):
+        t = i / (num_ticks - 1)
+        x_tick = x1 + t * (x2 - x1)
+        y_tick = y1 + t * (y2 - y1)
+        
+        # Vector along the line
+        dx = x2 - x1
+        dy = y2 - y1
+        
+        # Perpendicular vector
+        perp_dx = -dy
+        perp_dy = dx
+        
+        # Normalize the perpendicular vector
+        length = np.sqrt(perp_dx**2 + perp_dy**2)
+        perp_dx /= length
+        perp_dy /= length
+        
+        # Draw tick as a short perpendicular line
+        plt.plot([x_tick - tick_length * perp_dx, x_tick + tick_length * perp_dx], [y_tick - tick_length * perp_dy, y_tick + tick_length * perp_dy], color='gray', linewidth=0.8)
+        plt.text(x_tick, y_tick, f'{int(100 - t * 100)}%', fontsize=8, ha='right', va='bottom')

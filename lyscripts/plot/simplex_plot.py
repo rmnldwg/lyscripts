@@ -1,3 +1,8 @@
+"""
+Visualize the component assignments of the trained mixture model.
+"""
+
+
 import argparse
 import logging
 import numpy as np
@@ -10,6 +15,7 @@ from matplotlib.lines import Line2D
 
 from lyscripts.plot.utils import COLORS, SUBSITE_COLORS, save_figure, p_to_xyz, add_perpendicular_crosses_3d
 from lyscripts.utils import load_yaml_params
+from matplotlib.ticker import StrMethodFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -42,40 +48,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Path to parameter file."
     )
     parser.set_defaults(run_main=main)
-
-
-"""
-Visualize the component assignments of the trained mixture model.
-"""
-import argparse
-from pathlib import Path
-from matplotlib.ticker import StrMethodFormatter
-import numpy as np
-import yaml
-
-import h5py
-import matplotlib.pyplot as plt
-from lyscripts.plot.utils import COLORS as USZ
-
-def create_parser() -> argparse.ArgumentParser:
-    """Assemble the parser for the command line arguments."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "-m", "--model", type=Path, default="models/mixture.hdf5",
-        help=(
-            "Path to the model HDF5 file. Needs to contain a dataset called "
-            "``em/cluster_assignments``."
-        )
-    )
-    parser.add_argument(
-        "-o", "--output", type=Path, default="figures/cluster_assignments.png",
-        help="Path to the output file.",
-    )
-    parser.add_argument(
-        "-p", "--params", type=Path, default="_variables.yml",
-        help="Path to the parameter file..",
-    )
-    return parser
 
 
 # def plot_2d_simplex(mixture_df, data):
@@ -150,7 +122,8 @@ def add_perpendicular_ticks(x1, y1, x2, y2, tick_length=0.01):
         plt.plot([x_tick - tick_length * perp_dx, x_tick + tick_length * perp_dx], [y_tick - tick_length * perp_dy, y_tick + tick_length * perp_dy], color='gray', linewidth=0.8)
         plt.text(x_tick, y_tick, f'{int(100 - t * 100)}%', fontsize=8, ha='right', va='bottom')
 
-def plot_3d_simplex(mixture_df, data, component_names = False):
+def plot_3d_simplex(mixture_df, data, output, component_names = False):
+    data = pd.read_csv(data, header=[0, 1, 2])
     subsites = list(mixture_df.columns)
     colors_ordered = [SUBSITE_COLORS[subsite] for subsite in subsites]
 
@@ -215,9 +188,9 @@ def plot_3d_simplex(mixture_df, data, component_names = False):
     ax.plot([extremes_x[2], midpoints_x[0]], [extremes_y[2], midpoints_y[0]], color='gray', linestyle='--', linewidth=1)
 
     # Add perpendicular ticks to each line with adjusted length
-    add_perpendicular_ticks(extremes_x[0], extremes_y[0], midpoints_x[1], midpoints_y[1], ax=ax)
-    add_perpendicular_ticks(extremes_x[1], extremes_y[1], midpoints_x[2], midpoints_y[2], ax=ax)
-    add_perpendicular_ticks(extremes_x[2], extremes_y[2], midpoints_x[0], midpoints_y[0], ax=ax)
+    add_perpendicular_ticks(extremes_x[0], extremes_y[0], midpoints_x[1], midpoints_y[1])
+    add_perpendicular_ticks(extremes_x[1], extremes_y[1], midpoints_x[2], midpoints_y[2])
+    add_perpendicular_ticks(extremes_x[2], extremes_y[2], midpoints_x[0], midpoints_y[0])
 
     # Scaling factor to move the text farther from the vertices
     scaling_factor = 1.1
@@ -252,7 +225,7 @@ def plot_3d_simplex(mixture_df, data, component_names = False):
             ax.text(scaled_extremes_x[component_hypopharynx], scaled_extremes_y[component_hypopharynx], "Hypopharynx like", 
                     fontsize=10, ha='left', va='top', c=COLORS['red'])
 
-    save_figure(args.output, fig, formats=["png", "svg"])
+    save_figure(output, fig, formats=["png", "svg"])
     logger.info(f"Simplex plot saved")
 
 def main(args: argparse.Namespace):
@@ -263,7 +236,7 @@ def main(args: argparse.Namespace):
     if nr_components == 2:
         plot_2d_simplex(mixture_df, data)
     elif nr_components == 3:
-        plot_3d_simplex(mixture_df, data)
+        plot_3d_simplex(mixture_df, data, output = args.output)
     else:
         logger.info(f"Simplex not supported for {nr_components} components")
 
