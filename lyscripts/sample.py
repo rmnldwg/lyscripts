@@ -24,20 +24,16 @@ import numpy as np
 import pandas as pd
 from lydata.utils import ModalityConfig
 from lymph.types import ParamsType
-from pydantic import ConfigDict, Field
+from pydantic import Field
 from pydantic_settings import (
-    BaseSettings,
     CliSettingsSource,
 )
 from rich.progress import Progress, ProgressColumn, Task, TimeElapsedColumn, track
 from rich.text import Text
 
 from lyscripts.configs import (
+    BaseCmdSettings,
     DataConfig,
-    DistributionConfig,
-    GraphConfig,
-    ModelConfig,
-    SamplingConfig,
     add_dists,
     add_modalities,
     construct_model,
@@ -60,22 +56,9 @@ _BURNIN_KWARGS = {
 _SAMPLING_KWARGS = {"nsteps", "thin"}
 
 
-class CmdSettings(BaseSettings):
+class CmdSettings(BaseCmdSettings):
     """Settings required for the MCMC sampling."""
 
-    model_config = ConfigDict(extra="allow")
-    # Note that `mode_config` above refers to pydantic's configuration of this Python
-    # data  model class. While the `model` field below refers to the statistical model
-    # from the `lymph-models` package.
-    graph: GraphConfig
-    model: ModelConfig = ModelConfig()
-    distributions: dict[str, DistributionConfig] = Field(
-        default={},
-        description=(
-            "Mapping of model T-categories to predefined distributions over "
-            "diagnose times."
-        ),
-    )
     modalities: dict[str, ModalityConfig] = Field(
         default={},
         description=(
@@ -83,7 +66,6 @@ class CmdSettings(BaseSettings):
         ),
     )
     data: DataConfig
-    sampling: SamplingConfig
 
 
 class CompletedItersColumn(ProgressColumn):

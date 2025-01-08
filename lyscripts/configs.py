@@ -15,7 +15,8 @@ from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
 from lymph import models
 from lymph.types import Model, PatternType
-from pydantic import BaseModel, Field, FilePath
+from pydantic import BaseModel, ConfigDict, Field, FilePath
+from pydantic_settings import BaseSettings
 from scipy.special import factorial
 
 from lyscripts.utils import flatten, load_model_samples, load_patient_data
@@ -400,3 +401,28 @@ class SamplingConfig(BaseModel):
             name=self.dataset,
             thin=thin,
         )
+
+
+class BaseCmdSettings(BaseSettings):
+    """Base class for command line settings."""
+
+    model_config = ConfigDict(extra="allow")
+
+    version: Literal[1] = Field(
+        default=None,
+        description=(
+            "Version of the configuration. Should conform to the major version of the "
+            "lyscripts package. If not provided, the old configuration format from "
+            "before lyscripts 1.0.0 is assumed."
+        ),
+    )
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
+    sampling: SamplingConfig

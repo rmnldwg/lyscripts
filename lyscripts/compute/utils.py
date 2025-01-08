@@ -9,38 +9,22 @@ from typing import Annotated, Any
 import h5py
 import numpy as np
 from joblib import Memory
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
-from pydantic_settings import BaseSettings
+from pydantic import AfterValidator, BaseModel, Field
 
 from lyscripts.configs import (
-    DistributionConfig,
-    GraphConfig,
-    ModelConfig,
-    SamplingConfig,
+    BaseCmdSettings,
     ScenarioConfig,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class ComputeCmdSettings(BaseSettings):
-    """Command line settings for the computation of posterior state distributions."""
-
-    model_config = ConfigDict(extra="allow")
+class ComputeCmdSettings(BaseCmdSettings):
+    """Command line settings for the submodule ``compute``."""
 
     cache_dir: Path = Field(
         default=Path.cwd() / ".cache",
         description="Cache directory for storing function calls.",
-    )
-    sampling: SamplingConfig
-    graph: GraphConfig
-    model: ModelConfig = ModelConfig()
-    distributions: dict[str, DistributionConfig] = Field(
-        default={},
-        description=(
-            "Mapping of model T-categories to predefined distributions over "
-            "diagnose times."
-        ),
     )
     scenarios: list[ScenarioConfig] = Field(
         default=[],
