@@ -227,6 +227,7 @@ def _construct_model_from_external(path: Path) -> Model:
 def construct_model(
     model_config: ModelConfig,
     graph_config: GraphConfig,
+    version: int | None = None,
 ) -> Model:
     """Construct a model from a ``model_config``.
 
@@ -238,6 +239,9 @@ def construct_model(
     no check is performed on the model's compatibility with the command/pipeline it is
     used in.
     """
+    if version != 1:
+        raise ValueError("Only version 1 of the configuration is supported.")
+
     if model_config.external is not None:
         return _construct_model_from_external(model_config.external)
 
@@ -409,11 +413,10 @@ class BaseCmdSettings(BaseSettings):
     model_config = ConfigDict(extra="allow")
 
     version: Literal[1] = Field(
-        default=None,
         description=(
-            "Version of the configuration. Should conform to the major version of the "
-            "lyscripts package. If not provided, the old configuration format from "
-            "before lyscripts 1.0.0 is assumed."
+            "Version of the configuration. Must conform to the major version of the "
+            "lyscripts package (can only be 1 at the moment). This is used to avoid "
+            "compatibility issues when the configuration format changes."
         ),
     )
     graph: GraphConfig
