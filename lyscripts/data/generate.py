@@ -6,12 +6,11 @@ from pathlib import Path
 
 import numpy as np
 from lydata.utils import ModalityConfig
-from pydantic_settings import BaseSettings, CliSettingsSource
+from pydantic import Field
+from pydantic_settings import CliSettingsSource
 
 from lyscripts.configs import (
-    DistributionConfig,
-    GraphConfig,
-    ModelConfig,
+    BaseCmdSettings,
     add_dists,
     add_modalities,
     construct_model,
@@ -22,13 +21,15 @@ from lyscripts.utils import merge_yaml_configs
 logger = logging.getLogger(__name__)
 
 
-class CmdSettings(BaseSettings):
+class CmdSettings(BaseCmdSettings):
     """Settings for the command-line interface."""
 
-    model: ModelConfig
-    graph: GraphConfig
-    distributions: dict[str, DistributionConfig]
-    t_stages_dist: dict[str, float]
+    t_stages_dist: dict[str, float] = Field(
+        description=(
+            "Specify what fraction of generated patients should come from the "
+            "respective T-Stage."
+        )
+    )
     modalities: dict[str, ModalityConfig]
     params: dict[str, float]
     num_patients: int = 200

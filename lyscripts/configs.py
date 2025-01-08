@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import logging
 import os
+import warnings
 from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
@@ -94,6 +95,83 @@ class ModelConfig(BaseModel):
         default={},
         description="Additional keyword arguments to pass to the model constructor.",
     )
+
+
+class DeprecatedModelConfig(BaseModel):
+    """Model configuration prior to ``lyscripts`` major version 1.
+
+    This is implemented for backwards compatibility. Its sole job is to translate
+    the outdated settings format into the new one. Note that the only stuff that needs
+    to be translated is the model configuration itself and the distributions for
+    marginalization over diagnosis times. The :py:class:``~GraphConfig`` is still
+    compatible.
+    """
+
+    first_binom_prob: float = Field(
+        description="Fixed parameter for first binomial dist over diagnosis times.",
+        ge=0.0,
+        le=1.0,
+    )
+    max_t: int = Field(
+        description="Max. number of time-steps to evolve the model over.",
+        gt=0,
+    )
+    t_stages: list[int | str] = Field(
+        description=(
+            "List of T-stages to marginalize over in the scenario. The old format "
+            "assumed all T-stages except the first one to be parametric. Only binomial "
+            "distributions are supported."
+        ),
+    )
+    class_: Literal["Unilateral", "Bilateral", "Midline"] = Field(
+        description="Name of the model class. Only binary models are supported.",
+        alias="class",
+    )
+    kwargs: dict[str, Any] = Field(
+        default={},
+        description="Additional keyword arguments to pass to the model constructor.",
+    )
+
+    def model_post_init(self, __context):
+        """Issue a deprecation warning."""
+        warnings.warn(
+            message="The 'DeprecatedModelConfig' is deprecated.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return super().model_post_init(__context)
+
+    def translate(self) -> tuple[ModelConfig, dict[int | str, DistributionConfig]]:
+        """Translate the deprecated model config to the new format."""
+        old_kwargs = self.kwargs.copy()
+        new_kwargs = {}
+
+        if (tumor_spread := old_kwargs.pop("base_symmetric")) is not None:
+            new_kwargs["is_symmetric"] = new_kwargs.get("is_symmetric", {})
+            new_kwargs["is_symmetric"]["tumor_spread"] = tumor_spread
+
+        if (lnl_spread := old_kwargs.pop("trans_symmetric")) is not None:
+            new_kwargs["is_symmetric"] = new_kwargs.get("is_symmetric", {})
+            new_kwargs["is_symmetric"]["lnl_spread"] = lnl_spread
+
+        new_kwargs.update(old_kwargs)
+
+        model_config = ModelConfig(
+            class_name=self.class_,
+            constructor="binary",
+            max_time=self.max_t,
+            kwargs=new_kwargs,
+        )
+
+        distribution_configs = {}
+        for i, t_stage in enumerate(self.t_stages):
+            distribution_configs[t_stage] = DistributionConfig(
+                kind="frozen" if i == 0 else "parametric",
+                func="binomial",
+                params={"p": self.first_binom_prob},
+            )
+
+        return model_config, distribution_configs
 
 
 class DataConfig(BaseModel):
@@ -227,7 +305,6 @@ def _construct_model_from_external(path: Path) -> Model:
 def construct_model(
     model_config: ModelConfig,
     graph_config: GraphConfig,
-    version: int | None = None,
 ) -> Model:
     """Construct a model from a ``model_config``.
 
@@ -239,9 +316,6 @@ def construct_model(
     no check is performed on the model's compatibility with the command/pipeline it is
     used in.
     """
-    if version != 1:
-        raise ValueError("Only version 1 of the configuration is supported.")
-
     if model_config.external is not None:
         return _construct_model_from_external(model_config.external)
 
@@ -412,12 +486,14 @@ class BaseCmdSettings(BaseSettings):
 
     model_config = ConfigDict(extra="allow")
 
-    version: Literal[1] = Field(
+    version: int = Field(
         description=(
             "Version of the configuration. Must conform to the major version of the "
             "lyscripts package (can only be 1 at the moment). This is used to avoid "
             "compatibility issues when the configuration format changes."
         ),
+        ge=1,
+        le=1,
     )
     graph: GraphConfig
     model: ModelConfig = ModelConfig()
@@ -428,4 +504,3 @@ class BaseCmdSettings(BaseSettings):
             "diagnose times."
         ),
     )
-    sampling: SamplingConfig

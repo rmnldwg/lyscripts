@@ -13,6 +13,7 @@ from pydantic import AfterValidator, BaseModel, Field
 
 from lyscripts.configs import (
     BaseCmdSettings,
+    SamplingConfig,
     ScenarioConfig,
 )
 
@@ -30,6 +31,7 @@ class ComputeCmdSettings(BaseCmdSettings):
         default=[],
         description="List of scenarios to compute risks for.",
     )
+    sampling: SamplingConfig
 
 
 def is_hdf5_compatible(value: Any) -> bool:
