@@ -5,22 +5,19 @@ It can also compare this prediction to the observed prevalence in the data. As f
 risk prediction, this uses caching and computes the priors first.
 """
 
-import argparse
-import logging
 from collections.abc import Callable
-from pathlib import Path
 
 import lydata  # noqa: F401
 import numpy as np
 import pandas as pd
+from loguru import logger
 from lydata import C, Q
 from lydata.accessor import NoneQ, QueryPortion
 from lymph import models
 from pydantic import Field
-from pydantic_settings import CliSettingsSource
 from rich import progress
 
-from lyscripts import utils
+from lyscripts.cli import _assemble_main
 from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import (
     ComputeCmdSettings,

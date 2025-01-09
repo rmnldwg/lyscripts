@@ -9,21 +9,18 @@ for more information.
 
 import argparse
 import importlib.util
-import logging
 import warnings
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from loguru import logger
 
 from lyscripts.data.utils import save_table_to_csv
 from lyscripts.decorators import log_state
 from lyscripts.utils import delete_private_keys, flatten, load_patient_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
-
-
-logger = logging.getLogger(__name__)
 
 
 def _add_parser(

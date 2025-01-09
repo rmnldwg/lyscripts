@@ -3,8 +3,7 @@
 This can in turn speed up the computation of risks and prevalences.
 """
 
-import argparse
-from pathlib import Path
+from pydantic_settings import BaseSettings, CliApp, CliSubCommand
 
 from lyscripts.compute import posteriors, prevalences, priors, risks
 

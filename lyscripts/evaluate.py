@@ -7,18 +7,16 @@ model.
 
 import argparse
 import json
-import logging
 from pathlib import Path
 
 import emcee
 import h5py
 import numpy as np
 import pandas as pd
+from loguru import logger
 from scipy.integrate import trapezoid
 
 from lyscripts.utils import create_model, load_patient_data, load_yaml_params
-
-logger = logging.getLogger(__name__)
 
 
 def _add_parser(

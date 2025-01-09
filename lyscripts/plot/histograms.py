@@ -1,10 +1,10 @@
 """Plot computed risks and prevalences into a beautiful histogram."""
 
 import argparse
-import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from loguru import logger
 
 from lyscripts.plot.utils import (
     COLOR_CYCLE,
@@ -15,8 +15,6 @@ from lyscripts.plot.utils import (
     save_figure,
     use_mpl_stylesheet,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def _add_parser(

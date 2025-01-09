@@ -5,16 +5,12 @@ computation of these two initial steps if the cache directory is the same as dur
 their computation.
 """
 
-import argparse
-import logging
-from pathlib import Path
-
 import numpy as np
+from loguru import logger
 from pydantic import Field
-from pydantic_settings import CliSettingsSource
 from rich import progress
 
-from lyscripts import utils
+from lyscripts.cli import _assemble_main
 from lyscripts.compute.posteriors import compute_posteriors
 from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached

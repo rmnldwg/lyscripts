@@ -6,15 +6,12 @@ is the same as during that computation, the priors will automatically be loaded 
 the cache.
 """
 
-import argparse
-import logging
-from pathlib import Path
 from typing import Literal
 
 import numpy as np
+from loguru import logger
 from lymph import models
 from pydantic import Field
-from pydantic_settings import CliSettingsSource
 from rich import progress
 
 from lyscripts.cli import _assemble_main

@@ -6,25 +6,27 @@ interface (CLI) for the package.
 Also, it configures the logging system and sets the metadata of the package.
 """
 
-import argparse
-import logging
-import re
+from typing import Literal
 
 import pandas as pd
-import rich.text
-from rich_argparse import RichHelpFormatter
+from loguru import logger
+from pydantic import Field
+from pydantic_settings import (
+    BaseSettings,
+    CliApp,
+    CliImplicitFlag,
+    CliSubCommand,
+)
 
-from lyscripts import compute, data, evaluate, plot, sample, temp_schedule
+from lyscripts import compute, data, evaluate, plot, sample, temp_schedule  # noqa: F401
 from lyscripts._version import version
-from lyscripts.utils import CustomRichHandler, console
+from lyscripts.cli import _assemble_main
 
 __version__ = version
 __description__ = "Package containing scripts used in lynference pipelines"
 __author__ = "Roman Ludwig"
 __email__ = "roman.ludwig@usz.ch"
 __uri__ = "https://github.com/rmnldwg/lyscripts"
-
-# nopycln: file
 
 # activate copy on write in pandas.
 # See https://pandas.pydata.org/docs/user_guide/copy_on_write.html

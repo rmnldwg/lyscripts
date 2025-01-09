@@ -1,14 +1,11 @@
 """Script to create some test data for the integration tests."""
 
-import argparse
-import logging
-from pathlib import Path
-
 import numpy as np
+from loguru import logger
 from lydata.utils import ModalityConfig
 from pydantic import Field
-from pydantic_settings import CliSettingsSource
 
+from lyscripts.cli import _assemble_main
 from lyscripts.configs import (
     BaseCmdSettings,
     add_dists,

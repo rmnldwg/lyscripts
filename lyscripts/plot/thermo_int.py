@@ -5,7 +5,6 @@ thermodynamic integration.
 """
 
 import argparse
-import logging
 from pathlib import Path
 
 import matplotlib
@@ -13,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from cycler import cycler
+from loguru import logger
 
 from lyscripts.plot.utils import (
     COLORS,
@@ -21,7 +21,6 @@ from lyscripts.plot.utils import (
     use_mpl_stylesheet,
 )
 
-logger = logging.getLogger(__name__)
 LINE_CYCLER = cycler(linestyle=["-", "--"]) * cycler(color=list(COLORS.values()))
 
 

@@ -9,15 +9,14 @@ This can be achieved by using a power sequence: Generate $n$ linearly spaced poi
 the interval $[0, 1]$ and then transform each point by computing $\\beta_i^k$ where
 $k$ could e.g. be 5.
 """
+
 import argparse
-import logging
 from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 import yaml
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def _add_parser(
@@ -75,8 +74,7 @@ def geometric_schedule(n: int, *_a) -> np.ndarray:
     """Create a geometric sequence of `n` numbers from 0. to 1."""
     log_seq = np.logspace(0.0, 1.0, n)
     shifted_seq = log_seq - 1.0
-    geom_seq = shifted_seq / 9.0
-    return geom_seq
+    return shifted_seq / 9.0
 
 
 @tolist

@@ -2,7 +2,6 @@
 
 import importlib
 import importlib.util
-import logging
 import os
 import warnings
 from collections.abc import Callable, Sequence
@@ -12,6 +11,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
 from lymph import models
@@ -27,7 +27,6 @@ from scipy.special import factorial
 
 from lyscripts.utils import flatten, load_model_samples, load_patient_data
 
-logger = logging.getLogger(__name__)
 FuncNameType = Literal["binomial"]
 
 
@@ -528,6 +527,7 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
         return super().__call__()
 
     def __repr__(self) -> str:
+        """Return a string representation of the source."""
         return (
             self.__class__.__name__
             + "("

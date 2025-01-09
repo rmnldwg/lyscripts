@@ -4,7 +4,6 @@ These criteria may be something like tumor location, subsite, T-category, etc.
 """
 
 import argparse
-import logging
 import warnings
 from collections.abc import Iterable
 from pathlib import Path
@@ -17,7 +16,6 @@ from lyscripts.decorators import log_state
 from lyscripts.utils import load_patient_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
-logger = logging.getLogger(__name__)
 
 
 FILTER_TO_COLUMN = {

@@ -6,10 +6,9 @@ from detailed per-patient lymph node level involvement data.
 The model, data, and sampling configuration can be specified in one or several YAML
 files, and/or via command line arguments.
 """
+
 from __future__ import annotations
 
-import argparse
-import logging
 import os
 from typing import Any
 
@@ -30,9 +29,6 @@ import pandas as pd
 from lydata.utils import ModalityConfig
 from lymph.types import ParamsType
 from pydantic import Field
-from pydantic_settings import (
-    CliSettingsSource,
-)
 from rich.progress import Progress, ProgressColumn, Task, TimeElapsedColumn, track
 from rich.text import Text
 
@@ -46,10 +42,7 @@ from lyscripts.configs import (
 from lyscripts.utils import (
     console,
     get_hdf5_backend,
-    merge_yaml_configs,
 )
-
-logger = logging.getLogger(__name__)
 
 _BURNIN_KWARGS = {
     "max_burnin",

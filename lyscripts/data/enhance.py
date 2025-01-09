@@ -12,13 +12,13 @@ the sublevels IIa and IIb would have been reported as healthy, too.
 """
 
 import argparse
-import logging
 import warnings
 from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 from lyscripts.data.utils import save_table_to_csv
 from lyscripts.decorators import log_state
@@ -31,7 +31,6 @@ from lyscripts.utils import (
 )
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
-logger = logging.getLogger(__name__)
 
 
 def _add_parser(

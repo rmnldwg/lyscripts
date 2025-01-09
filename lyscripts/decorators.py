@@ -13,46 +13,6 @@ from pathlib import Path
 from typing import Any
 
 
-def extract_logger(*args, **kwargs) -> logging.Logger:
-    """Extract a logger from the arguments if present.
-
-    The function will first search if the function is in fact a method of a class that
-    has any attributes that are instances of `logging.Logger`. If not, it will search
-    the arguments and keyword arguments for instances of `logging.Logger` and return
-    the first one it finds. If none is found, it will return a general logger.
-    """
-    first_arg = next(iter(args), None)
-    attr_loggers = []
-    if hasattr(first_arg, "__dict__"):
-        for attr in first_arg.__dict__.values():
-            if isinstance(attr, logging.Logger):
-                attr_loggers.append(attr)
-
-    return_args = []
-    args_loggers = []
-    for arg in args:
-        if isinstance(arg, logging.Logger):
-            args_loggers.append(arg)
-        else:
-            return_args.append(arg)
-
-    return_kwargs = {}
-    kwargs_loggers = []
-    for key, value in kwargs.items():
-        if isinstance(value, logging.Logger):
-            kwargs_loggers.append(value)
-        else:
-            return_kwargs[key] = value
-
-    found_loggers = [*attr_loggers, *args_loggers, *kwargs_loggers]
-    logger = next(iter(found_loggers), None)
-
-    if logger is None:
-        logger = logging.getLogger("lyscripts")
-
-    return logger, return_args, return_kwargs
-
-
 def assemble_signature(*args, **kwargs) -> str:
     """Assemble the signature of the function call."""
     args_str = ", ".join(str(arg) for arg in args)
@@ -66,6 +26,7 @@ def log_state(log_level: int = logging.INFO) -> Callable:
     The log message will simply be the function name where underscores are replaced
     with spaces. The `log_level` can be set in the decorator call.
     """
+
     def log_decorator(func: Callable):
         """Decorate function for which to add logs."""
 

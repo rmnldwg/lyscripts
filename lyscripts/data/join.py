@@ -1,19 +1,16 @@
 """Join datasets from different sources (but of the same format) into one."""
 
 import argparse
-import logging
 import warnings
 from pathlib import Path
 
 import pandas as pd
+from loguru import logger
 
 from lyscripts.data.utils import save_table_to_csv
 from lyscripts.utils import load_patient_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
-
-
-logger = logging.getLogger(__name__)
 
 
 def _add_parser(

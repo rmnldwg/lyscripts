@@ -39,7 +39,7 @@ CM_PER_INCH = 2.54
 def floor_at_decimal(value: float, decimal: int) -> float:
     """Compute the floor of ``value`` for the specified ``decimal``.
 
-    Essentially, this is the distance to the right of the decimal point. May be negative.
+    Essentially the distance to the right of the decimal point. May be negative.
     """
     power = 10**decimal
     return np.floor(power * value) / power
@@ -55,12 +55,12 @@ def ceil_at_decimal(value: float, decimal: int) -> float:
 
 
 def floor_to_step(value: float, step: float) -> float:
-    """Compute next closest value on ladder of stepsize ``step`` that is below ``value``."""
+    """Compute next value on ladder of stepsize ``step`` still below ``value``."""
     return (value // step) * step
 
 
 def ceil_to_step(value: float, step: float) -> float:
-    """Compute next closest value on ladder of stepsize ``step`` that is above ``value``."""
+    """Compute next value on ladder of stepsize ``step`` still above ``value``."""
     return floor_to_step(value, step) + step
 
 
@@ -77,6 +77,7 @@ def clean_and_check(filename: str | Path) -> Path:
 
 
 AbstractDistributionT = TypeVar("AbstractDistributionT", bound="AbstractDistribution")
+
 
 @dataclass(kw_only=True)
 class AbstractDistribution:

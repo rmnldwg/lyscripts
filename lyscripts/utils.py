@@ -5,7 +5,6 @@ It also contains helpers for reporting the script's progress via a slightly cust
 occurring issues to the right place.
 """
 
-import logging
 import warnings
 from pathlib import Path
 from typing import Any, Literal
@@ -15,10 +14,10 @@ import pandas as pd
 import yaml
 from deprecated import deprecated
 from emcee.backends import HDFBackend
+from loguru import logger
 from lymph import diagnosis_times, models, types
 from pydantic._internal._utils import deep_update
 from rich.console import Console
-from rich.logging import RichHandler
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 from scipy.special import factorial
 
@@ -33,7 +32,7 @@ CIRCL = "[bold blue]∘[/bold blue]"
 WARN = "[bold yellow]Δ[/bold yellow]"
 CHECK = "[bold green]✓[/bold green]"
 
-logger = logging.getLogger(__name__)
+
 console = Console()
 
 

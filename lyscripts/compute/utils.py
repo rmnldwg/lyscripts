@@ -2,13 +2,13 @@
 
 import ast
 import functools
-import logging
 from pathlib import Path
 from typing import Annotated, Any
 
 import h5py
 import numpy as np
 from joblib import Memory
+from loguru import logger
 from pydantic import AfterValidator, BaseModel, Field
 
 from lyscripts.configs import (
@@ -16,8 +16,6 @@ from lyscripts.configs import (
     SamplingConfig,
     ScenarioConfig,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class ComputeCmdSettings(BaseCmdSettings):

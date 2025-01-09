@@ -38,6 +38,7 @@ dependencies = [
     "pydantic",
     "pydantic-settings",
     "lydata >= 0.2.0",
+    "loguru",
 ]
 dynamic = ["version"]
 

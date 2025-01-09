@@ -4,16 +4,14 @@ This is done for each sample and for a list of specified scenarios. The computat
 cached at a location specified by the ``--cache_dir`` argument using ``joblib``.
 """
 
-import argparse
-import logging
-from pathlib import Path
 from typing import Literal
 
 import numpy as np
+from loguru import logger
 from pydantic import Field
-from pydantic_settings import CliSettingsSource
 from rich import progress
 
+from lyscripts.cli import _assemble_main
 from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,

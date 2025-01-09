@@ -8,16 +8,14 @@ The library I use for this is built on `matplotlib` and is called
 """
 
 import argparse
-import logging
 from pathlib import Path
 
 import corner
 import emcee
+from loguru import logger
 
 from lyscripts.plot.utils import save_figure
 from lyscripts.utils import create_model, load_yaml_params
-
-logger = logging.getLogger(__name__)
 
 
 def _add_parser(

@@ -1,17 +1,16 @@
 """Split a dataset into cross-validation folds based on params.yaml file."""
 
 import argparse
-import logging
 import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 from lyscripts.utils import load_yaml_params
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
-logger = logging.getLogger(__name__)
 
 
 def _add_parser(
