@@ -64,25 +64,6 @@ class CustomProgress(Progress):
         super().__init__(*columns, **kwargs)
 
 
-class CustomRichHandler(RichHandler):
-    """Uses `func_filepath` from the `extra` dict to modify `pathname`."""
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """Emit a log record."""
-        if (
-            "func_filepath" in record.__dict__
-            and "func_name" in record.__dict__
-            and "module_name" in record.__dict__
-        ):
-            prefix = record.pathname.rsplit("lyscripts")[0]
-            record.pathname = f"{prefix}lyscripts/{record.func_filepath}"
-            record.filename = record.func_filepath.split("/")[-1]
-            record.funcName = record.func_name
-            record.module = record.module_name
-            record.lineno = 0
-        return super().emit(record)
-
-
 def binom_pmf(support: list[int] | np.ndarray, p: float = 0.5):
     """Binomial PMF."""
     max_time = len(support) - 1

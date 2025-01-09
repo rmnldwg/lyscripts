@@ -29,58 +29,6 @@ from lyscripts.configs import (
     construct_model,
 )
 
-logger = logging.getLogger(__name__)
-
-
-class CmdSettings(ComputeCmdSettings):
-    """Command line settings for the computation of posterior state distributions."""
-
-    modalities: dict[str, ModalityConfig] = Field(
-        default={},
-        description=(
-            "Maps names of diagnostic modalities to their specificity/sensitivity."
-        ),
-    )
-    risks: HDF5FileStorage = Field(description="Storage for the computed risks.")
-
-
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    _add_arguments(parser)
-
-
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
-
-    This is called by the parent module that is called via the command line.
-    """
-    parser.add_argument(
-        "--configs",
-        default=[],
-        nargs="*",
-        help=(
-            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
-            "previous ones. Command line arguments take precedence over all files."
-        ),
-    )
-    parser.set_defaults(
-        run_main=main,
-        cli_settings_source=CliSettingsSource(
-            settings_cls=CmdSettings,
-            cli_use_class_docs_for_groups=True,
-            root_parser=parser,
-        ),
-    )
-
 
 def compute_risks(
     model_config: ModelConfig,
@@ -114,74 +62,76 @@ def compute_risks(
     return np.stack(risks)
 
 
-def main(args: argparse.Namespace):
-    """Run the main risk prediction routine."""
-    yaml_configs = utils.merge_yaml_configs(args.configs)
-    cmd = CmdSettings(
-        _cli_settings_source=args.cli_settings_source(parsed_args=args),
-        **yaml_configs,
+class RisksCLI(ComputeCmdSettings):
+    """Predict the risk of involvement scenarios from model samples given diagnoses."""
+
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description=(
+            "Maps names of diagnostic modalities to their specificity/sensitivity."
+        ),
     )
-    logger.debug(cmd.model_dump_json(indent=2))
+    risks: HDF5FileStorage = Field(description="Storage for the computed risks.")
 
-    global_attrs = cmd.model_dump(
-        include={"model", "graph", "distributions", "modalities"},
-    )
-    cmd.risks.set_attrs(attrs=global_attrs, dataset="/")
-
-    samples = cmd.sampling.load()
-    cached_compute_priors = get_cached(compute_priors, cmd.cache_dir)
-    cached_compute_posteriors = get_cached(compute_posteriors, cmd.cache_dir)
-    cached_compute_risks = get_cached(compute_risks, cmd.cache_dir)
-    num_scenarios = len(cmd.scenarios)
-
-    for i, scenario in enumerate(cmd.scenarios):
-        _fields = {"t_stages", "t_stages_dist", "mode"}
-        prior_kwargs = scenario.model_dump(include=_fields)
-
-        _priors = cached_compute_priors(
-            model_config=cmd.model,
-            graph_config=cmd.graph,
-            dist_configs=cmd.distributions,
-            samples=samples,
-            progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
-            **prior_kwargs,
+    def cli_cmd(self) -> None:
+        """Start the ``risks`` subcommand."""
+        logger.debug(self.model_dump_json(indent=2))
+        global_attrs = self.model_dump(
+            include={"model", "graph", "distributions", "modalities"},
         )
+        self.risks.set_attrs(attrs=global_attrs, dataset="/")
 
-        _fields = {"diagnosis", "midext", "mode"}
-        posterior_kwargs = scenario.model_dump(include=_fields)
+        samples = self.sampling.load()
+        cached_compute_priors = get_cached(compute_priors, self.cache_dir)
+        cached_compute_posteriors = get_cached(compute_posteriors, self.cache_dir)
+        cached_compute_risks = get_cached(compute_risks, self.cache_dir)
+        num_scens = len(self.scenarios)
 
-        _posteriors = cached_compute_posteriors(
-            model_config=cmd.model,
-            graph_config=cmd.graph,
-            dist_configs=cmd.distributions,
-            modality_configs=cmd.modalities,
-            priors=_priors,
-            progress_desc=f"Computing posteriors for scenario {i + 1}/{num_scenarios}",
-            **posterior_kwargs,
-        )
+        for i, scenario in enumerate(self.scenarios):
+            _fields = {"t_stages", "t_stages_dist", "mode"}
+            prior_kwargs = scenario.model_dump(include=_fields)
 
-        _fields = {"involvement"}
-        risk_kwargs = scenario.model_dump(include=_fields)
+            _priors = cached_compute_priors(
+                model_config=self.model,
+                graph_config=self.graph,
+                dist_configs=self.distributions,
+                samples=samples,
+                progress_desc=f"Computing priors for scenario {i + 1}/{num_scens}",
+                **prior_kwargs,
+            )
 
-        risks = cached_compute_risks(
-            model_config=cmd.model,
-            graph_config=cmd.graph,
-            dist_configs=cmd.distributions,
-            modality_configs=cmd.modalities,
-            posteriors=_posteriors,
-            progress_desc=f"Computing risks for scenario {i + 1}/{num_scenarios}",
-            **risk_kwargs,
-        )
+            _fields = {"diagnosis", "midext", "mode"}
+            posterior_kwargs = scenario.model_dump(include=_fields)
 
-        cmd.risks.save(values=risks, dataset=f"{i:03d}")
-        cmd.risks.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
-        cmd.risks.set_attrs(attrs=posterior_kwargs, dataset=f"{i:03d}")
-        cmd.risks.set_attrs(attrs=risk_kwargs, dataset=f"{i:03d}")
+            _posteriors = cached_compute_posteriors(
+                model_config=self.model,
+                graph_config=self.graph,
+                dist_configs=self.distributions,
+                modality_configs=self.modalities,
+                priors=_priors,
+                progress_desc=f"Computing posteriors for scenario {i + 1}/{num_scens}",
+                **posterior_kwargs,
+            )
+
+            _fields = {"involvement"}
+            risk_kwargs = scenario.model_dump(include=_fields)
+
+            risks = cached_compute_risks(
+                model_config=self.model,
+                graph_config=self.graph,
+                dist_configs=self.distributions,
+                modality_configs=self.modalities,
+                posteriors=_posteriors,
+                progress_desc=f"Computing risks for scenario {i + 1}/{num_scens}",
+                **risk_kwargs,
+            )
+
+            self.risks.save(values=risks, dataset=f"{i:03d}")
+            self.risks.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
+            self.risks.set_attrs(attrs=posterior_kwargs, dataset=f"{i:03d}")
+            self.risks.set_attrs(attrs=risk_kwargs, dataset=f"{i:03d}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    _add_arguments(parser)
-
-    args = parser.parse_args()
-    args.run_main(args)
+    main = _assemble_main(settings_cls=RisksCLI, prog_name="compute risks")
+    main()

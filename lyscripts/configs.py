@@ -513,7 +513,7 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
         self.yaml_file_path_field = yaml_file_path_field
         super().__init__(settings_cls, yaml_file, yaml_file_encoding)
 
-    def __call__(self):
+    def __call__(self) -> dict[str, Any]:
         """Reload the config files from the paths in the current state."""
         yaml_file_to_reload = self.current_state.get(
             self.yaml_file_path_field, self.yaml_file_path
@@ -527,13 +527,23 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
         )
         return super().__call__()
 
+    def __repr__(self) -> str:
+        return (
+            self.__class__.__name__
+            + "("
+            + f"yaml_file={self.yaml_file_path!r}, "
+            + f"yaml_file_encoding={self.yaml_file_encoding!r}, "
+            + f"yaml_file_path_field={self.yaml_file_path_field!r}"
+            + ")"
+        )
+
 
 class BaseCmdSettings(BaseSettings):
     """Base class for command line settings."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(yaml_file="config.yaml")
 
-    configs: PathType = Field(
+    configs: list[Path] = Field(
         default=["config.yaml"],
         description=(
             "Path to the YAML file(s) that contain the configuration(s). Configs from "

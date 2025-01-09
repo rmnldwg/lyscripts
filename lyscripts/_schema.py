@@ -6,7 +6,7 @@ from lyscripts import sample
 from lyscripts.compute import priors
 
 
-class SchemaSettings(sample.CmdSettings, priors.CmdSettings):
+class SchemaSettings(sample.SampleCLI, priors.PriorsCLI):
     """Settings for generating a JSON schema for lyscripts configuration files."""
 
     ...

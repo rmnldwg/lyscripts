@@ -6,11 +6,16 @@ from detailed per-patient lymph node level involvement data.
 The model, data, and sampling configuration can be specified in one or several YAML
 files, and/or via command line arguments.
 """
+from __future__ import annotations
 
 import argparse
 import logging
 import os
 from typing import Any
+
+from loguru import logger
+
+from lyscripts.cli import _assemble_main
 
 try:
     from multiprocess import Pool
@@ -56,18 +61,6 @@ _BURNIN_KWARGS = {
 _SAMPLING_KWARGS = {"nsteps", "thin"}
 
 
-class CmdSettings(BaseCmdSettings):
-    """Settings required for the MCMC sampling."""
-
-    modalities: dict[str, ModalityConfig] = Field(
-        default={},
-        description=(
-            "Maps names of diagnostic modalities to their specificity/sensitivity."
-        ),
-    )
-    data: DataConfig
-
-
 class CompletedItersColumn(ProgressColumn):
     """A column that displays the completed number of iterations."""
 
@@ -92,44 +85,6 @@ class ItersPerSecondColumn(ProgressColumn):
         if speed is None:
             return Text("? it/s", style="progress.data.speed")
         return Text(f"{speed:.2f} it/s", style="progress.data.speed")
-
-
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    _add_arguments(parser)
-
-
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
-
-    This is called by the parent module that is called via the command line.
-    """
-    parser.add_argument(
-        "--configs",
-        default=[],
-        nargs="*",
-        help=(
-            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
-            "previous ones. Command line arguments take precedence over all files."
-        ),
-    )
-    parser.set_defaults(
-        run_main=main,
-        cli_settings_source=CliSettingsSource(
-            settings_cls=CmdSettings,
-            cli_use_class_docs_for_groups=True,
-            root_parser=parser,
-        ),
-    )
 
 
 MODEL = None
@@ -313,7 +268,7 @@ def get_pool(num_cores: int | None) -> Any | DummyPool:  # type: ignore
     return Pool(num_cores) if num_cores is not None else DummyPool()
 
 
-def init_sampler(settings: CmdSettings, ndim: int, pool: Any) -> emcee.EnsembleSampler:
+def init_sampler(settings: SampleCLI, ndim: int, pool: Any) -> emcee.EnsembleSampler:
     """Initialize the ``emcee.EnsembleSampler`` with the given ``settings``."""
     nwalkers = ndim * settings.sampling.walkers_per_dim
     backend = get_hdf5_backend(
@@ -334,38 +289,41 @@ def init_sampler(settings: CmdSettings, ndim: int, pool: Any) -> emcee.EnsembleS
     )
 
 
-def main(args: argparse.Namespace) -> None:
-    """Run the MCMC sampling."""
-    # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
-    os.environ["OMP_NUM_THREADS"] = "1"
+class SampleCLI(BaseCmdSettings):
+    """Use MCMC to infer distributions over model parameters from data."""
 
-    yaml_configs = merge_yaml_configs(args.configs)
-    cmd = CmdSettings(
-        _cli_settings_source=args.cli_settings_source(parsed_args=args),
-        **yaml_configs,
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description=(
+            "Maps names of diagnostic modalities to their specificity/sensitivity."
+        ),
     )
-    logger.debug(cmd.model_dump_json(indent=2))
+    data: DataConfig
 
-    # ugly, but necessary for pickling
-    global MODEL
-    MODEL = construct_model(cmd.model, cmd.graph)
-    MODEL = add_dists(MODEL, cmd.distributions)
-    MODEL = add_modalities(MODEL, cmd.modalities)
-    MODEL.load_patient_data(**cmd.data.get_load_kwargs())
-    ndim = MODEL.get_num_dims()
+    def cli_cmd(self) -> None:
+        """Start the ``sample`` subcommand."""
+        # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
+        os.environ["OMP_NUM_THREADS"] = "1"
 
-    # emcee does not support numpy's new random number generator yet.
-    np.random.seed(cmd.sampling.seed)
+        logger.debug(self.model_dump_json(indent=2))
 
-    with get_pool(cmd.sampling.cores) as pool:
-        sampler = init_sampler(cmd, ndim, pool)
-        run_burnin(sampler, **cmd.sampling.model_dump(include=_BURNIN_KWARGS))
-        run_sampling(sampler, **cmd.sampling.model_dump(include=_SAMPLING_KWARGS))
+        # ugly, but necessary for pickling
+        global MODEL
+        MODEL = construct_model(self.model, self.graph)
+        MODEL = add_dists(MODEL, self.distributions)
+        MODEL = add_modalities(MODEL, self.modalities)
+        MODEL.load_patient_data(**self.data.get_load_kwargs())
+        ndim = MODEL.get_num_dims()
+
+        # emcee does not support numpy's new random number generator yet.
+        np.random.seed(self.sampling.seed)
+
+        with get_pool(self.sampling.cores) as pool:
+            sampler = init_sampler(self, ndim, pool)
+            run_burnin(sampler, **self.sampling.model_dump(include=_BURNIN_KWARGS))
+            run_sampling(sampler, **self.sampling.model_dump(include=_SAMPLING_KWARGS))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    _add_arguments(parser)
-
-    args = parser.parse_args()
-    args.run_main(args)
+    main = _assemble_main(settings_cls=SampleCLI, prog_name="sample")
+    main()

@@ -9,19 +9,14 @@ from pathlib import Path
 from lyscripts.compute import posteriors, prevalences, priors, risks
 
 
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers and then add more subparsers."""
-    parser = subparsers.add_parser(
-        Path(__file__).parent.name,
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    subparsers = parser.add_subparsers()
-    priors._add_parser(subparsers, help_formatter=parser.formatter_class)
-    posteriors._add_parser(subparsers, help_formatter=parser.formatter_class)
-    prevalences._add_parser(subparsers, help_formatter=parser.formatter_class)
-    risks._add_parser(subparsers, help_formatter=parser.formatter_class)
+class ComputeCLI(BaseSettings):
+    """Compute priors, posteriors, risks, and prevalences from model samples."""
+
+    priors: CliSubCommand[priors.PriorsCLI]
+    posteriors: CliSubCommand[posteriors.PosteriorsCLI]
+    risks: CliSubCommand[risks.RisksCLI]
+    prevalences: CliSubCommand[prevalences.PrevalencesCLI]
+
+    def cli_cmd(self) -> None:
+        """Start the ``compute`` subcommand."""
+        CliApp.run_subcommand(self)

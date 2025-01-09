@@ -40,61 +40,6 @@ from lyscripts.configs import (
     construct_model,
 )
 
-logger = logging.getLogger(__name__)
-
-
-class CmdSettings(ComputeCmdSettings):
-    """Command line settings for the computation of prevalences."""
-
-    modalities: dict[str, ModalityConfig] = Field(
-        default={},
-        description=(
-            "Maps names of diagnostic modalities to their specificity/sensitivity."
-        ),
-    )
-    prevalences: HDF5FileStorage = Field(
-        description="Storage for the computed prevalences.",
-    )
-    data: DataConfig
-
-
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    _add_arguments(parser)
-
-
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
-
-    This is called by the parent module that is called via the command line.
-    """
-    parser.add_argument(
-        "--configs",
-        default=[],
-        nargs="*",
-        help=(
-            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
-            "previous ones. Command line arguments take precedence over all files."
-        ),
-    )
-    parser.set_defaults(
-        run_main=main,
-        cli_settings_source=CliSettingsSource(
-            settings_cls=CmdSettings,
-            cli_use_class_docs_for_groups=True,
-            root_parser=parser,
-        ),
-    )
-
 
 def compute_prevalences(
     model_config: ModelConfig,
@@ -186,72 +131,77 @@ def observe_prevalence(
     )
 
 
-def main(args: argparse.Namespace):
-    """Run the main prevalence prediction routine."""
-    yaml_configs = utils.merge_yaml_configs(args.configs)
-    cmd = CmdSettings(
-        _cli_settings_source=args.cli_settings_source(parsed_args=args),
-        **yaml_configs,
+class PrevalencesCLI(ComputeCmdSettings):
+    """Predict the prevalence of an involvement pattern from model samples."""
+
+    modalities: dict[str, ModalityConfig] = Field(
+        default={},
+        description=(
+            "Maps names of diagnostic modalities to their specificity/sensitivity."
+        ),
     )
-    logger.debug(cmd.model_dump_json(indent=2))
-
-    global_attrs = cmd.model_dump(
-        include={"model", "graph", "distributions", "modalities"},
+    prevalences: HDF5FileStorage = Field(
+        description="Storage for the computed prevalences.",
     )
-    cmd.prevalences.set_attrs(attrs=global_attrs, dataset="/")
+    data: DataConfig
 
-    samples = cmd.sampling.load()
-    cached_compute_priors = get_cached(compute_priors, cmd.cache_dir)
-    cached_compute_prevalences = get_cached(compute_prevalences, cmd.cache_dir)
-    num_scenarios = len(cmd.scenarios)
-
-    for i, scenario in enumerate(cmd.scenarios):
-        _fields = {"t_stages", "t_stages_dist", "mode"}
-        prior_kwargs = scenario.model_dump(include=_fields)
-
-        _priors = cached_compute_priors(
-            model_config=cmd.model,
-            graph_config=cmd.graph,
-            dist_configs=cmd.distributions,
-            samples=samples,
-            progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
-            **prior_kwargs,
+    def cli_cmd(self) -> None:
+        """Start the ``compute prevalences`` subcommand."""
+        logger.debug(self.model_dump_json(indent=2))
+        global_attrs = self.model_dump(
+            include={"model", "graph", "distributions", "modalities"},
         )
+        self.prevalences.set_attrs(attrs=global_attrs, dataset="/")
 
-        _fields = {"diagnosis", "midext"}
-        prevalence_kwargs = scenario.model_dump(include=_fields)
+        samples = self.sampling.load()
+        cached_compute_priors = get_cached(compute_priors, self.cache_dir)
+        cached_compute_prevalences = get_cached(compute_prevalences, self.cache_dir)
+        num_scens = len(self.scenarios)
 
-        prevalences = cached_compute_prevalences(
-            model_config=cmd.model,
-            graph_config=cmd.graph,
-            dist_configs=cmd.distributions,
-            modality_configs=cmd.modalities,
-            priors=_priors,
-            diagnosis=scenario.diagnosis,
-            midext=scenario.midext,
-            progress_desc=f"Computing prevalences for scenario {i + 1}/{num_scenarios}",
-        )
+        for i, scenario in enumerate(self.scenarios):
+            _fields = {"t_stages", "t_stages_dist", "mode"}
+            prior_kwargs = scenario.model_dump(include=_fields)
 
-        portion = observe_prevalence(
-            data=cmd.data.load(),
-            scenario_config=scenario,
-            mapping=cmd.data.mapping,
-        )
-        cmd.prevalences.save(values=prevalences, dataset=f"{i:03d}")
-        cmd.prevalences.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
-        cmd.prevalences.set_attrs(attrs=prevalence_kwargs, dataset=f"{i:03d}")
-        cmd.prevalences.set_attrs(
-            attrs={
-                "num_match": portion.match,
-                "num_total": portion.total,
-            },
-            dataset=f"{i:03d}",
-        )
+            _priors = cached_compute_priors(
+                model_config=self.model,
+                graph_config=self.graph,
+                dist_configs=self.distributions,
+                samples=samples,
+                progress_desc=f"Computing priors for scenario {i + 1}/{num_scens}",
+                **prior_kwargs,
+            )
+
+            _fields = {"diagnosis", "midext"}
+            prevalence_kwargs = scenario.model_dump(include=_fields)
+
+            prevalences = cached_compute_prevalences(
+                model_config=self.model,
+                graph_config=self.graph,
+                dist_configs=self.distributions,
+                modality_configs=self.modalities,
+                priors=_priors,
+                diagnosis=scenario.diagnosis,
+                midext=scenario.midext,
+                progress_desc=f"Computing prevalences for scenario {i + 1}/{num_scens}",
+            )
+
+            portion = observe_prevalence(
+                data=self.data.load(),
+                scenario_config=scenario,
+                mapping=self.data.mapping,
+            )
+            self.prevalences.save(values=prevalences, dataset=f"{i:03d}")
+            self.prevalences.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
+            self.prevalences.set_attrs(attrs=prevalence_kwargs, dataset=f"{i:03d}")
+            self.prevalences.set_attrs(
+                attrs={
+                    "num_match": portion.match,
+                    "num_total": portion.total,
+                },
+                dataset=f"{i:03d}",
+            )
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    _add_arguments(parser)
-
-    args = parser.parse_args()
-    args.run_main(args)
+    main = _assemble_main(settings_cls=PrevalencesCLI, prog_name="compute prevalences")
+    main()

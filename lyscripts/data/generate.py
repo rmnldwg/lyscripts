@@ -16,12 +16,9 @@ from lyscripts.configs import (
     construct_model,
 )
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.utils import merge_yaml_configs
-
-logger = logging.getLogger(__name__)
 
 
-class CmdSettings(BaseCmdSettings):
+class GenerateCLI(BaseCmdSettings):
     """Settings for the command-line interface."""
 
     t_stages_dist: dict[str, float] = Field(
@@ -50,69 +47,26 @@ class CmdSettings(BaseCmdSettings):
 
         return super().model_post_init(__context)
 
+    def cli_cmd(self) -> None:
+        """Run the main script."""
+        logger.debug(self.model_dump_json(indent=2))
 
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    _add_arguments(parser)
+        model = construct_model(self.model, self.graph)
+        model = add_dists(model, self.distributions)
+        model = add_modalities(model, self.modalities)
+        model.set_params(**self.params)
+        logger.info(f"Set parameters: {model.get_params(as_dict=True)}")
 
+        synth_data = model.draw_patients(
+            num=self.num_patients,
+            stage_dist=list(self.t_stages_dist.values()),
+            seed=self.seed,
+        )
+        logger.info(f"Generated synthetic data with shape {synth_data.shape}")
 
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
-
-    This is called by the parent module that is called via the command line.
-    """
-    parser.add_argument(
-        "--configs",
-        default=[],
-        nargs="*",
-        help="Path(s) to YAML configuration file(s).",
-    )
-    parser.set_defaults(
-        run_main=main,
-        cli_settings_source=CliSettingsSource(
-            settings_cls=CmdSettings,
-            cli_use_class_docs_for_groups=True,
-            root_parser=parser,
-        ),
-    )
-
-
-def main(args: argparse.Namespace) -> None:
-    """Run main script."""
-    yaml_config = merge_yaml_configs(args.configs)
-    settings = CmdSettings(
-        _cli_settings_source=args.cli_settings_source(parsed_args=args), **yaml_config
-    )
-    logger.debug(settings.model_dump_json(indent=2))
-
-    model = construct_model(settings.model, settings.graph)
-    model = add_dists(model, settings.distributions)
-    model = add_modalities(model, settings.modalities)
-    model.set_params(**settings.params)
-    logger.info(f"Set parameters: {model.get_params(as_dict=True)}")
-
-    synth_data = model.draw_patients(
-        num=settings.num_patients,
-        stage_dist=list(settings.t_stages_dist.values()),
-        seed=settings.seed,
-    )
-    logger.info(f"Generated synthetic data with shape {synth_data.shape}")
-
-    save_table_to_csv(file_path=settings.output_file, table=synth_data)
+        save_table_to_csv(file_path=self.output_file, table=synth_data)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    _add_arguments(parser)
-
-    args = parser.parse_args()
-    args.run_main(args)
+    main = _assemble_main(settings_cls=GenerateCLI, prog_name="data generate")
+    main()
