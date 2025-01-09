@@ -5,7 +5,7 @@ import importlib.util
 import logging
 import os
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Literal
@@ -17,7 +17,12 @@ from lydata.utils import ModalityConfig
 from lymph import models
 from lymph.types import Model, PatternType
 from pydantic import BaseModel, ConfigDict, Field, FilePath
-from pydantic_settings import BaseSettings
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    YamlConfigSettingsSource,
+)
+from pydantic_settings.sources import DEFAULT_PATH
 from scipy.special import factorial
 
 from lyscripts.utils import flatten, load_model_samples, load_patient_data
@@ -481,11 +486,61 @@ class SamplingConfig(BaseModel):
         )
 
 
+PathType = Path | str | Sequence[Path | str]
+
+
+class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
+    """YAML config source that allows dynamic file path specification.
+
+    This is heavily inspired by `this comment`_ in the discussion on a related issue
+    of the ``pydantic-settings`` GitHub repository.
+
+    .. _this comment: https://github.com/pydantic/pydantic-settings/issues/259#issuecomment-2549444286
+    """
+
+    def __init__(
+        self,
+        settings_cls,
+        yaml_file: PathType | None = DEFAULT_PATH,
+        yaml_file_encoding: str | None = None,
+        yaml_file_path_field: str = "configs",
+    ) -> None:
+        """Allow getting the YAML file path from any key in the current state.
+
+        The argument ``yaml_file_path_field`` should be the :py:class:`BaseSettings`
+        field that contains the path(s) to the YAML file(s).
+        """
+        self.yaml_file_path_field = yaml_file_path_field
+        super().__init__(settings_cls, yaml_file, yaml_file_encoding)
+
+    def __call__(self):
+        """Reload the config files from the paths in the current state."""
+        yaml_file_to_reload = self.current_state.get(
+            self.yaml_file_path_field, self.yaml_file_path
+        )
+        logger.debug(f"Reloading YAML files from {yaml_file_to_reload}.")
+        self.__init__(
+            settings_cls=self.settings_cls,
+            yaml_file=yaml_file_to_reload,
+            yaml_file_encoding=self.yaml_file_encoding,
+            yaml_file_path_field=self.yaml_file_path_field,
+        )
+        return super().__call__()
+
+
 class BaseCmdSettings(BaseSettings):
     """Base class for command line settings."""
 
     model_config = ConfigDict(extra="allow")
 
+    configs: PathType = Field(
+        default=["config.yaml"],
+        description=(
+            "Path to the YAML file(s) that contain the configuration(s). Configs from "
+            "YAML files may be overwritten by command line arguments. When multiple "
+            "files are specified, the configs are merged in the order they are given."
+        ),
+    )
     version: int = Field(
         description=(
             "Version of the configuration. Must conform to the major version of the "
@@ -504,3 +559,26 @@ class BaseCmdSettings(BaseSettings):
             "diagnose times."
         ),
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Customize the settings sources."""
+        dynamic_yaml_config_source = DynamicYamlConfigSettingsSource(
+            settings_cls=settings_cls,
+            yaml_file_path_field="configs",
+        )
+        logger.debug(f"Created {dynamic_yaml_config_source = }")
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+            dynamic_yaml_config_source,
+        )
