@@ -23,6 +23,7 @@ class DataCLI(BaseSettings):
 
     enhance: CliSubCommand[enhance.EnhanceCLI]
     generate: CliSubCommand[generate.GenerateCLI]
+    join: CliSubCommand[join.JoinCLI]
 
     def cli_cmd(self) -> None:
         """Start the ``data`` subcommand."""
