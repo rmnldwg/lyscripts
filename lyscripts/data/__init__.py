@@ -5,6 +5,7 @@ which can then be uploaded to the `LyProX`_ online tool for others to inspect th
 
 .. _LyProX: https://lyprox.org
 """
+
 from pydantic_settings import BaseSettings, CliApp, CliSubCommand
 
 from lyscripts.data import (  # noqa: F401
@@ -20,6 +21,7 @@ from lyscripts.data import (  # noqa: F401
 class DataCLI(BaseSettings):
     """Work with lymphatic progression data through this CLI."""
 
+    enhance: CliSubCommand[enhance.EnhanceCLI]
     generate: CliSubCommand[generate.GenerateCLI]
 
     def cli_cmd(self) -> None:
