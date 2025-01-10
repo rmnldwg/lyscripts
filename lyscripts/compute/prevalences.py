@@ -20,7 +20,7 @@ from rich import progress
 from lyscripts.cli import _assemble_main
 from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import (
-    ComputeCmdSettings,
+    BaseComputeCLI,
     HDF5FileStorage,
     get_cached,
 )
@@ -128,7 +128,7 @@ def observe_prevalence(
     )
 
 
-class PrevalencesCLI(ComputeCmdSettings):
+class PrevalencesCLI(BaseComputeCLI):
     """Predict the prevalence of an involvement pattern from model samples."""
 
     modalities: dict[str, ModalityConfig] = Field(

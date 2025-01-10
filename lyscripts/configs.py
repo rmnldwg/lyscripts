@@ -538,8 +538,8 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
         )
 
 
-class BaseCmdSettings(BaseSettings):
-    """Base class for command line settings."""
+class BaseCLI(BaseSettings):
+    """Base settings class for CLI scripts."""
 
     model_config = ConfigDict(yaml_file="config.yaml")
 
@@ -559,15 +559,6 @@ class BaseCmdSettings(BaseSettings):
         ),
         ge=1,
         le=1,
-    )
-    graph: GraphConfig
-    model: ModelConfig = ModelConfig()
-    distributions: dict[str, DistributionConfig] = Field(
-        default={},
-        description=(
-            "Mapping of model T-categories to predefined distributions over "
-            "diagnose times."
-        ),
     )
 
     @classmethod

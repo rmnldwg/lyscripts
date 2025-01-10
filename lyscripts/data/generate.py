@@ -7,7 +7,10 @@ from pydantic import Field
 
 from lyscripts.cli import _assemble_main
 from lyscripts.configs import (
-    BaseCmdSettings,
+    BaseCLI,
+    DistributionConfig,
+    GraphConfig,
+    ModelConfig,
     add_dists,
     add_modalities,
     construct_model,
@@ -15,9 +18,18 @@ from lyscripts.configs import (
 from lyscripts.data.utils import save_table_to_csv
 
 
-class GenerateCLI(BaseCmdSettings):
+class GenerateCLI(BaseCLI):
     """Settings for the command-line interface."""
 
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
     t_stages_dist: dict[str, float] = Field(
         description=(
             "Specify what fraction of generated patients should come from the "

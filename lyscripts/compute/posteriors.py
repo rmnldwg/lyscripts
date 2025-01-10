@@ -16,7 +16,7 @@ from rich import progress
 
 from lyscripts.cli import _assemble_main
 from lyscripts.compute.priors import compute_priors
-from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached
+from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DiagnosisConfig,
     DistributionConfig,
@@ -71,7 +71,7 @@ def compute_posteriors(
     return np.stack(posteriors)
 
 
-class PosteriorsCLI(ComputeCmdSettings):
+class PosteriorsCLI(BaseComputeCLI):
     """Compute posterior state distributions for different diagnosis scenarios."""
 
     modalities: dict[str, ModalityConfig] = Field(

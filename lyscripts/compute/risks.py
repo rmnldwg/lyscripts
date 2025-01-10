@@ -13,7 +13,7 @@ from rich import progress
 from lyscripts.cli import _assemble_main
 from lyscripts.compute.posteriors import compute_posteriors
 from lyscripts.compute.priors import compute_priors
-from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached
+from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
@@ -58,7 +58,7 @@ def compute_risks(
     return np.stack(risks)
 
 
-class RisksCLI(ComputeCmdSettings):
+class RisksCLI(BaseComputeCLI):
     """Predict the risk of involvement scenarios from model samples given diagnoses."""
 
     modalities: dict[str, ModalityConfig] = Field(

@@ -12,7 +12,7 @@ from pydantic import Field
 from rich import progress
 
 from lyscripts.cli import _assemble_main
-from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached
+from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
@@ -58,7 +58,7 @@ def compute_priors(
     return np.stack(priors)
 
 
-class PriorsCLI(ComputeCmdSettings):
+class PriorsCLI(BaseComputeCLI):
     """Compute the prior state distributions from MCMC samples."""
 
     priors: HDF5FileStorage = Field(description="Storage for the computed priors.")

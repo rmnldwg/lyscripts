@@ -33,8 +33,11 @@ from rich.progress import Progress, ProgressColumn, Task, TimeElapsedColumn, tra
 from rich.text import Text
 
 from lyscripts.configs import (
-    BaseCmdSettings,
+    BaseCLI,
     DataConfig,
+    DistributionConfig,
+    GraphConfig,
+    ModelConfig,
     add_dists,
     add_modalities,
     construct_model,
@@ -282,9 +285,18 @@ def init_sampler(settings: SampleCLI, ndim: int, pool: Any) -> emcee.EnsembleSam
     )
 
 
-class SampleCLI(BaseCmdSettings):
+class SampleCLI(BaseCLI):
     """Use MCMC to infer distributions over model parameters from data."""
 
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
     modalities: dict[str, ModalityConfig] = Field(
         default={},
         description=(

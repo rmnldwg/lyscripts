@@ -12,15 +12,27 @@ from loguru import logger
 from pydantic import AfterValidator, BaseModel, Field
 
 from lyscripts.configs import (
-    BaseCmdSettings,
+    BaseCLI,
+    DistributionConfig,
+    GraphConfig,
+    ModelConfig,
     SamplingConfig,
     ScenarioConfig,
 )
 
 
-class ComputeCmdSettings(BaseCmdSettings):
-    """Command line settings for the submodule ``compute``."""
+class BaseComputeCLI(BaseCLI):
+    """Common command line settings for the submodule ``compute``."""
 
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
     cache_dir: Path = Field(
         default=Path.cwd() / ".cache",
         description="Cache directory for storing function calls.",
