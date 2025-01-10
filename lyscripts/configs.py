@@ -196,12 +196,12 @@ class DataConfig(BaseModel):
         description="Optional mapping of numeric T-stages to model T-stages.",
     )
 
-    def load(self, **read_csv_kwargs) -> pd.DataFrame:
+    def load(self, **get_dataframe_kwargs) -> pd.DataFrame:
         """Load data from path or the :py:class:``~lydata.loader.LyDataset``."""
         if isinstance(self.source, LyDataset):
-            return self.source.load(**read_csv_kwargs)
+            return self.source.get_dataframe(**get_dataframe_kwargs)
 
-        return load_patient_data(self.source, **read_csv_kwargs)
+        return load_patient_data(self.source, **get_dataframe_kwargs)
 
     def get_load_kwargs(self, **read_csv_kwargs: dict[str, Any]) -> dict[str, Any]:
         """Get kwargs for :py:meth:``~lymph.types.Model.load_patient_data``."""
