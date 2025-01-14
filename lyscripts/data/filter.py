@@ -3,128 +3,79 @@
 These criteria may be something like tumor location, subsite, T-category, etc.
 """
 
-import argparse
-import warnings
-from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Literal
 
-import pandas as pd
+from loguru import logger
+from lydata import Q
+from pydantic import Field
+from pydantic_settings import CliImplicitFlag
 
+from lyscripts.cli import _assemble_main
+from lyscripts.configs import BaseCLI, DataConfig
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.decorators import log_state
-from lyscripts.utils import load_patient_data
-
-warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
-FILTER_TO_COLUMN = {
-    "locations": ("tumor", "1", "location"),
-    "subsites": ("tumor", "1", "subsite"),
-    "t_categories": ("tumor", "1", "t_stage"),
-}
+class FilterCLI(BaseCLI):
+    """In- or exclude patients where a certain column fulfills a certain condition."""
 
-
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
+    data: DataConfig
+    include: CliImplicitFlag[bool] = Field(
+        False,
+        description="Include patients where the condition is met (default: exclude).",
     )
-    _add_arguments(parser)
-
-
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to the parser."""
-    parser.add_argument(
-        "input", type=Path, help="The path to the full dataset to split."
+    column: tuple[str, ...] = Field(
+        description=(
+            "The column to filter by. May be a tuple of three strings, since data "
+            "has a three-level header. If it is only one string, the lydata package "
+            "tries to map that to a three-level header."
+        )
     )
-    parser.add_argument(
-        "output", type=Path, help="Folder to store the split CSV files in."
+    operator: Literal["==", "!=", ">", "<", ">=", "<=", "in", "contains"] = Field(
+        description="The operator to use for comparison."
     )
+    value: float | int | str = Field(description="The value to compare against.")
+    output_file: Path = Field(description="The path to save the filtered dataset to.")
 
-    for prefix in ["include", "exclude"]:
-        for filter_by in ["locations", "subsites", "t_categories"]:
-            parser.add_argument(
-                f"--{prefix}-{filter_by}",
-                default=None,
-                type=str,
-                nargs="+",
-                help=f"If provided, {prefix} patients with given tumor {filter_by}.",
-            )
+    def model_post_init(self, __context):
+        """Cast to ``float``, if not possible ``int``, if not possible ``str``."""
+        try:
+            self.value = float(self.value)
+            return super().model_post_init(__context)
+        except ValueError:
+            pass
 
-    parser.set_defaults(run_main=main)
+        try:
+            self.value = int(self.value)
+            return super().model_post_init(__context)
+        except ValueError:
+            pass
 
+        return super().model_post_init(__context)
 
-@log_state()
-def filter_patients(
-    data: pd.DataFrame,
-    by: tuple[str, str, str],
-    values: Iterable[Any],
-    method: str,
-    match: str = "isin",
-) -> pd.DataFrame:
-    """Filter patient data.
+    def cli_cmd(self):
+        """Filter the dataset."""
+        logger.debug(self.model_dump_json(indent=2))
 
-    Filter ``by`` the given column. Rows are in- or excluded (depending on the chosen
-    ``method``) if their corresponding column value is in the ``values`` iterable.
+        data = self.data.load()
+        query = Q(
+            column=self.column,
+            operator=self.operator,
+            value=self.value,
+        )
+        logger.debug(f"Created query object: {query}")
+        mask = query.execute(data)
 
-    The ``match`` string may be any method of a pandas ``Series`` object that returns a
-    boolean series, e.g. "isin" or "contains".
-    """
-    try:
-        match_func = getattr(data[by], match)
-        match_idx = match_func(values)
-    except AttributeError:
-        match_func = getattr(data[by].str, match)
-        match_idx = False
-        for value in values:
-            match_idx = match_func(value) | match_idx
+        if self.include:
+            filtered = data[mask]
+            logger.info(f"Keeping {sum(mask)} of {len(data)} patients.")
+        else:
+            filtered = data[~mask]
+            logger.info(f"Excluding {sum(mask)} of {len(data)} patients.")
 
-    return_idx = match_idx if method == "include" else ~match_idx
-    return data[return_idx]
-
-
-def sanitize(value: str) -> int | str:
-    """Sanitize a value for use in a filter."""
-    try:
-        return int(value)
-    except ValueError:
-        return value
-
-
-def main(args: argparse.Namespace):
-    """Filter a dataset according to the given criteria."""
-    table = load_patient_data(args.input)
-
-    for prefix in ["include", "exclude"]:
-        for filter_by in ["locations", "subsites", "t_categories"]:
-            filter_values = getattr(args, f"{prefix}_{filter_by}")
-
-            if filter_values is None:
-                continue
-
-            sanitized_filter_values = [sanitize(value) for value in filter_values]
-
-            table = filter_patients(
-                data=table,
-                by=FILTER_TO_COLUMN[filter_by],
-                values=sanitized_filter_values,
-                method=prefix,
-                match="contains" if filter_by == "subsites" else "isin",
-            )
-
-    save_table_to_csv(args.output, table)
+        save_table_to_csv(file_path=self.output_file, table=filtered)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    _add_arguments(parser)
-
-    args = parser.parse_args()
-    args.run_main(args)
+    main = _assemble_main(settings_cls=FilterCLI, prog_name="filter")
+    main()

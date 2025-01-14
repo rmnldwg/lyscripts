@@ -22,6 +22,7 @@ class DataCLI(BaseSettings):
     """Work with lymphatic progression data through this CLI."""
 
     enhance: CliSubCommand[enhance.EnhanceCLI]
+    filter: CliSubCommand[filter.FilterCLI]
     generate: CliSubCommand[generate.GenerateCLI]
     join: CliSubCommand[join.JoinCLI]
 
