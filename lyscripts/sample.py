@@ -38,6 +38,7 @@ from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
     ModelConfig,
+    SamplingConfig,
     add_dists,
     add_modalities,
     construct_model,
@@ -304,6 +305,7 @@ class SampleCLI(BaseCLI):
         ),
     )
     data: DataConfig
+    sampling: SamplingConfig
 
     def cli_cmd(self) -> None:
         """Start the ``sample`` subcommand."""
