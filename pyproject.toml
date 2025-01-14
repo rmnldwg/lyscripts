@@ -36,7 +36,7 @@ dependencies = [
     "deprecated",
     "joblib",
     "pydantic",
-    "pydantic-settings",
+    "pydantic-settings >= 2.7.0",
     "lydata >= 0.2.0",
     "loguru",
 ]
