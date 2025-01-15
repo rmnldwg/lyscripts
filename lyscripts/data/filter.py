@@ -19,12 +19,12 @@ from lyscripts.data.utils import save_table_to_csv
 class FilterCLI(BaseCLI):
     """In- or exclude patients where a certain column fulfills a certain condition."""
 
-    data: DataConfig
+    input: DataConfig
     include: CliImplicitFlag[bool] = Field(
         False,
         description="Include patients where the condition is met (default: exclude).",
     )
-    column: tuple[str, ...] = Field(
+    column: list[str] | str = Field(
         description=(
             "The column to filter by. May be a tuple of three strings, since data "
             "has a three-level header. If it is only one string, the lydata package "
@@ -39,6 +39,17 @@ class FilterCLI(BaseCLI):
 
     def model_post_init(self, __context):
         """Cast to ``float``, if not possible ``int``, if not possible ``str``."""
+        if isinstance(self.column, list):
+            if len(self.column) == 1:
+                self.column = self.column[0]
+            elif len(self.column) == 3:
+                self.column = tuple(self.column)
+            else:
+                raise ValueError(
+                    "The column attribute must be an iterable of three strings or a "
+                    f"single string, but it is {self.column}."
+                )
+
         try:
             self.value = float(self.value)
             return super().model_post_init(__context)
@@ -57,7 +68,7 @@ class FilterCLI(BaseCLI):
         """Filter the dataset."""
         logger.debug(self.model_dump_json(indent=2))
 
-        data = self.data.load()
+        data = self.input.load()
         query = Q(
             column=self.column,
             operator=self.operator,
