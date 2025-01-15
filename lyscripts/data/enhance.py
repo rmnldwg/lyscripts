@@ -18,7 +18,7 @@ from lyscripts.data.utils import save_table_to_csv
 class EnhanceCLI(BaseCLI):
     """Enhance the dataset by inferring additional columns from the data."""
 
-    data: DataConfig
+    input: DataConfig
     modalities: dict[str, ModalityConfig] | None = None
     method: Literal["max_llh", "rank"] = "max_llh"
     sides: list[Literal["ipsi", "contra"]] = ["ipsi", "contra"]
@@ -33,7 +33,7 @@ class EnhanceCLI(BaseCLI):
         """Start the ``enhance`` subcommand."""
         logger.debug(self.model_dump_json(indent=2))
 
-        data = self.data.load()
+        data = self.input.load()
         modality_names = list(self.modalities.keys()) if self.modalities else None
 
         infer_lvls_kwargs = {

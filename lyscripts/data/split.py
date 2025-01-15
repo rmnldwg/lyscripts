@@ -18,7 +18,7 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 class SplitCLI(BaseCLI):
     """Split a dataset into cross-validation folds."""
 
-    data: DataConfig
+    input: DataConfig
     cross_validation: CrossValidationConfig = CrossValidationConfig()
     output_dir: Path = Field(description="The folder to store the split CSV files in.")
 
@@ -29,7 +29,7 @@ class SplitCLI(BaseCLI):
         self.output_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Ensure output directory {self.output_dir} exists")
 
-        data = self.data.load()
+        data = self.input.load()
 
         shuffled_data = data.sample(
             frac=1.0,
