@@ -530,7 +530,7 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
         yaml_file_to_reload = self.current_state.get(
             self.yaml_file_path_field, self.yaml_file_path
         )
-        logger.debug(f"Reloading YAML files from {yaml_file_to_reload}.")
+        logger.debug(f"Reloading YAML files from {yaml_file_to_reload} (if it exists).")
         self.__init__(
             settings_cls=self.settings_cls,
             yaml_file=yaml_file_to_reload,
