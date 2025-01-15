@@ -1,6 +1,7 @@
 """Filter a dataset according to some common criteria.
 
-These criteria may be something like tumor location, subsite, T-category, etc.
+This is essentially a command line interface to building a
+:py:class:`query object <lydata.accessor.Q>` and applying it to the dataset.
 """
 
 from pathlib import Path

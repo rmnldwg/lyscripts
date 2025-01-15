@@ -1,7 +1,7 @@
-"""Top-level module of the `lyscripts` package.
+"""Top-level module of the :py:mod:`lyscripts` package.
 
-It contains the :py:func:`.main` function that is used to start the command line
-interface (CLI) for the package.
+It contains the main function that is used to start the command line interface (CLI)
+for the package.
 
 Also, it configures the logging system and sets the metadata of the package.
 """

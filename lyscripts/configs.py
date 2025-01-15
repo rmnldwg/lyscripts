@@ -107,7 +107,7 @@ class DeprecatedModelConfig(BaseModel):
     This is implemented for backwards compatibility. Its sole job is to translate
     the outdated settings format into the new one. Note that the only stuff that needs
     to be translated is the model configuration itself and the distributions for
-    marginalization over diagnosis times. The :py:class:``~GraphConfig`` is still
+    marginalization over diagnosis times. The :py:class:`~GraphConfig` is still
     compatible.
     """
 
@@ -197,14 +197,14 @@ class DataConfig(BaseModel):
     )
 
     def load(self, **get_dataframe_kwargs) -> pd.DataFrame:
-        """Load data from path or the :py:class:``~lydata.loader.LyDataset``."""
+        """Load data from path or the :py:class:`~lydata.loader.LyDataset`."""
         if isinstance(self.source, LyDataset):
             return self.source.get_dataframe(**get_dataframe_kwargs)
 
         return load_patient_data(self.source, **get_dataframe_kwargs)
 
     def get_load_kwargs(self, **read_csv_kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Get kwargs for :py:meth:``~lymph.types.Model.load_patient_data``."""
+        """Get kwargs for :py:meth:`~lymph.types.Model.load_patient_data`."""
         return {
             "patient_data": self.load(**(read_csv_kwargs or {})),
             **self.model_dump(exclude={"source"}, exclude_none=True),
@@ -326,12 +326,14 @@ def construct_model(
     """Construct a model from a ``model_config``.
 
     The default/expected use of this is to specify a model class from the
-    :py:mod:`lymph` package and pass the necessary arguments to its constructor.
+    `lymph`_ package and pass the necessary arguments to its constructor.
     However, it is also possible to load a model from an external Python file via the
     ``external`` attribute of the ``model_config`` argument. In this case, a symbol
     with name ``model`` must be defined in the file that is to be loaded. Note that
     no check is performed on the model's compatibility with the command/pipeline it is
     used in.
+
+    .. _lymph: https://lymph-model.readthedocs.io/stable/
     """
     if model_config.external is not None:
         return _construct_model_from_external(model_config.external)
@@ -505,9 +507,10 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
     """YAML config source that allows dynamic file path specification.
 
     This is heavily inspired by `this comment`_ in the discussion on a related issue
-    of the ``pydantic-settings`` GitHub repository.
+    of the `pydantic-settings`_ GitHub repository.
 
     .. _this comment: https://github.com/pydantic/pydantic-settings/issues/259#issuecomment-2549444286
+    .. _pydantic-settings: https://github.com/pydantic/pydantic-settings
     """
 
     def __init__(

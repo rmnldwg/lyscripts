@@ -1,7 +1,7 @@
 """Enhance the dataset by inferring additional columns from the data.
 
-This is a command-line interface to the :py:func:`lydata.utils.infer_and_combine_levels`
-function.
+This is a command-line interface to the
+:py:func:`~lydata.utils.infer_and_combine_levels` function.
 """
 
 from typing import Literal

@@ -1,4 +1,12 @@
-"""Script to create some test data for the integration tests."""
+"""Script to generate a synthetic dataset.
+
+The generation is done by the :py:meth:`~lymph.models.Unilateral.draw_patients` method
+of
+the `lymph`_ package, which is why this requires the specification of a model
+via the :py:class:`~lyscripts.configs.ModelConfig` class.
+
+.. _lymph: https://lymph-model.readthedocs.io/
+"""
 
 import numpy as np
 from loguru import logger

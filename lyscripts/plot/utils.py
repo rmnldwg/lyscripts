@@ -48,7 +48,7 @@ def floor_at_decimal(value: float, decimal: int) -> float:
 def ceil_at_decimal(value: float, decimal: int) -> float:
     """Compute the ceiling of ``value`` for the specified ``decimal``.
 
-    Analog to :py:func:`._floot_at_decimal`, this is the distance to the right of the
+    Analog to :py:func:`.floor_at_decimal`, this is the distance to the right of the
     decimal point. May be negative.
     """
     return -floor_at_decimal(-value, decimal)
@@ -67,7 +67,7 @@ def ceil_to_step(value: float, step: float) -> float:
 def clean_and_check(filename: str | Path) -> Path:
     """Check if file with ``filename`` exists.
 
-    If not, raise error, otherwise return cleaned ``PosixPath``.
+    If not, raise error, otherwise return cleaned :py:class:`~pathlib.PosixPath`.
     """
     filepath = Path(filename)
     if not filepath.exists():
