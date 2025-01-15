@@ -61,6 +61,7 @@ def configure_logging(argv: list[str]) -> None:
     a log-level of `DEBUG` the output will contain more information.
     """
     logger.enable("lyscripts")
+    logger.enable("lydata")
     log_level = somewhat_safely_get_loglevel(argv=argv)
     logger.remove()
     kwargs = {"format": "<lvl>{message}</>"} if log_level != "DEBUG" else {}

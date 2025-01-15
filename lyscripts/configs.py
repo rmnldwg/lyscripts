@@ -246,6 +246,19 @@ class DiagnosisConfig(BaseModel):
         )
 
 
+class CrossValidationConfig(BaseModel):
+    """Configs for splitting a dataset into cross-validation folds."""
+
+    seed: int = Field(
+        default=42,
+        description="Seed for the random number generator.",
+    )
+    folds: int = Field(
+        default=5,
+        description="Number of folds to split the dataset into.",
+    )
+
+
 class ScenarioConfig(BaseModel):
     """Define a scenario for which e.g. prevalences and risks may be computed."""
 
