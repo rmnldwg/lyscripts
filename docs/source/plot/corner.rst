@@ -9,4 +9,5 @@ Marginals of Sampled Parameters
 Command Help
 ------------
 
-.. program-output:: lyscripts plot corner --help
+..
+    .. program-output:: lyscripts plot corner --help

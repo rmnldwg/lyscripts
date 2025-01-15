@@ -9,4 +9,5 @@ Evaluation
 Command Help
 ------------
 
-.. program-output:: lyscripts evaluate --help
+..
+    .. program-output:: lyscripts evaluate --help

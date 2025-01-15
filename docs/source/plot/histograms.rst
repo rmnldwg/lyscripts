@@ -9,4 +9,5 @@ Histograms of Predictions
 Command Help
 ------------
 
-.. program-output:: lyscripts plot histograms --help
+..
+    .. program-output:: lyscripts plot histograms --help

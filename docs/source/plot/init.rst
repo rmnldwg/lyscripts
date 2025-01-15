@@ -9,7 +9,8 @@ Plotting Scripts
 Command Help
 ------------
 
-.. program-output:: lyscripts plot --help
+..
+    .. program-output:: lyscripts plot --help
 
 
 Submodules

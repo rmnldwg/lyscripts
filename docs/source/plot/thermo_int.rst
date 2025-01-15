@@ -9,4 +9,5 @@ Display Thermodynamic Integration
 Command Help
 ------------
 
-.. program-output:: lyscripts plot thermo_int --help
+..
+    .. program-output:: lyscripts plot thermo_int --help
