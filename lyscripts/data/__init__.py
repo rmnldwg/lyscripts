@@ -25,6 +25,7 @@ class DataCLI(BaseSettings):
     filter: CliSubCommand[filter.FilterCLI]
     generate: CliSubCommand[generate.GenerateCLI]
     join: CliSubCommand[join.JoinCLI]
+    split: CliSubCommand[split.SplitCLI]
 
     def cli_cmd(self) -> None:
         """Start the ``data`` subcommand."""
