@@ -367,7 +367,6 @@ def get_modalities_subset(
     return selected_modalities
 
 
-@check_input_file_exists
 def load_patient_data(
     file_path: Path,
     **read_csv_kwargs: dict,

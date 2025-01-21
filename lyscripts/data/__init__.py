@@ -31,6 +31,7 @@ class DataCLI(BaseSettings):
     enhance: CliSubCommand[enhance.EnhanceCLI]
     filter: CliSubCommand[filter.FilterCLI]
     generate: CliSubCommand[generate.GenerateCLI]
+    lyproxify: CliSubCommand[lyproxify.LyproxifyCLI]
     join: CliSubCommand[join.JoinCLI]
     split: CliSubCommand[split.SplitCLI]
 
