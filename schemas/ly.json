@@ -1,5 +1,24 @@
 {
   "$defs": {
+    "CrossValidationConfig": {
+      "description": "Configs for splitting a dataset into cross-validation folds.",
+      "properties": {
+        "seed": {
+          "default": 42,
+          "description": "Seed for the random number generator.",
+          "title": "Seed",
+          "type": "integer"
+        },
+        "folds": {
+          "default": 5,
+          "description": "Number of folds to split the dataset into.",
+          "title": "Folds",
+          "type": "integer"
+        }
+      },
+      "title": "CrossValidationConfig",
+      "type": "object"
+    },
     "DataConfig": {
       "description": "Where to load the data from and how to feed it into the model.",
       "properties": {
@@ -10,7 +29,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/LyDatasetConfig"
+              "$ref": "#/$defs/LyDataset"
             }
           ],
           "description": "Either a path to a CSV file or a config that specifies how and where to fetch the data from.",
@@ -43,13 +62,6 @@
                 "type": "string"
               }
             ]
-          },
-          "default": {
-            "0": "early",
-            "1": "early",
-            "2": "early",
-            "3": "late",
-            "4": "late"
           },
           "description": "Optional mapping of numeric T-stages to model T-stages.",
           "title": "Mapping",
@@ -152,9 +164,6 @@
           "const": "binomial",
           "default": "binomial",
           "description": "Name of predefined function to use as distribution.",
-          "enum": [
-            "binomial"
-          ],
           "title": "Func",
           "type": "string"
         },
@@ -209,35 +218,6 @@
         "lnl"
       ],
       "title": "GraphConfig",
-      "type": "object"
-    },
-    "HDF5FileStorage": {
-      "description": "HDF5 file storage for in- and outputs of computations.",
-      "properties": {
-        "file": {
-          "description": "Path to the HDF5 file. Parent directories are created if needed.",
-          "format": "path",
-          "title": "File",
-          "type": "string"
-        },
-        "dataset": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of the dataset in the HDF5 file. Save/load methods can override this.",
-          "title": "Dataset"
-        }
-      },
-      "required": [
-        "file"
-      ],
-      "title": "HDF5FileStorage",
       "type": "object"
     },
     "InvolvementConfig": {
@@ -305,13 +285,13 @@
       "title": "InvolvementConfig",
       "type": "object"
     },
-    "LyDatasetConfig": {
+    "LyDataset": {
       "description": "Specification of a dataset.",
       "properties": {
         "year": {
           "description": "Release year of dataset.",
-          "exclusiveMaximum": 2024,
           "exclusiveMinimum": 0,
+          "maximum": 2025,
           "title": "Year",
           "type": "integer"
         },
@@ -322,23 +302,23 @@
           "type": "string"
         },
         "subsite": {
-          "description": "Subsite(s) this dataset covers.",
+          "description": "Tumor subsite(s) patients in this dataset were diagnosed with.",
           "minLength": 1,
           "title": "Subsite",
           "type": "string"
         },
-        "repo": {
+        "repo_name": {
           "default": "rmnldwg/lydata",
           "description": "GitHub `repository/owner`.",
           "minLength": 1,
-          "title": "Repo",
+          "title": "Repo Name",
           "type": "string"
         },
-        "revision": {
+        "ref": {
           "default": "main",
           "description": "Branch/tag/commit of the repo.",
           "minLength": 1,
-          "title": "Revision",
+          "title": "Ref",
           "type": "string"
         }
       },
@@ -347,7 +327,7 @@
         "institution",
         "subsite"
       ],
-      "title": "LyDatasetConfig",
+      "title": "LyDataset",
       "type": "object"
     },
     "ModalityConfig": {
@@ -621,22 +601,14 @@
           "type": "string"
         },
         "involvement": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/InvolvementConfig"
-            }
-          ],
+          "$ref": "#/$defs/InvolvementConfig",
           "default": {
             "ipsi": {},
             "contra": {}
           }
         },
         "diagnosis": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/DiagnosisConfig"
-            }
-          ],
+          "$ref": "#/$defs/DiagnosisConfig",
           "default": {
             "ipsi": {},
             "contra": {}
@@ -650,75 +622,71 @@
       "type": "object"
     }
   },
-  "additionalProperties": true,
   "description": "Settings for generating a JSON schema for lyscripts configuration files.",
   "properties": {
-    "cache_dir": {
-      "default": "/home/rmnldwg/repos/lyscripts/.cache",
-      "description": "Cache directory for storing function calls.",
-      "format": "path",
-      "title": "Cache Dir",
-      "type": "string"
+    "version": {
+      "description": "Version of the configuration. Must conform to the major version of the lyscripts package (can only be 1 at the moment). This is used to avoid compatibility issues when the configuration format changes.",
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
     },
-    "sampling": {
-      "$ref": "#/$defs/SamplingConfig"
+    "cross_validation": {
+      "$ref": "#/$defs/CrossValidationConfig",
+      "default": null
     },
-    "priors": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/HDF5FileStorage"
-        }
-      ],
-      "description": "Storage for the computed priors."
+    "data": {
+      "$ref": "#/$defs/DataConfig",
+      "default": null
     },
-    "graph": {
-      "$ref": "#/$defs/GraphConfig"
-    },
-    "model": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/ModelConfig"
-        }
-      ],
-      "default": {
-        "external": null,
-        "class_name": "Unilateral",
-        "constructor": "binary",
-        "max_time": 10,
-        "kwargs": {}
-      }
+    "diagnosis": {
+      "$ref": "#/$defs/DiagnosisConfig",
+      "default": null
     },
     "distributions": {
       "additionalProperties": {
         "$ref": "#/$defs/DistributionConfig"
       },
       "default": {},
-      "description": "Mapping of model T-categories to predefined distributions over diagnose times.",
       "title": "Distributions",
       "type": "object"
     },
-    "scenarios": {
-      "default": [],
-      "description": "List of scenarios to compute priors for.",
-      "items": {
-        "$ref": "#/$defs/ScenarioConfig"
-      },
-      "title": "Scenarios",
-      "type": "array"
+    "graph": {
+      "$ref": "#/$defs/GraphConfig",
+      "default": null
+    },
+    "involvement": {
+      "$ref": "#/$defs/InvolvementConfig",
+      "default": null
     },
     "modalities": {
       "additionalProperties": {
         "$ref": "#/$defs/ModalityConfig"
       },
       "default": {},
-      "description": "Maps names of diagnostic modalities to their specificity/sensitivity.",
       "title": "Modalities",
       "type": "object"
     },
-    "data": {
-      "$ref": "#/$defs/DataConfig"
+    "model": {
+      "$ref": "#/$defs/ModelConfig",
+      "default": null
+    },
+    "sampling": {
+      "$ref": "#/$defs/SamplingConfig",
+      "default": null
+    },
+    "scenarios": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ScenarioConfig"
+      },
+      "title": "Scenarios",
+      "type": "array"
     }
   },
+  "required": [
+    "version"
+  ],
   "title": "SchemaSettings",
   "type": "object"
 }
