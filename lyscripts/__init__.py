@@ -19,7 +19,7 @@ from pydantic_settings import (
     CliSubCommand,
 )
 
-from lyscripts import compute, data, evaluate, plot, sample, temp_schedule  # noqa: F401
+from lyscripts import compute, data, evaluate, plot, sample, schedule  # noqa: F401
 from lyscripts._version import version
 from lyscripts.cli import _assemble_main
 
@@ -87,6 +87,7 @@ class LyscriptsCLI(BaseSettings):
     compute: CliSubCommand[compute.ComputeCLI]
     data: CliSubCommand[data.DataCLI]
     sample: CliSubCommand[sample.SampleCLI]
+    schedule: CliSubCommand[schedule.ScheduleCLI]
 
     def __init__(self, **kwargs):
         """Add logging configuration to the lyscripts CLI."""
