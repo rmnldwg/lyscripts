@@ -1,5 +1,7 @@
 """Define configuration using pydantic."""
 
+from __future__ import annotations
+
 import importlib
 import importlib.util
 import os
@@ -47,15 +49,71 @@ DIST_MAP: dict[FuncNameType, Callable] = {
 }
 
 
-class GraphConfig(BaseModel):
-    """Specifies how the tumor(s) and LNLs are connected in a DAG."""
+class CrossValidationConfig(BaseModel):
+    """Configs for splitting a dataset into cross-validation folds."""
 
-    tumor: dict[str, list[str]] = Field(
-        description="Define the name of the tumor(s) and which LNLs it/they drain to.",
+    seed: int = Field(
+        default=42,
+        description="Seed for the random number generator.",
     )
-    lnl: dict[str, list[str]] = Field(
-        description="Define the name of the LNL(s) and which LNLs it/they drain to.",
+    folds: int = Field(
+        default=5,
+        description="Number of folds to split the dataset into.",
     )
+
+
+class DataConfig(BaseModel):
+    """Where to load the data from and how to feed it into the model."""
+
+    source: FilePath | LyDataset = Field(
+        description=(
+            "Either a path to a CSV file or a config that specifies how and where "
+            "to fetch the data from."
+        )
+    )
+    side: Literal["ipsi", "contra"] | None = Field(
+        default=None,
+        description="Side of the neck to load data for. Only for Unilateral models.",
+    )
+    mapping: dict[Literal[0, 1, 2, 3, 4], int | str] = Field(
+        default_factory=lambda: {i: "early" if i <= 2 else "late" for i in range(5)},
+        description="Optional mapping of numeric T-stages to model T-stages.",
+    )
+
+    def load(self, **get_dataframe_kwargs) -> pd.DataFrame:
+        """Load data from path or the :py:class:`~lydata.loader.LyDataset`."""
+        if isinstance(self.source, LyDataset):
+            return self.source.get_dataframe(**get_dataframe_kwargs)
+
+        return load_patient_data(self.source, **get_dataframe_kwargs)
+
+    def get_load_kwargs(self, **read_csv_kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Get kwargs for :py:meth:`~lymph.types.Model.load_patient_data`."""
+        return {
+            "patient_data": self.load(**(read_csv_kwargs or {})),
+            **self.model_dump(exclude={"source"}, exclude_none=True),
+        }
+
+
+class DiagnosisConfig(BaseModel):
+    """Defines an ipsi- and contralateral diagnosis pattern."""
+
+    ipsi: dict[str, PatternType] = Field(
+        default={},
+        description="Observed diagnoses by different modalities on the ipsi neck.",
+        examples=[{"CT": {"II": True, "III": False}}],
+    )
+    contra: dict[str, PatternType] = Field(
+        default={},
+        description="Observed diagnoses by different modalities on the contra neck.",
+    )
+
+    def to_involvement(self, modality: str) -> InvolvementConfig:
+        """Convert the diagnosis pattern to an involvement pattern for ``modality``."""
+        return InvolvementConfig(
+            ipsi=self.ipsi.get(modality, {}),
+            contra=self.contra.get(modality, {}),
+        )
 
 
 class DistributionConfig(BaseModel):
@@ -70,6 +128,31 @@ class DistributionConfig(BaseModel):
     )
     params: dict[str, int | float] = Field(
         default={}, description="Parameters to pass to the predefined function."
+    )
+
+
+class InvolvementConfig(BaseModel):
+    """Config that defines an ipsi- and contralateral involvement pattern."""
+
+    ipsi: PatternType = Field(
+        default={},
+        description="Involvement pattern for the ipsilateral side of the neck.",
+        examples=[{"II": True, "III": False}],
+    )
+    contra: PatternType = Field(
+        default={},
+        description="Involvement pattern for the contralateral side of the neck.",
+    )
+
+
+class GraphConfig(BaseModel):
+    """Specifies how the tumor(s) and LNLs are connected in a DAG."""
+
+    tumor: dict[str, list[str]] = Field(
+        description="Define the name of the tumor(s) and which LNLs it/they drain to.",
+    )
+    lnl: dict[str, list[str]] = Field(
+        description="Define the name of the LNL(s) and which LNLs it/they drain to.",
     )
 
 
@@ -178,85 +261,81 @@ class DeprecatedModelConfig(BaseModel):
         return model_config, distribution_configs
 
 
-class DataConfig(BaseModel):
-    """Where to load the data from and how to feed it into the model."""
+class SamplingConfig(BaseModel):
+    """Settings to configure the MCMC sampling."""
 
-    source: FilePath | LyDataset = Field(
-        description=(
-            "Either a path to a CSV file or a config that specifies how and where "
-            "to fetch the data from."
-        )
+    file: Path = Field(
+        description="Path to HDF5 file for the results to be stored on or loaded from."
     )
-    side: Literal["ipsi", "contra"] | None = Field(
+    history_file: Path | None = Field(
         default=None,
-        description="Side of the neck to load data for. Only for Unilateral models.",
+        description="Path to store the burn-in metrics in (as CSV file).",
     )
-    mapping: dict[Literal[0, 1, 2, 3, 4], int | str] = Field(
-        default_factory=lambda: {i: "early" if i <= 2 else "late" for i in range(5)},
-        description="Optional mapping of numeric T-stages to model T-stages.",
+    dataset: str = Field(
+        default="mcmc",
+        description="Name of the dataset in the HDF5 file.",
     )
-
-    def load(self, **get_dataframe_kwargs) -> pd.DataFrame:
-        """Load data from path or the :py:class:`~lydata.loader.LyDataset`."""
-        if isinstance(self.source, LyDataset):
-            return self.source.get_dataframe(**get_dataframe_kwargs)
-
-        return load_patient_data(self.source, **get_dataframe_kwargs)
-
-    def get_load_kwargs(self, **read_csv_kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Get kwargs for :py:meth:`~lymph.types.Model.load_patient_data`."""
-        return {
-            "patient_data": self.load(**(read_csv_kwargs or {})),
-            **self.model_dump(exclude={"source"}, exclude_none=True),
-        }
-
-
-class InvolvementConfig(BaseModel):
-    """Config that defines an ipsi- and contralateral involvement pattern."""
-
-    ipsi: PatternType = Field(
-        default={},
-        description="Involvement pattern for the ipsilateral side of the neck.",
-        examples=[{"II": True, "III": False}],
+    cores: int | None = Field(
+        gt=0,
+        default=os.cpu_count(),
+        description=(
+            "Number of cores to use for parallel sampling. If `None`, no parallel "
+            "processing is used."
+        ),
     )
-    contra: PatternType = Field(
-        default={},
-        description="Involvement pattern for the contralateral side of the neck.",
-    )
-
-
-class DiagnosisConfig(BaseModel):
-    """Defines an ipsi- and contralateral diagnosis pattern."""
-
-    ipsi: dict[str, PatternType] = Field(
-        default={},
-        description="Observed diagnoses by different modalities on the ipsi neck.",
-        examples=[{"CT": {"II": True, "III": False}}],
-    )
-    contra: dict[str, PatternType] = Field(
-        default={},
-        description="Observed diagnoses by different modalities on the contra neck.",
-    )
-
-    def to_involvement(self, modality: str) -> InvolvementConfig:
-        """Convert the diagnosis pattern to an involvement pattern for ``modality``."""
-        return InvolvementConfig(
-            ipsi=self.ipsi.get(modality, {}),
-            contra=self.contra.get(modality, {}),
-        )
-
-
-class CrossValidationConfig(BaseModel):
-    """Configs for splitting a dataset into cross-validation folds."""
-
     seed: int = Field(
         default=42,
         description="Seed for the random number generator.",
     )
-    folds: int = Field(
-        default=5,
-        description="Number of folds to split the dataset into.",
+    walkers_per_dim: int = Field(
+        default=20,
+        description="Number of walkers per parameter space dimension.",
     )
+    max_burnin: int | None = Field(
+        default=None,
+        description="Maximum number of burn-in steps.",
+    )
+    check_interval: int = Field(
+        default=50,
+        description="Check for convergence each time after this many steps.",
+    )
+    trust_factor: float = Field(
+        default=50.0,
+        description=(
+            "Trust the autocorrelation time only when it's smaller than this factor "
+            "times the length of the chain."
+        ),
+    )
+    relative_thresh: float = Field(
+        default=0.05,
+        description="Relative threshold for convergence.",
+    )
+    thin: int = Field(
+        default=10, description="How many samples to draw before for saving one."
+    )
+    nsteps: int = Field(
+        default=100,
+        description="Number of samples after convergence, regardless of thinning.",
+    )
+    inverse_temp: float = Field(
+        default=1.0,
+        description=(
+            "Inverse temperature for thermodynamic integration. Note that this is not "
+            "yet fully implemented."
+        ),
+    )
+
+    def load(self, thin: int = 1) -> np.ndarray:
+        """Load the samples from the HDF5 file.
+
+        Note that the ``thin`` represents another round of thinning and is usually
+        not necessary if the samples were already thinned during the sampling process.
+        """
+        return load_model_samples(
+            file_path=self.file,
+            name=self.dataset,
+            thin=thin,
+        )
 
 
 class ScenarioConfig(BaseModel):
@@ -421,83 +500,6 @@ def add_data(
     model.load_patient_data(**kwargs)
     logger.info(f"Added data to model: {model}")
     return model
-
-
-class SamplingConfig(BaseModel):
-    """Settings to configure the MCMC sampling."""
-
-    file: Path = Field(
-        description="Path to HDF5 file for the results to be stored on or loaded from."
-    )
-    history_file: Path | None = Field(
-        default=None,
-        description="Path to store the burn-in metrics in (as CSV file).",
-    )
-    dataset: str = Field(
-        default="mcmc",
-        description="Name of the dataset in the HDF5 file.",
-    )
-    cores: int | None = Field(
-        gt=0,
-        default=os.cpu_count(),
-        description=(
-            "Number of cores to use for parallel sampling. If `None`, no parallel "
-            "processing is used."
-        ),
-    )
-    seed: int = Field(
-        default=42,
-        description="Seed for the random number generator.",
-    )
-    walkers_per_dim: int = Field(
-        default=20,
-        description="Number of walkers per parameter space dimension.",
-    )
-    max_burnin: int | None = Field(
-        default=None,
-        description="Maximum number of burn-in steps.",
-    )
-    check_interval: int = Field(
-        default=50,
-        description="Check for convergence each time after this many steps.",
-    )
-    trust_factor: float = Field(
-        default=50.0,
-        description=(
-            "Trust the autocorrelation time only when it's smaller than this factor "
-            "times the length of the chain."
-        ),
-    )
-    relative_thresh: float = Field(
-        default=0.05,
-        description="Relative threshold for convergence.",
-    )
-    thin: int = Field(
-        default=10, description="How many samples to draw before for saving one."
-    )
-    nsteps: int = Field(
-        default=100,
-        description="Number of samples after convergence, regardless of thinning.",
-    )
-    inverse_temp: float = Field(
-        default=1.0,
-        description=(
-            "Inverse temperature for thermodynamic integration. Note that this is not "
-            "yet fully implemented."
-        ),
-    )
-
-    def load(self, thin: int = 1) -> np.ndarray:
-        """Load the samples from the HDF5 file.
-
-        Note that the ``thin`` represents another round of thinning and is usually
-        not necessary if the samples were already thinned during the sampling process.
-        """
-        return load_model_samples(
-            file_path=self.file,
-            name=self.dataset,
-            thin=thin,
-        )
 
 
 PathType = Path | str | Sequence[Path | str]
