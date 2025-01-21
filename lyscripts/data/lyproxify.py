@@ -314,12 +314,16 @@ def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
     0   43           3
     2   18           2
     """
-    for column, check in exclude:
-        exclude = check(raw[column])
-        raw = raw.loc[~exclude]
+    num_before = len(raw)
+    filtered = raw.copy()
 
-    logger.info(f"Excluded {exclude.sum()} patients.")
-    return raw
+    for column, check in exclude:
+        is_excluded = check(filtered[column])
+        filtered = filtered.loc[~is_excluded]
+
+    num_after = len(filtered)
+    logger.info(f"Excluded {num_before - num_after} patients.")
+    return filtered
 
 
 if __name__ == "__main__":
