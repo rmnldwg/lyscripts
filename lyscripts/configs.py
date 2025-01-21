@@ -324,6 +324,12 @@ class SamplingConfig(BaseModel):
             "yet fully implemented."
         ),
     )
+    param_names: list[str] = Field(
+        default=None,
+        description=(
+            "If provided, only these parameters will be inferred during model sampling."
+        ),
+    )
 
     def load(self, thin: int = 1) -> np.ndarray:
         """Load the samples from the HDF5 file.

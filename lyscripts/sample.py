@@ -283,6 +283,7 @@ def init_sampler(settings: SampleCLI, ndim: int, pool: Any) -> emcee.EnsembleSam
         backend=backend,
         pool=pool,
         blobs_dtype=[("inverse_temp", np.float64)],
+        parameter_names=settings.sampling.param_names,
     )
 
 
@@ -320,7 +321,11 @@ class SampleCLI(BaseCLI):
         MODEL = add_dists(MODEL, self.distributions)
         MODEL = add_modalities(MODEL, self.modalities)
         MODEL.load_patient_data(**self.data.get_load_kwargs())
-        ndim = MODEL.get_num_dims()
+        ndim = (
+            len(self.sampling.param_names)
+            if self.sampling.param_names is not None
+            else MODEL.get_num_dims()
+        )
 
         # emcee does not support numpy's new random number generator yet.
         np.random.seed(self.sampling.seed)
