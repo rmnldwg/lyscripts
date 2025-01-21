@@ -565,7 +565,7 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
 class BaseCLI(BaseSettings):
     """Base settings class for CLI scripts."""
 
-    model_config = ConfigDict(yaml_file="config.yaml")
+    model_config = ConfigDict(yaml_file="config.yaml", extra="ignore")
 
     configs: list[Path] = Field(
         default=["config.yaml"],
