@@ -1,13 +1,13 @@
 r"""Generate inverse temperature schedules for thermodynamic integration.
 
 Thermodynamic integration is quite sensitive to the specific schedule which is used.
-I noticed in my models, that within the interval $[0, 0.1]$, the increase in the
-expected log-likelihood is very steep. Hence, the inverse temperature $\\beta$ must be
-more densely spaced in the beginning.
+I noticed in my models, that within the interval :math:`[0, 0.1]`, the increase in the
+expected log-likelihood is very steep. Hence, the inverse temperature :math:`\beta`
+must be more densely spaced in the beginning.
 
-This can be achieved by using a power sequence: Generate $n$ linearly spaced points in
-the interval $[0, 1]$ and then transform each point by computing $\\beta_i^k$ where
-$k$ could e.g. be 5.
+This can be achieved by using a power sequence: Generate :math:`n` linearly spaced
+points in the interval :math:`[0, 1]` and then transform each point by computing
+:math:`\beta_i^k` where :math:`k` could e.g. be 5.
 """
 
 from typing import Literal
@@ -20,21 +20,28 @@ from lyscripts.cli import _assemble_main
 from lyscripts.configs import BaseCLI
 
 
-def geometric_schedule(n: int, *_a) -> np.ndarray:
-    """Create a geometric sequence of `n` numbers from 0. to 1."""
-    log_seq = np.logspace(0.0, 1.0, n)
+def geometric_schedule(num: int, *_a) -> np.ndarray:
+    """Create a geometric sequence of ``num`` numbers from 0 to 1."""
+    log_seq = np.logspace(0.0, 1.0, num)
     shifted_seq = log_seq - 1.0
     return shifted_seq / 9.0
 
 
-def linear_schedule(n: int, *_a) -> np.ndarray:
-    """Create a linear sequence of `n` numbers from 0. to 1."""
-    return np.linspace(0.0, 1.0, n)
+def linear_schedule(num: int, *_a) -> np.ndarray:
+    """Create a linear sequence of ``num`` numbers from 0 to 1.
+
+    Equivalent to the :py:func:`power_schedule` with ``power=1``.
+    """
+    return np.linspace(0.0, 1.0, num)
 
 
-def power_schedule(n: int, power: float, *_a) -> np.ndarray:
-    """Create a power sequence of `n` numbers from 0. to 1."""
-    lin_seq = np.linspace(0.0, 1.0, n)
+def power_schedule(num: int, power: float, *_a) -> np.ndarray:
+    """Create a power sequence of ``num`` numbers from 0 to 1.
+
+    This is essentially a :py:func:`linear_schedule` of ``num`` numbers from 0 to 1,
+    but each number is raised to the power of ``power``.
+    """
+    lin_seq = np.linspace(0.0, 1.0, num)
     return lin_seq**power
 
 

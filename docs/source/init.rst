@@ -25,5 +25,5 @@ Submodules
     evaluate
     plot/init
     sample
-    temp_schedule
+    schedule
     utils

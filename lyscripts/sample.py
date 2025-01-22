@@ -1,6 +1,6 @@
 """Learn the model params from preprocessed input data using MCMC sampling.
 
-This command allows us to infer the parameters of a predefined probabilistic model
+This command allows inferring the parameters of a predefined probabilistic model
 from detailed per-patient lymph node level involvement data.
 
 The model, data, and sampling configuration can be specified in one or several YAML

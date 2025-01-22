@@ -1,4 +1,4 @@
-"""Define configuration using pydantic."""
+"""Define configurations using pydantic."""
 
 from __future__ import annotations
 
@@ -265,11 +265,11 @@ class SamplingConfig(BaseModel):
     """Settings to configure the MCMC sampling."""
 
     file: Path = Field(
-        description="Path to HDF5 file for the results to be stored on or loaded from."
+        description="Path to HDF5 file store results or load last state."
     )
     history_file: Path | None = Field(
         default=None,
-        description="Path to store the burn-in metrics in (as CSV file).",
+        description="Path to store the burn-in metrics (as CSV file).",
     )
     dataset: str = Field(
         default="mcmc",
@@ -293,7 +293,9 @@ class SamplingConfig(BaseModel):
     )
     max_burnin: int | None = Field(
         default=None,
-        description="Maximum number of burn-in steps.",
+        description=(
+            "Maximum number of burn-in steps. Sample until convergence if `None`"
+        ),
     )
     check_interval: int = Field(
         default=50,
