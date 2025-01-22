@@ -10,7 +10,7 @@ from loguru import logger
 from lydata import infer_and_combine_levels
 from lydata.utils import ModalityConfig
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.configs import BaseCLI, DataConfig
 from lyscripts.data.utils import save_table_to_csv
 
@@ -54,5 +54,5 @@ class EnhanceCLI(BaseCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=EnhanceCLI, prog_name="enhance")
+    main = assemble_main(settings_cls=EnhanceCLI, prog_name="enhance")
     main()

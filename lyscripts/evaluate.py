@@ -16,7 +16,7 @@ import pandas as pd
 from loguru import logger
 from scipy.integrate import trapezoid
 
-from lyscripts.utils import create_model, load_patient_data, load_yaml_params
+from lyscripts.utils import load_patient_data, load_yaml_params
 
 
 def _add_parser(
@@ -136,7 +136,7 @@ def main(args: argparse.Namespace):
     metrics = {}
 
     params = load_yaml_params(args.params)
-    model = create_model(params)
+    model = None  # create_model(params)
     ndim = len(model.get_params())
     data = load_patient_data(args.data)
     h5_file = h5py.File(args.model, mode="r")

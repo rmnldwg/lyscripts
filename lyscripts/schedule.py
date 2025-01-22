@@ -16,7 +16,7 @@ import numpy as np
 from loguru import logger
 from pydantic import Field
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.configs import BaseCLI
 
 
@@ -81,5 +81,5 @@ class ScheduleCLI(BaseCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=ScheduleCLI, prog_name="schedule")
+    main = assemble_main(settings_cls=ScheduleCLI, prog_name="schedule")
     main()

@@ -14,7 +14,7 @@ from typing import Any
 
 from loguru import logger
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 
 try:
     from multiprocess import Pool
@@ -43,10 +43,7 @@ from lyscripts.configs import (
     add_modalities,
     construct_model,
 )
-from lyscripts.utils import (
-    console,
-    get_hdf5_backend,
-)
+from lyscripts.utils import get_hdf5_backend
 
 _BURNIN_KWARGS = {
     "max_burnin",
@@ -178,7 +175,7 @@ def run_burnin(
     history = get_burnin_history(history_file)
     previous_accepted = 0
 
-    with Progress(*_get_columns(it=sampler.iteration), console=console) as progress:
+    with Progress(*_get_columns(it=sampler.iteration)) as progress:
         task = progress.add_task(
             description="[blue]INFO     [/blue]Burn-in phase ",
             total=max_burnin,
@@ -239,7 +236,6 @@ def run_sampling(
         sequence=sampler.sample(state, iterations=nsteps * thin, thin=thin, store=True),
         description="[blue]INFO     [/blue]Sampling phase",
         total=nsteps * thin,
-        console=console,
     ):
         pass
 
@@ -337,5 +333,5 @@ class SampleCLI(BaseCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=SampleCLI, prog_name="sample")
+    main = assemble_main(settings_cls=SampleCLI, prog_name="sample")
     main()

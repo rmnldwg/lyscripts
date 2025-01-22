@@ -12,7 +12,7 @@ from lydata import Q
 from pydantic import Field
 from pydantic_settings import CliImplicitFlag
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.configs import BaseCLI, DataConfig
 from lyscripts.data.utils import save_table_to_csv
 
@@ -89,5 +89,5 @@ class FilterCLI(BaseCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=FilterCLI, prog_name="filter")
+    main = assemble_main(settings_cls=FilterCLI, prog_name="filter")
     main()

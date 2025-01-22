@@ -17,7 +17,7 @@ from lymph import models
 from pydantic import Field
 from rich import progress
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import (
     BaseComputeCLI,
@@ -200,5 +200,5 @@ class PrevalencesCLI(BaseComputeCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=PrevalencesCLI, prog_name="compute prevalences")
+    main = assemble_main(settings_cls=PrevalencesCLI, prog_name="compute prevalences")
     main()

@@ -36,12 +36,12 @@ from pydantic_settings import (
     CliSubCommand,
 )
 
-from lyscripts import compute, data, evaluate, plot, sample, schedule  # noqa: F401
+from lyscripts import compute, data, sample, schedule  # noqa: F401
 from lyscripts._version import version
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main, configure_logging
 
 __version__ = version
-__description__ = "Package containing scripts used in lynference pipelines"
+__description__ = "Package to interact with lymphatic progression data and models."
 __author__ = "Roman Ludwig"
 __email__ = "roman.ludwig@usz.ch"
 __uri__ = "https://github.com/rmnldwg/lyscripts"
@@ -51,42 +51,6 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 pd.options.mode.copy_on_write = True
 
 logger.disable("lyscripts")
-
-
-def somewhat_safely_get_loglevel(
-    argv: list[str],
-) -> Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-    """Set the log level of the lyscripts CLI.
-
-    This is a bit of a hack, since the :py:class:`.LyscriptsCLI` class is not yet
-    initialized when we need to set the log level. In case the provided log-level is
-    not valid, :py:class:`.LyscriptsCLI` will raise an exception at a later point.
-    """
-    args_str = " ".join(argv)
-    if "--log-level" in args_str:
-        for log_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-            if log_level in args_str:
-                return log_level
-
-    return "INFO"
-
-
-def configure_logging(argv: list[str]) -> None:
-    """Configure the logging system of the lyscripts CLI.
-
-    This function sets the log level and format of the lyscripts CLI. Notably, for
-    a log-level of `DEBUG` the output will contain more information.
-    """
-    logger.enable("lyscripts")
-    logger.enable("lydata")
-    log_level = somewhat_safely_get_loglevel(argv=argv)
-    logger.remove()
-    kwargs = {"format": "<lvl>{message}</>"} if log_level != "DEBUG" else {}
-    logger.add(
-        sink=sys.stderr,
-        level=log_level,
-        **kwargs,
-    )
 
 
 class LyscriptsCLI(BaseSettings):
@@ -122,4 +86,4 @@ class LyscriptsCLI(BaseSettings):
         CliApp.run_subcommand(self)
 
 
-main = _assemble_main(settings_cls=LyscriptsCLI, prog_name="lyscripts")
+main = assemble_main(settings_cls=LyscriptsCLI, prog_name="lyscripts")

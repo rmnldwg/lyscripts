@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 from pydantic import Field
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.configs import BaseCLI, DataConfig
 from lyscripts.data.utils import save_table_to_csv
 
@@ -35,5 +35,5 @@ class JoinCLI(BaseCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=JoinCLI, prog_name="join")
+    main = assemble_main(settings_cls=JoinCLI, prog_name="join")
     main()

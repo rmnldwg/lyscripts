@@ -16,7 +16,7 @@ import pandas as pd
 from loguru import logger
 from pydantic import AfterValidator, Field, FilePath
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.configs import BaseCLI
 from lyscripts.data.utils import save_table_to_csv
 from lyscripts.utils import delete_private_keys, flatten, load_patient_data
@@ -327,5 +327,5 @@ def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=LyproxifyCLI, prog_name="lyproxify")
+    main = assemble_main(settings_cls=LyproxifyCLI, prog_name="lyproxify")
     main()

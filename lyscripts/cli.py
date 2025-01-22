@@ -9,10 +9,13 @@ some boilerplate code. Lastly, we have two functions related to the `loguru`_ se
 """
 
 import argparse
+import sys
 from collections.abc import Callable
+from typing import Literal
 
 import rich
 import rich.text
+from loguru import logger
 from pydantic_settings import BaseSettings, CliApp, CliSettingsSource
 from rich_argparse import RichHelpFormatter
 
@@ -59,7 +62,7 @@ RichDefaultHelpFormatter.styles["argparse.italic"] = "italic"
 RichDefaultHelpFormatter.highlights.append(r"_(?P<italic>[^_]*)_")
 
 
-def _assemble_main(
+def assemble_main(
     settings_cls: type[BaseSettings],
     prog_name: str,
 ) -> Callable[[], None]:
@@ -72,6 +75,7 @@ def _assemble_main(
     Assembling a ``main()`` function for all subcommands like this saves some
     boilerplate code.
     """
+
     def main() -> None:
         """Start the main CLI app."""
         cli_settings_source = CliSettingsSource(
@@ -84,3 +88,44 @@ def _assemble_main(
         CliApp.run(settings_cls, cli_settings_source=cli_settings_source)
 
     return main
+
+
+def somewhat_safely_get_loglevel(
+    argv: list[str],
+) -> Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+    """Set the log level of the lyscripts CLI.
+
+    This is a bit of a hack, since the :py:class:`~lyscripts.LyscriptsCLI` class is not
+    yet initialized when we need to set the log level. In case the provided log-level is
+    not valid, :py:class:`~lyscripts.LyscriptsCLI` will raise an exception at a later
+    point.
+
+    Return ``"INFO"`` by default.
+    """
+    args_str = " ".join(argv)
+    if "--log-level" in args_str:
+        for log_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            if log_level in args_str:
+                return log_level
+
+    return "INFO"
+
+
+def configure_logging(argv: list[str]) -> None:
+    """Configure the `loguru`_ logging system of the lyscripts CLI.
+
+    This function sets the log level and format of the lyscripts CLI. Notably, for
+    a log-level of `DEBUG` the output will contain more information.
+
+    .. _loguru: https://loguru.readthedocs.io/en/stable
+    """
+    logger.enable("lyscripts")
+    logger.enable("lydata")
+    log_level = somewhat_safely_get_loglevel(argv=argv)
+    logger.remove()
+    kwargs = {"format": "<lvl>{message}</>"} if log_level != "DEBUG" else {}
+    logger.add(
+        sink=sys.stderr,
+        level=log_level,
+        **kwargs,
+    )

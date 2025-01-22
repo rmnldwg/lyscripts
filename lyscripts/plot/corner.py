@@ -15,7 +15,7 @@ import emcee
 from loguru import logger
 
 from lyscripts.plot.utils import save_figure
-from lyscripts.utils import create_model, load_yaml_params
+from lyscripts.utils import load_yaml_params
 
 
 def _add_parser(
@@ -49,12 +49,12 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def main(args: argparse.Namespace):
     """Execute the corner plotting function."""
-    params = load_yaml_params(args.params)
+    _params = load_yaml_params(args.params)
 
     backend = emcee.backends.HDFBackend(args.model, read_only=True)
     logger.info(f"Opened model as emcee backend from {args.model}")
 
-    model = create_model(params)
+    model = None  # create_model(_params)
     labels = list(model.get_params(as_dict=True).keys())
 
     chain = backend.get_chain(flat=True)

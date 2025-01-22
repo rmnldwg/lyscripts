@@ -34,23 +34,10 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 from pydantic_settings.sources import DEFAULT_PATH
-from scipy.special import factorial
 
-from lyscripts.utils import flatten, load_model_samples, load_patient_data
+from lyscripts.utils import binom_pmf, flatten, load_model_samples, load_patient_data
 
 FuncNameType = Literal["binomial"]
-
-
-def binom_pmf(support: list[int] | np.ndarray, p: float = 0.5):
-    """Binomial PMF."""
-    max_time = len(support) - 1
-    if p > 1.0 or p < 0.0:
-        raise ValueError("Binomial prob must be btw. 0 and 1")
-    q = 1.0 - p
-    binom_coeff = factorial(max_time) / (
-        factorial(support) * factorial(max_time - support)
-    )
-    return binom_coeff * p**support * q ** (max_time - support)
 
 
 DIST_MAP: dict[FuncNameType, Callable] = {

@@ -11,7 +11,7 @@ from loguru import logger
 from pydantic import Field
 from rich import progress
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
@@ -91,5 +91,5 @@ class PriorsCLI(BaseComputeCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=PriorsCLI, prog_name="compute priors")
+    main = assemble_main(settings_cls=PriorsCLI, prog_name="compute priors")
     main()

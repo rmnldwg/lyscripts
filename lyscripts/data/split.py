@@ -8,7 +8,7 @@ import pandas as pd
 from loguru import logger
 from pydantic import Field
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.configs import BaseCLI, CrossValidationConfig, DataConfig
 from lyscripts.data.utils import save_table_to_csv
 
@@ -63,5 +63,5 @@ class SplitCLI(BaseCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=SplitCLI, prog_name="split")
+    main = assemble_main(settings_cls=SplitCLI, prog_name="split")
     main()

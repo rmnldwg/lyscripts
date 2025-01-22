@@ -10,7 +10,7 @@ from loguru import logger
 from pydantic import Field
 from rich import progress
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.compute.posteriors import compute_posteriors
 from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
@@ -129,5 +129,5 @@ class RisksCLI(BaseComputeCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=RisksCLI, prog_name="compute risks")
+    main = assemble_main(settings_cls=RisksCLI, prog_name="compute risks")
     main()

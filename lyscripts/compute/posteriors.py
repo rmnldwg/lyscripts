@@ -14,7 +14,7 @@ from lymph import models
 from pydantic import Field
 from rich import progress
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
 from lyscripts.configs import (
@@ -130,5 +130,5 @@ class PosteriorsCLI(BaseComputeCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=PosteriorsCLI, prog_name="compute posteriors")
+    main = assemble_main(settings_cls=PosteriorsCLI, prog_name="compute posteriors")
     main()

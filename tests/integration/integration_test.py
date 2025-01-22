@@ -11,7 +11,7 @@ import pytest
 from lydata.utils import ModalityConfig
 from pydantic import TypeAdapter
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.compute.priors import PriorsCLI, compute_priors
 from lyscripts.compute.utils import get_cached
 from lyscripts.configs import (
@@ -181,7 +181,7 @@ def generated_data(
             "42",
         ],
     )
-    main = _assemble_main(settings_cls=GenerateCLI, prog_name="generate")
+    main = assemble_main(settings_cls=GenerateCLI, prog_name="generate")
     main()
     return load_patient_data(data_file)
 
@@ -220,7 +220,7 @@ def drawn_samples(
             str(data_file),
         ],
     )
-    main = _assemble_main(settings_cls=SampleCLI, prog_name="sample")
+    main = assemble_main(settings_cls=SampleCLI, prog_name="sample")
     main()
     _yaml_params = load_yaml_params(sampling_config_file)
     _sampling_config = SamplingConfig(file=samples_file, **_yaml_params["sampling"])
@@ -289,7 +289,7 @@ def computed_priors(
             str(priors_file),
         ],
     )
-    main = _assemble_main(settings_cls=PriorsCLI, prog_name="priors")
+    main = assemble_main(settings_cls=PriorsCLI, prog_name="priors")
     main()
     with h5py.File(priors_file, "r") as h5file:
         return h5file[dataset][:]

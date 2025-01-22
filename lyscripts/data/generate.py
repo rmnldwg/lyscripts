@@ -13,7 +13,7 @@ from loguru import logger
 from lydata.utils import ModalityConfig
 from pydantic import Field
 
-from lyscripts.cli import _assemble_main
+from lyscripts.cli import assemble_main
 from lyscripts.configs import (
     BaseCLI,
     DistributionConfig,
@@ -85,5 +85,5 @@ class GenerateCLI(BaseCLI):
 
 
 if __name__ == "__main__":
-    main = _assemble_main(settings_cls=GenerateCLI, prog_name="data generate")
+    main = assemble_main(settings_cls=GenerateCLI, prog_name="data generate")
     main()
