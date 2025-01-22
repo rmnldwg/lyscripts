@@ -1,4 +1,30 @@
-"""Export a JSON schema for lyscripts configuration files."""
+"""A fusion of all :py:mod:`configs`, allowing the creation of a JSON schema.
+
+This command is not intended to be used by the end user. Rather, it exists such that
+the developers and maintainers can create a JSON schema from all the defined
+:py:mod:`configs` an store that in the `source code repository`_. Subsequently, the
+end user can point their IDE to this schema, hosted on GitHub to provide them with
+auto-completion and validation of their YAML configuration files that they feed into
+the lyscripts CLIs when they build pipelines or scripts with it.
+
+The `URL for the schema`_ can for example be used in the settings of VS Code like this:
+
+.. code:: json
+
+    {
+        ...
+        "yaml.schemas": {
+            "https://raw.githubusercontent.com/rmnldwg/lyscripts/main/schemas/ly.json": "*.ly.yaml"
+        },
+        ...
+    }
+
+Which would enable auto-completion and validation for all files with the extension
+``.ly.yaml`` in the workspace.
+
+.. _source code repository: https://github.com/rmnldwg/lyscripts
+.. _URL for the schema: https://raw.githubusercontent.com/rmnldwg/lyscripts/main/schemas/ly.json
+"""  # noqa: E501
 
 import json
 

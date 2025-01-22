@@ -26,4 +26,5 @@ Submodules
     plot/init
     sample
     schedule
+    schema
     utils

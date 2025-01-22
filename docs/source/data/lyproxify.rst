@@ -9,5 +9,4 @@ Map to LyProX Format
 Command Help
 ------------
 
-..
-    .. program-output:: lyscripts data lyproxify --help
+.. program-output:: lyscripts data lyproxify --help
