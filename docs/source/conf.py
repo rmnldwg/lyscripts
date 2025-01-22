@@ -54,6 +54,17 @@ intersphinx_mapping = {
     "lydata": ("https://lydata.readthedocs.io/stable/", None),
 }
 
+# autodoc_pydantic settings
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_validator_members = False
+autodoc_pydantic_model_show_field_summary = False
+autodoc_pydantic_model_member_order = "bysource"
+autodoc_pydantic_settings_show_config_summary = False
+autodoc_pydantic_settings_show_validator_members = False
+autodoc_pydantic_settings_show_field_summary = False
+autodoc_pydantic_settings_member_order = "bysource"
+autodoc_pydantic_field_show_constraints = False
+
 
 # -- Options for HTML output -------------------------------------------------
 
