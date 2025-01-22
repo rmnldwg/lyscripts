@@ -1,4 +1,13 @@
-"""Define configurations using pydantic."""
+"""Using `pydantic`_, we define configurations for the package.
+
+Most importantly, these configurations are part of the CLIs that the package provides.
+but they also help with programmatically validating and constructing various objects.
+Maybe most importantly, the :py:class:`GraphConfig` and :py:class:`ModelConfig` may be
+used to precisely and reproducibly define how the function :py:func:`construct_model`
+should create a lymphatic progression model.
+
+.. _pydantic: https://docs.pydantic.dev/latest/
+"""
 
 from __future__ import annotations
 
@@ -63,7 +72,7 @@ class CrossValidationConfig(BaseModel):
 
 
 class DataConfig(BaseModel):
-    """Where to load the data from and how to feed it into the model."""
+    """Where to load lymphatic progression data from and how to feed it into a model."""
 
     source: FilePath | LyDataset = Field(
         description=(
@@ -157,12 +166,7 @@ class GraphConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    """Define which of the ``lymph`` models to use and how to set them up.
-
-    Also allows loading a pre-defined model from an external Python file. Note that it
-    should provide at least the methods defined by the `lymph.types.Model` protocol,
-    possibly more.
-    """
+    """Define which of the ``lymph`` models to use and how to set them up."""
 
     external: FilePath | None = Field(
         default=None,
@@ -416,9 +420,14 @@ def construct_model(
     `lymph`_ package and pass the necessary arguments to its constructor.
     However, it is also possible to load a model from an external Python file via the
     ``external`` attribute of the ``model_config`` argument. In this case, a symbol
-    with name ``model`` must be defined in the file that is to be loaded. Note that
-    no check is performed on the model's compatibility with the command/pipeline it is
-    used in.
+    with name ``model`` must be defined in the file that is to be loaded.
+
+    .. note::
+
+        No check is performed on the model's compatibility with the command/pipeline
+        it is used in. It is assumed the model complies with the
+        :py:class:`model type <lymph.types.Model>` specifications of the `lymph`_
+        package.
 
     .. _lymph: https://lymph-model.readthedocs.io/stable/
     """
@@ -519,6 +528,10 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
     This is heavily inspired by `this comment`_ in the discussion on a related issue
     of the `pydantic-settings`_ GitHub repository.
 
+    Essentially, this little hack allows a user to specify a one or multiple YAML files
+    from which the CLI should read configurtions. Normally, `pydanitc-settings` only
+    allows hard-coding the location of these config files.
+
     .. _this comment: https://github.com/pydantic/pydantic-settings/issues/259#issuecomment-2549444286
     .. _pydantic-settings: https://github.com/pydantic/pydantic-settings
     """
@@ -565,7 +578,7 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
 
 
 class BaseCLI(BaseSettings):
-    """Base settings class for CLI scripts."""
+    """Base settings class for all CLI scripts to inherit from."""
 
     model_config = ConfigDict(yaml_file="config.yaml", extra="ignore")
 
@@ -596,7 +609,7 @@ class BaseCLI(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Customize the settings sources."""
+        """Add the dynamic YAML config source to the CLI settings."""
         dynamic_yaml_config_source = DynamicYamlConfigSettingsSource(
             settings_cls=settings_cls,
             yaml_file_path_field="configs",

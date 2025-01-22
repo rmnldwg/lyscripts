@@ -1,4 +1,12 @@
-"""Utilities for configuring and running the CLI app."""
+"""Utilities for configuring and running CLIs app.
+
+In this module, we define and configure a :py:class:`RichDefaultHelpFormatter` that
+nicely displays the CLI's ``--help`` text. We also provide a function to
+:py:func:`assemble a main function <assemble_main>` for the different CLI apps to save
+some boilerplate code. Lastly, we have two functions related to the `loguru`_ setup.
+
+.. _loguru: https://loguru.readthedocs.io/en/stable
+"""
 
 import argparse
 from collections.abc import Callable
@@ -55,13 +63,15 @@ def _assemble_main(
     settings_cls: type[BaseSettings],
     prog_name: str,
 ) -> Callable[[], None]:
-    """Assemble the main function for a CLI app.
+    """Assemble a ``main()`` function for a CLI app.
 
-    This is mostly to save some boilerplate code when creating the main functions of
-    all subcommands. And those, in turn, are only implemented to allow running the
-    subcommands as scripts.
+    It creates a :py:class:`~pydantic_settings.CliSettingsSource` object with the
+    provided ``settings_cls`` and ``prog_name``. Then, it fills in some default
+    settings for the CLI configuration and runs the CLI app.
+
+    Assembling a ``main()`` function for all subcommands like this saves some
+    boilerplate code.
     """
-
     def main() -> None:
         """Start the main CLI app."""
         cli_settings_source = CliSettingsSource(
