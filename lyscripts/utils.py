@@ -7,12 +7,15 @@ import pandas as pd
 import yaml
 from emcee.backends import HDFBackend
 from loguru import logger
+from rich.console import Console
 from scipy.special import factorial
 
 from lyscripts.decorators import (
     check_input_file_exists,
     check_output_dir_exists,
 )
+
+console = Console()
 
 
 def binom_pmf(support: list[int] | np.ndarray, p: float = 0.5):

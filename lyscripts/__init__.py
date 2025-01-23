@@ -35,11 +35,11 @@ from pydantic_settings import (
     CliImplicitFlag,
     CliSubCommand,
 )
-from rich.console import Console
 
 from lyscripts import compute, data, sample, schedule  # noqa: F401
 from lyscripts._version import version
 from lyscripts.cli import assemble_main, configure_logging
+from lyscripts.utils import console
 
 __version__ = version
 __description__ = "Package to interact with lymphatic progression data and models."
@@ -52,7 +52,6 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 pd.options.mode.copy_on_write = True
 
 logger.disable("lyscripts")
-console = Console()
 
 
 class LyscriptsCLI(BaseSettings):

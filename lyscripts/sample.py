@@ -43,7 +43,7 @@ from lyscripts.configs import (
     add_modalities,
     construct_model,
 )
-from lyscripts.utils import get_hdf5_backend
+from lyscripts.utils import console, get_hdf5_backend
 
 
 class CompletedItersColumn(ProgressColumn):
@@ -243,14 +243,14 @@ def run_sampling(
     state = initial_state or ensure_initial_state(sampler)
     history = ensure_history_table(history_file)
 
-    acor_time = AcorTime(old=np.inf, new=np.inf)
-    accepted = NumAccepted(old=0, new=0)
-
     if reset_backend:
         logger.debug("Resetting backend of sampler.")
         sampler.backend.reset(sampler.nwalkers, sampler.ndim)
 
-    with Progress(*_get_columns(it=sampler.iteration)) as progress:
+    acor_time = AcorTime(old=np.inf, new=np.inf)
+    accepted = NumAccepted(old=0, new=sampler.backend.accepted.sum())
+
+    with Progress(*_get_columns(it=sampler.iteration), console=console) as progress:
         task = progress.add_task(description=description, total=num_steps)
         while sampler.iteration < (num_steps or np.inf) * thin_by:
             for state in sampler.sample(  # noqa: B007, B020
@@ -261,14 +261,16 @@ def run_sampling(
                 progress.update(task, advance=1)
 
             acor_time.update(new=sampler.get_autocorr_time(tol=0).mean())
-            accepted.update(new=np.sum(sampler.backend.accepted))
+            accepted.update(new=sampler.backend.accepted.sum())
 
             history = update_history_table(
                 history=history,
                 history_file=history_file,
                 iteration=sampler.iteration,
                 acor_time=acor_time.new,
-                accepted_frac=accepted.newly_accepted / sampler.iteration,
+                accepted_frac=(
+                    accepted.newly_accepted / (check_interval * sampler.nwalkers)
+                ),
                 max_log_prob=np.max(state.log_prob),
             )
 
