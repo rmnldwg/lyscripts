@@ -17,7 +17,45 @@ class JoinCLI(BaseCLI):
     output: Path = Field(description="The path to the output dataset.")
 
     def cli_cmd(self) -> None:
-        """Start the ``join`` subcommand."""
+        r"""Start the ``join`` subcommand.
+
+        This will load all datasets specified in the ``inputs`` attribute and
+        concatenate them into a single dataset.
+
+        Unfortunately, the use of `pydantic`_ does make this particular command a
+        little bit more complicated (but also more powerful): If one simply wants to
+        concatenate multiple datasets on disk, the ``inputs`` should be provided like
+        this:
+
+        .. code-block:: bash
+
+            lydata join \
+            --inputs='["data.source": "file1.csv", "data.source": "file2.csv"]' \
+            --output="joined.csv"
+
+        But it also allows for concatenating datasets fetched directly from the
+        `lydata Github repo`_. Due to the rather complex command signature, we
+        recommend defining what to concatenate using a YAML file:
+
+        .. code-block:: yaml
+
+            inputs:
+              - data.year: 2021
+                data.institution: "usz"
+                data.subsite: "oropharynx"
+              - data.year: 2021
+                data.institution: "clb"
+                data.subsite: "oropharynx"
+
+        Then, the command will look like this:
+
+        .. code-block:: bash
+
+            lydata join --configs=datasets.ly.yaml --output=joined.csv
+
+        .. _pydantic: https://docs.pydantic.dev/latest/
+        .. _lydata Github repo: https://github.com/rmnldwg/lydata
+        """
         joined = None
 
         for data_config in self.inputs:

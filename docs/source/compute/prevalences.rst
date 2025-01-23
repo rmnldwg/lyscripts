@@ -5,6 +5,7 @@ Predict Prevalence of Involvement
 
 .. automodule:: lyscripts.compute.prevalences
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

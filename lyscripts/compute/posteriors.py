@@ -85,7 +85,11 @@ class PosteriorsCLI(BaseComputeCLI):
     )
 
     def cli_cmd(self) -> None:
-        """Start the ``compute_posteriors`` subcommand."""
+        """Start the ``posteriors`` subcommand.
+
+        This will compute the posterior state distributions, given a personalized
+        diagnosis pattern, for each of the scenarios provided to the command.
+        """
         logger.debug(self.model_dump_json(indent=2))
 
         global_attrs = self.model_dump(

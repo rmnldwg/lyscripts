@@ -1,26 +1,7 @@
-"""An API and multiple CLIs to interact with lymphatic progression data and models.
+"""Initial entry point for the lyscripts package and CLIs.
 
-The lyscripts package provides a set of tools to perform common tasks w.r.t. handling
-and analyzing `lymphatic progression data`_ or perform inference on that data using
-our `lymphatic progression models`_.
-
-The package is structured hierarchically into submodules. At the top level, we provide
-some :py:mod:`utilities <lyscripts.utils>` and helpful `pydantic`_
-:py:mod:`configurations <lyscripts.configs>`.
-
-Under the :py:mod:`~lyscripts.data` module, functions and subcommands are defined
-that perform common tasks that one might face when building data and modelling
-pipelines based on `lymphatic progression data`_.
-
-Back in the top level we also find a very important CLI: The :py:mod:`~lyscripts.sample`
-CLI. With it, one may specify a dataset to infer lymphatic progression model parameters
-from it. These learned parameters may subsequently be used by one of the
-:py:mod:`~lyscripts.compute` subcommands to predict the personalized risk of occult
-disease in the lymph drainage system of head and neck cancer patients.
-
-.. _lymphatic progression data: https://github.com/rmnldwg/lydata
-.. _lymphatic progression models: https://github.com/rmnldwg/lymph
-.. _pydantic: https://docs.pydantic.dev/latest/
+This top-level module configures and provides the top-level CLI through which all
+subcommands can be accessed.
 """
 
 import sys
@@ -66,9 +47,9 @@ class LyscriptsCLI(BaseSettings):
         description="Set the log level of the lyscripts CLI.",
     )
 
-    compute: CliSubCommand[compute.ComputeCLI]
     data: CliSubCommand[data.DataCLI]
     sample: CliSubCommand[sample.SampleCLI]
+    compute: CliSubCommand[compute.ComputeCLI]
     schedule: CliSubCommand[schedule.ScheduleCLI]
 
     def __init__(self, **kwargs):
@@ -77,7 +58,11 @@ class LyscriptsCLI(BaseSettings):
         super().__init__(**kwargs)
 
     def cli_cmd(self) -> None:
-        """Start the main lyscripts CLI."""
+        """Start the main lyscripts CLI.
+
+        If the ``version`` flag is set, the version of lyscripts is displayed and the
+        program exits. Otherwise, the lyscripts CLI runs one of the subcommands.
+        """
         logger.debug("Starting lyscripts CLI.")
 
         if self.version:

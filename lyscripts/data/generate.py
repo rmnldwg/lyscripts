@@ -65,7 +65,14 @@ class GenerateCLI(BaseCLI):
         return super().model_post_init(__context)
 
     def cli_cmd(self) -> None:
-        """Run the main script."""
+        """Run the ``generate`` command.
+
+        Here, the command constructs a model from the settings provided via the
+        arguments. It then generates a synthetic dataset using the
+        :py:meth:`~lymph.models.Unilateral.draw_patients` from the `lymph`_ package.
+
+        .. _lymph: https://lymph-model.readthedocs.io/
+        """
         logger.debug(self.model_dump_json(indent=2))
 
         model = construct_model(self.model, self.graph)

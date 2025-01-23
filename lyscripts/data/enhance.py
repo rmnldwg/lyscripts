@@ -30,7 +30,12 @@ class EnhanceCLI(BaseCLI):
     output_file: str
 
     def cli_cmd(self) -> None:
-        """Start the ``enhance`` subcommand."""
+        """Infer additional columns from the data and save the enhanced dataset.
+
+        This basically provides a CLI to the
+        :py:func:`~lydata.utils.infer_and_combine_levels` function. See its docs for
+        more details on what exactly is happening here.
+        """
         logger.debug(self.model_dump_json(indent=2))
 
         data = self.input.load()

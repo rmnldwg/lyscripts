@@ -359,7 +359,20 @@ class SampleCLI(BaseCLI):
     sampling: SamplingConfig
 
     def cli_cmd(self) -> None:
-        """Start the ``sample`` subcommand."""
+        """Start the ``sample`` subcommand.
+
+        First, it will construct the model from the ``graph`` and ``model`` arguments.
+        Then, it will add distributions over diagnose times via the dictionary from
+        the ``distributions`` argument. It will also set sensitivity and specificity of
+        diagnostic modalities via the dictionary provided through the ``modalities``
+        argument. Finally, it will load the patient data as specified via the ``data``
+        argument.
+
+        When the model is constructed, an :py:class:`emcee.EnsembleSampler` is
+        initialied (see :py:func:`init_sampler`) and :py:func:`run_sampling` is executed
+        twice: once for the burn-in phase and once for the actual sampling phase.
+        The ``sampling`` argument provides all necessary settings for the sampling.
+        """
         # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
         os.environ["OMP_NUM_THREADS"] = "1"
 

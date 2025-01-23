@@ -1,7 +1,7 @@
 .. currentmodule:: lyscripts.schema
 
-Installable YAML Config File Schema
-===================================
+JSON Schema
+===========
 
 .. automodule:: lyscripts.schema
     :members:

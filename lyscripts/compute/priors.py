@@ -64,7 +64,21 @@ class PriorsCLI(BaseComputeCLI):
     priors: HDF5FileStorage = Field(description="Storage for the computed priors.")
 
     def cli_cmd(self) -> None:
-        """Start the ``priors`` subcommand."""
+        """Start the ``priors`` subcommand.
+
+        Given a ``graph``, ``model``, ``distributions`` over diagnosis times, and
+        MCMC samples loaded from the ``sampling`` argument, this command computes the
+        prior state distributions for each of the specified ``scenarios``.
+
+        Precomputing these state distributions is useful, because they largely only
+        depend on T-stage and not on the diagnosis or involvement of interest. Hence,
+        computing the :py:mod:`~lyscripts.compute.posteriors` and
+        :py:mod:`~lyscripts.compute.risks` can be sped up.
+
+        Note that this command will use `joblib`_ to cache its computations.
+
+        .. _joblib: https://joblib.readthedocs.io/
+        """
         logger.debug(self.model_dump_json(indent=2))
         global_attrs = self.model_dump(include={"model", "graph", "distributions"})
         self.priors.set_attrs(attrs=global_attrs, dataset="/")

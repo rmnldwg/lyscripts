@@ -12,11 +12,9 @@ The `URL for the schema`_ can for example be used in the settings of VS Code lik
 .. code:: json
 
     {
-        ...
         "yaml.schemas": {
             "https://raw.githubusercontent.com/rmnldwg/lyscripts/main/schemas/ly.json": "*.ly.yaml"
         },
-        ...
     }
 
 Which would enable auto-completion and validation for all files with the extension

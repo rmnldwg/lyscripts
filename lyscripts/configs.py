@@ -4,7 +4,7 @@ Most importantly, these configurations are part of the CLIs that the package pro
 but they also help with programmatically validating and constructing various objects.
 Maybe most importantly, the :py:class:`GraphConfig` and :py:class:`ModelConfig` may be
 used to precisely and reproducibly define how the function :py:func:`construct_model`
-should create a lymphatic progression model.
+should create lymphatic progression :py:mod:`~lymph.models`.
 
 .. _pydantic: https://docs.pydantic.dev/latest/
 """

@@ -5,6 +5,7 @@ Evaluation
 
 .. automodule:: lyscripts.evaluate
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

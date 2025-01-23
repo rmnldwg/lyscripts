@@ -5,6 +5,7 @@ Generating Synthetic Data
 
 .. automodule:: lyscripts.data.generate
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

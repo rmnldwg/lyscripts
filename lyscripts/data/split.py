@@ -23,7 +23,13 @@ class SplitCLI(BaseCLI):
     output_dir: Path = Field(description="The folder to store the split CSV files in.")
 
     def cli_cmd(self) -> None:
-        """Run the ``split`` subcommand."""
+        """Run the ``split`` subcommand.
+
+        This will load the dataset specified in the ``input`` argument and split it
+        into the number of folds specified in the ``cross_validation`` argument. The
+        resulting splits will be stored in the folder specified in the ``output_dir``
+        argument.
+        """
         logger.debug(self.model_dump_json(indent=2))
 
         self.output_dir.mkdir(parents=True, exist_ok=True)

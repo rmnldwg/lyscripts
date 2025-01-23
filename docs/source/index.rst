@@ -8,7 +8,7 @@ Introduction
 
 
 .. include:: ../../README.md
-    :end-line: 32
+    :end-line: 30
     :parser: myst_parser.sphinx_
 
 
@@ -16,9 +16,19 @@ Documentation
 -------------
 
 .. toctree::
-    :maxdepth: 3
+    :maxdepth: 1
 
     init
+    configs
+    data/init
+    sample
+    compute/init
+    evaluate
+    plots
+    schedule
+    schema
+    utils
+    decorators
 
 
 Indices and tables

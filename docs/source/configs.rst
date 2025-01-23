@@ -5,3 +5,4 @@ Pydantic Configurations
 
 .. automodule:: lyscripts.configs
     :members:
+    :show-inheritance:

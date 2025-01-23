@@ -143,7 +143,7 @@ class PrevalencesCLI(BaseComputeCLI):
     data: DataConfig
 
     def cli_cmd(self) -> None:
-        """Start the ``compute prevalences`` subcommand."""
+        """Start the ``prevalences`` subcommand."""
         logger.debug(self.model_dump_json(indent=2))
         global_attrs = self.model_dump(
             include={"model", "graph", "distributions", "modalities"},

@@ -5,6 +5,7 @@ Posterior State Distributions
 
 .. automodule:: lyscripts.compute.posteriors
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

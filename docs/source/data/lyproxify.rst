@@ -5,6 +5,7 @@ Map to LyProX Format
 
 .. automodule:: lyscripts.data.lyproxify
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

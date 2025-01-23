@@ -76,7 +76,15 @@ class LyproxifyCLI(BaseCLI):
     output_file: Path = Field(description="Location to store the lyproxified CSV file.")
 
     def cli_cmd(self) -> None:
-        """Start the ``lyproxify`` subcommand."""
+        """Start the ``lyproxify`` subcommand.
+
+        After reading in the specified file, it will first ``drop_rows`` and
+        ``drop_cols``, as specified in the command line arguments. Then, it will
+        call :py:func:`.exclude_patients` which will further remove patients based
+        on the ``EXCLUDE`` object in the ``mapping_file``. Finally, it will call
+        :py:func:`.transform_to_lyprox` to transform the data into the LyProX format
+        given the ``COLUMN_MAP`` object in the ``mapping_file``.
+        """
         logger.debug(self.model_dump_json(indent=2))
 
         raw = load_patient_data(

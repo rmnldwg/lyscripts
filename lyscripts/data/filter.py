@@ -66,7 +66,13 @@ class FilterCLI(BaseCLI):
         return super().model_post_init(__context)
 
     def cli_cmd(self):
-        """Filter the dataset."""
+        """Execute the ``filter`` command.
+
+        This command uses the :py:class:`~lydata.accessor.Q` objects of the `lydata`_
+        library to filter the dataset according to the given criteria.
+
+        .. _lydata: https://lydata.readthedocs.io
+        """
         logger.debug(self.model_dump_json(indent=2))
 
         data = self.input.load()
