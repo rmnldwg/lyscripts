@@ -37,6 +37,7 @@ dependencies = [
     "joblib",
     "pydantic",
     "pydantic-settings >= 2.7.0",
+    "numpydantic",
     "lydata >= 0.2.0",
     "loguru",
 ]

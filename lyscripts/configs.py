@@ -303,7 +303,7 @@ class SamplingConfig(BaseModel):
         default=0.05,
         description="Relative threshold for convergence.",
     )
-    thin: int = Field(
+    thin_by: int = Field(
         default=10, description="How many samples to draw before for saving one."
     )
     nsteps: int = Field(

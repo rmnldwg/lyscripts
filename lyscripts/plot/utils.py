@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import field
 from itertools import cycle
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -13,6 +13,8 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
+from numpydantic import NDArray, Shape
+from pydantic import BaseModel
 
 from lyscripts.decorators import (
     check_input_file_exists,
@@ -79,8 +81,7 @@ def clean_and_check(filename: str | Path) -> Path:
 AbstractDistributionT = TypeVar("AbstractDistributionT", bound="AbstractDistribution")
 
 
-@dataclass(kw_only=True)
-class AbstractDistribution:
+class AbstractDistribution(BaseModel):
     """Abstract class for distributions that should be plotted."""
 
     scale: float = 100.0
@@ -111,14 +112,15 @@ class AbstractDistribution:
         return self.kwargs.get("label", self._get_label())
 
 
-@dataclass(kw_only=True)
 class Histogram(AbstractDistribution):
     """Class containing data for plotting a histogram."""
 
-    values: np.ndarray
+    raw_values: NDArray[Shape["*"], float]  # noqa: F722
 
-    def __post_init__(self) -> None:  # noqa: D105
-        self.values = self.scale * self.values + self.offset
+    @property
+    def values(self) -> np.ndarray:
+        """Return the values of the histogram scaled and offset."""
+        return self.raw_values * self.scale + self.offset
 
     @classmethod
     def from_hdf5(
@@ -135,7 +137,7 @@ class Histogram(AbstractDistribution):
             dataset = h5file[dataname]
             if "label" not in kwargs:
                 kwargs["label"] = get_label(dataset.attrs)
-            return cls(values=dataset[:], scale=scale, offset=offset, kwargs=kwargs)
+            return cls(raw_values=dataset[:], scale=scale, offset=offset, kwargs=kwargs)
 
     def left_percentile(self, percent: float) -> float:
         """Compute the point where `percent` of the values are to the left."""
@@ -158,7 +160,6 @@ class Histogram(AbstractDistribution):
         return axes.hist(self.values, range=xlim, **hist_kwargs)
 
 
-@dataclass(kw_only=True)
 class BetaPosterior(AbstractDistribution):
     """Class for storing plot configs for a Beta posterior."""
 

@@ -19,8 +19,8 @@ from lyscripts.plot.utils import (
 
 
 @pytest.fixture
-def beta_samples():
-    """Filename of an HDF5 file where some samples from a Beta distribution are stored"""
+def beta_samples() -> str:
+    """Name of HDF5 file where some samples from a Beta distribution are stored."""
     return "./tests/plot/data/beta_samples.hdf5"
 
 
@@ -50,7 +50,7 @@ def test_ceil_to_step():
     assert all(np.isclose(comp_res, exp_res)), "Ceil to step did not work properly."
 
 
-def test_histogram_cls(beta_samples):
+def test_histogram_cls(beta_samples: str):
     """Make sure the histogram data container works as intended."""
     str_filename = beta_samples
     path_filename = Path(str_filename)
@@ -91,7 +91,7 @@ def test_histogram_cls(beta_samples):
     ), "Keyword override did not work"
 
 
-def test_inverted_histogram_cls(beta_samples):
+def test_inverted_histogram_cls(beta_samples: str):
     """Make sure the histogram data container works as intended."""
     str_filename = beta_samples
     path_filename = Path(str_filename)
@@ -129,7 +129,7 @@ def test_inverted_histogram_cls(beta_samples):
     ), "Keyword override did not work"
 
 
-def test_posterior_cls(beta_samples):
+def test_posterior_cls(beta_samples: str):
     """Test the container class for Beta posteriors."""
     str_filename = beta_samples
     path_filename = Path(str_filename)
@@ -181,7 +181,7 @@ def test_posterior_cls(beta_samples):
 
 
 @pytest.mark.mpl_image_compare
-def test_draw(beta_samples):
+def test_draw(beta_samples: str):
     """Check the drawing function."""
     filename = Path(beta_samples)
     dataname = "beta"
@@ -192,7 +192,7 @@ def test_draw(beta_samples):
     return fig
 
 
-def test_draw_hist_kwargs(beta_samples):
+def test_draw_hist_kwargs(beta_samples: str):
     """Make sure the `hist_kwargs` can override the defaults."""
     filename = Path(beta_samples)
     dataname = "beta"
@@ -257,10 +257,8 @@ def test_save_figure(capsys):
     ax.plot(x, y)
     output_path = "./tests/plot/results/sine"
     formats = ["png", "svg"]
-    expected_output = "✓ Saved matplotlib figure.\n"
 
     save_figure(output_path, fig, formats)
-    save_figure_capture = capsys.readouterr()
 
     assert (
         mpl_comp.compare_images(

@@ -52,7 +52,7 @@ _BURNIN_KWARGS = {
     "relative_thresh",
     "history_file",
 }
-_SAMPLING_KWARGS = {"nsteps", "thin"}
+_SAMPLING_KWARGS = {"nsteps", "thin_by"}
 
 
 class CompletedItersColumn(ProgressColumn):
@@ -217,13 +217,13 @@ def run_burnin(
 def run_sampling(
     sampler: emcee.EnsembleSampler,
     nsteps: int,
-    thin: int,
+    thin_by: int,
 ) -> None:
     """Run the MCMC sampling phase to produce ``nsteps`` samples.
 
     This sampling will definitely produce ``nsteps`` samples, irrespective of the
-    ``thin`` parameter, which controls how many steps in between two stored samples are
-    skipped. The samples will be stored in the backend of the ``sampler``.
+    ``thin_by`` parameter, which controls how many steps in between two stored samples
+    are skipped. The samples will be stored in the backend of the ``sampler``.
 
     Note that this will reset the ``sampler``'s backend, assuming the stored samples are
     from the burn-in phase.
@@ -233,9 +233,14 @@ def run_sampling(
     sampler.backend.reset(sampler.nwalkers, sampler.ndim)
 
     for _sample in track(
-        sequence=sampler.sample(state, iterations=nsteps * thin, thin=thin, store=True),
+        sequence=sampler.sample(
+            initial_state=state,
+            iterations=nsteps * thin_by,
+            thin_by=thin_by,
+            store=True,
+        ),
         description="[blue]INFO     [/blue]Sampling phase",
-        total=nsteps * thin,
+        total=nsteps * thin_by,
     ):
         pass
 
