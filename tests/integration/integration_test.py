@@ -1,7 +1,7 @@
 """Test the ``generate`` CLI."""
 
 import shutil
-import subprocess
+import sys
 from pathlib import Path
 
 import h5py
@@ -11,7 +11,8 @@ import pytest
 from lydata.utils import ModalityConfig
 from pydantic import TypeAdapter
 
-from lyscripts.compute.priors import compute_priors
+from lyscripts.cli import assemble_main
+from lyscripts.compute.priors import PriorsCLI, compute_priors
 from lyscripts.compute.utils import get_cached
 from lyscripts.configs import (
     DistributionConfig,
@@ -20,12 +21,28 @@ from lyscripts.configs import (
     SamplingConfig,
     ScenarioConfig,
 )
+from lyscripts.data.generate import GenerateCLI
+from lyscripts.sample import SampleCLI
 from lyscripts.utils import load_patient_data, load_yaml_params
 
 
 @pytest.fixture(scope="session")
+def monkeymodule():
+    """Create a session scoped monkeypatch fixture.
+
+    This can be used to e.g. mock the command line arguments by setting the
+    ``sys.argv`` variable.
+    """
+    with pytest.MonkeyPatch.context() as mp:
+        yield mp
+
+
+@pytest.fixture(scope="session")
 def data_file() -> Path:
-    """Return the path to the generated data."""
+    """Provide the path to the generated data.
+
+    Delete any file at the beginning of a session if it exists.
+    """
     res = Path("tests/integration/generated.csv")
     res.parent.mkdir(exist_ok=True)
     if res.exists():
@@ -35,7 +52,10 @@ def data_file() -> Path:
 
 @pytest.fixture(scope="session")
 def samples_file() -> Path:
-    """Return the path to the generated samples."""
+    """Provide the path to the generated samples.
+
+    Delete any file at the beginning of a session if it exists.
+    """
     res = Path("tests/integration/samples.hdf5")
     res.parent.mkdir(exist_ok=True)
     if res.exists():
@@ -43,52 +63,62 @@ def samples_file() -> Path:
     return res
 
 
+def _get_config_file(name: str) -> Path:
+    return Path(f"tests/integration/config/{name}.ly.yaml")
+
+
 @pytest.fixture(scope="session")
 def model_config_file() -> Path:
-    """Return the path to the model configuration file."""
-    return Path("tests/integration/model.ly.yaml")
+    """Provide the path to the model configuration file."""
+    return _get_config_file("model")
 
 
 @pytest.fixture(scope="session")
 def graph_config_file() -> Path:
-    """Return the path to the graph configuration file."""
-    return Path("tests/integration/graph.ly.yaml")
+    """Provide the path to the graph configuration file."""
+    return _get_config_file("graph")
 
 
 @pytest.fixture(scope="session")
 def distributions_config_file() -> Path:
-    """Return the path to the distributions configuration file."""
-    return Path("tests/integration/distributions.ly.yaml")
+    """Provide the path to the distributions configuration file."""
+    return _get_config_file("distributions")
 
 
 @pytest.fixture(scope="session")
 def modalities_config_file() -> Path:
-    """Return the path to the modalities configuration file."""
-    return Path("tests/integration/modalities.ly.yaml")
+    """Provide the path to the modalities configuration file."""
+    return _get_config_file("modalities")
 
 
 @pytest.fixture(scope="session")
 def scenarios_config_file() -> Path:
-    """Return the path to the scenarios configuration file."""
-    return Path("tests/integration/scenarios.ly.yaml")
+    """Provide the path to the scenarios configuration file."""
+    return _get_config_file("scenarios")
 
 
 @pytest.fixture(scope="session")
 def sampling_config_file() -> Path:
-    """Return the path to the sampling configuration file."""
-    return Path("tests/integration/sampling.ly.yaml")
+    """Provide the path to the sampling configuration file."""
+    return _get_config_file("sampling")
+
+
+@pytest.fixture(scope="session")
+def data_config_file() -> Path:
+    """Provide the path to the data configuration file."""
+    return _get_config_file("data")
 
 
 @pytest.fixture(scope="session")
 def model_config(model_config_file: Path) -> ModelConfig:
-    """Return the model configuration."""
+    """Provide the model configuration."""
     yaml_config = load_yaml_params(model_config_file)
     return ModelConfig(**yaml_config["model"])
 
 
 @pytest.fixture(scope="session")
 def graph_config(graph_config_file: Path) -> GraphConfig:
-    """Return the graph configuration."""
+    """Provide the graph configuration."""
     yaml_config = load_yaml_params(graph_config_file)
     return GraphConfig(**yaml_config["graph"])
 
@@ -97,7 +127,7 @@ def graph_config(graph_config_file: Path) -> GraphConfig:
 def distributions_config(
     distributions_config_file: Path,
 ) -> dict[str, DistributionConfig]:
-    """Return the distributions configuration."""
+    """Provide the distributions configuration."""
     yaml_config = load_yaml_params(distributions_config_file)
     type_adapter = TypeAdapter(dict[str, DistributionConfig])
     return type_adapter.validate_python(yaml_config["distributions"])
@@ -105,7 +135,7 @@ def distributions_config(
 
 @pytest.fixture(scope="session")
 def modalities_config(modalities_config_file: Path) -> dict[str, ModalityConfig]:
-    """Return the modalities configuration."""
+    """Provide the modalities configuration."""
     yaml_config = load_yaml_params(modalities_config_file)
     type_adapter = TypeAdapter(dict[str, ModalityConfig])
     return type_adapter.validate_python(yaml_config["modalities"])
@@ -113,7 +143,7 @@ def modalities_config(modalities_config_file: Path) -> dict[str, ModalityConfig]
 
 @pytest.fixture(scope="session")
 def scenarios_config(scenarios_config_file: Path) -> list[ScenarioConfig]:
-    """Return a list of defined scenarios."""
+    """Provide a list of defined scenarios."""
     yaml_config = load_yaml_params(scenarios_config_file)
     type_adapter = TypeAdapter(list[ScenarioConfig])
     return type_adapter.validate_python(yaml_config["scenarios"])
@@ -121,46 +151,50 @@ def scenarios_config(scenarios_config_file: Path) -> list[ScenarioConfig]:
 
 @pytest.fixture(scope="session")
 def sampling_config(sampling_config_file: Path) -> SamplingConfig:
-    """Return the sampling configuration."""
+    """Provide the sampling configuration."""
     yaml_config = load_yaml_params(sampling_config_file)
     return SamplingConfig(**yaml_config["sampling"])
 
 
 @pytest.fixture(scope="session")
 def generated_data(
+    monkeymodule,
     data_file: Path,
     model_config_file: Path,
     graph_config_file: Path,
     distributions_config_file: Path,
     modalities_config_file: Path,
 ) -> pd.DataFrame:
-    """Generate a dataset and return it."""
-    subprocess.run(
+    """Execute the generate CLI and provide the generated data as a fixture."""
+    monkeymodule.setattr(
+        sys,
+        "argv",
         [
-            "lyscripts",
-            "--log-level",
-            "DEBUG",
-            "data",
             "generate",
             "--configs",
             str(model_config_file.resolve()),
+            "--configs",
             str(graph_config_file.resolve()),
+            "--configs",
             str(distributions_config_file.resolve()),
+            "--configs",
             str(modalities_config_file.resolve()),
-            "--num_patients",
+            "--num-patients",
             "200",
-            "--output_file",
+            "--output-file",
             str(data_file),
             "--seed",
             "42",
         ],
-        check=True,
     )
+    main = assemble_main(settings_cls=GenerateCLI, prog_name="generate")
+    main()
     return load_patient_data(data_file)
 
 
 @pytest.fixture(scope="session")
 def drawn_samples(
+    monkeymodule,
     generated_data: pd.DataFrame,
     data_file: Path,
     model_config_file: Path,
@@ -170,26 +204,32 @@ def drawn_samples(
     sampling_config_file: Path,
     samples_file: Path,
 ) -> np.ndarray:
-    """Draw samples from the defined model."""
-    subprocess.run(
+    """Execute the sampling CLI and provide the samples as a fixture."""
+    monkeymodule.setattr(
+        sys,
+        "argv",
         [
-            "lyscripts",
-            "--log-level",
-            "DEBUG",
             "sample",
             "--configs",
             str(model_config_file.resolve()),
+            "--configs",
             str(graph_config_file.resolve()),
+            "--configs",
             str(distributions_config_file.resolve()),
+            "--configs",
             str(modalities_config_file.resolve()),
+            "--configs",
             str(sampling_config_file.resolve()),
             "--sampling.file",
             str(samples_file.resolve()),
+            # mapping because generated data already has the correct T-stage column
+            '--data.mapping={"early": "early", "late": "late"}',
             "--data.source",
             str(data_file),
         ],
-        check=True,
     )
+    main = assemble_main(settings_cls=SampleCLI, prog_name="sample")
+    main()
     _yaml_params = load_yaml_params(sampling_config_file)
     _sampling_config = SamplingConfig(file=samples_file, **_yaml_params["sampling"])
     return _sampling_config.load()
@@ -197,7 +237,10 @@ def drawn_samples(
 
 @pytest.fixture(scope="session")
 def cache_dir() -> Path:
-    """Return the path to the empty cache directory."""
+    """Provide the path to the cache directory as a fixture.
+
+    Delete any directory at the beginning of a session if it exists.
+    """
     res = Path("tests/integration/.cache")
     if res.exists():
         shutil.rmtree(res)
@@ -206,7 +249,10 @@ def cache_dir() -> Path:
 
 @pytest.fixture(scope="session")
 def priors_file() -> Path:
-    """Return the path to the computed priors."""
+    """Provide the path to the computed priors as a fixture.
+
+    Delete any file at the beginning of a session if it exists.
+    """
     res = Path("tests/integration/priors.hdf5")
     res.parent.mkdir(exist_ok=True)
     if res.exists():
@@ -216,6 +262,7 @@ def priors_file() -> Path:
 
 @pytest.fixture(scope="session")
 def computed_priors(
+    monkeymodule,
     cache_dir: Path,
     model_config_file: Path,
     graph_config_file: Path,
@@ -226,29 +273,32 @@ def computed_priors(
     priors_file: Path,
     dataset: str = "000",
 ) -> np.ndarray:
-    """Compute the priors for the drawn samples."""
-    subprocess.run(
+    """Execute the ``priors`` CLI and provide the computed arrays as a fixture."""
+    monkeymodule.setattr(
+        sys,
+        "argv",
         [
-            "lyscripts",
-            "--log-level",
-            "DEBUG",
-            "compute",
             "priors",
-            "--cache_dir",
+            "--cache-dir",
             str(cache_dir.resolve()),
             "--configs",
             str(model_config_file.resolve()),
+            "--configs",
             str(graph_config_file.resolve()),
+            "--configs",
             str(distributions_config_file.resolve()),
+            "--configs",
             str(scenarios_config_file.resolve()),
+            "--configs",
             str(sampling_config_file.resolve()),
             "--sampling.file",
             str(samples_file.resolve()),
             "--priors.file",
             str(priors_file),
         ],
-        check=True,
     )
+    main = assemble_main(settings_cls=PriorsCLI, prog_name="priors")
+    main()
     with h5py.File(priors_file, "r") as h5file:
         return h5file[dataset][:]
 

@@ -48,11 +48,23 @@ autodoc_typehints = "signature"
 # create links to other projects
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.10", None),
-    "lymph": ("https://lymph-model.readthedocs.io/latest/", None),
+    "lymph": ("https://lymph-model.readthedocs.io/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
-    "lydata": ("https://lydata.readthedocs.io/latest/", None),
+    "lydata": ("https://lydata.readthedocs.io/stable/", None),
+    "emcee": ("https://emcee.readthedocs.io/en/stable/", None),
 }
+
+# autodoc_pydantic settings
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_validator_members = False
+autodoc_pydantic_model_show_field_summary = False
+autodoc_pydantic_model_member_order = "bysource"
+autodoc_pydantic_settings_show_config_summary = False
+autodoc_pydantic_settings_show_validator_members = False
+autodoc_pydantic_settings_show_field_summary = False
+autodoc_pydantic_settings_member_order = "bysource"
+autodoc_pydantic_field_show_constraints = False
 
 
 # -- Options for HTML output -------------------------------------------------

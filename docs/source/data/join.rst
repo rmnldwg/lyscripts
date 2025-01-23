@@ -5,6 +5,7 @@ Join Data Files
 
 .. automodule:: lyscripts.data.join
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

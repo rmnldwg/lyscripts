@@ -1,32 +1,41 @@
 """Commands and functions for managing CSV data on patterns of lymphatic progression.
 
-It helps transform raw CSV data of any form to be converted into our `LyProX`_ format,
-which can then be uploaded to the `LyProX`_ online tool for others to inspect the data.
+This contains helpful CLI commands that allow building quick and reproducible workflows
+even when using language-agnostic tools like `Make`_ or `DVC`_.
 
+Most of these commands can load `LyProX`_ style data from CSV files, but also from
+the installed datasets provided by the `lydata`_ package and directly from the
+associated `GitHub repository`_.
+
+.. _Make: https://www.gnu.org/software/make/
+.. _DVC: https://dvc.org
 .. _LyProX: https://lyprox.org
+.. _lydata: https://lydata.readthedocs.io
+.. _GitHub repository: https://github.com/rmnldwg/lydata
 """
 
-import argparse
-from pathlib import Path
+from pydantic_settings import BaseSettings, CliApp, CliSubCommand
 
-from lyscripts.data import enhance, filter, generate, join, lyproxify, split
+from lyscripts.data import (  # noqa: F401
+    enhance,
+    filter,
+    generate,
+    join,
+    lyproxify,
+    split,
+)
 
 
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add parser to the ``subparsers`` and then add this module's subcommands."""
-    parser = subparsers.add_parser(
-        Path(__file__).parent.name,
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    subparsers = parser.add_subparsers()
-    enhance._add_parser(subparsers, help_formatter=parser.formatter_class)
-    generate._add_parser(subparsers, help_formatter=parser.formatter_class)
-    join._add_parser(subparsers, help_formatter=parser.formatter_class)
-    lyproxify._add_parser(subparsers, help_formatter=parser.formatter_class)
-    split._add_parser(subparsers, help_formatter=parser.formatter_class)
-    filter._add_parser(subparsers, help_formatter=parser.formatter_class)
+class DataCLI(BaseSettings):
+    """Work with lymphatic progression data through this CLI."""
+
+    lyproxify: CliSubCommand[lyproxify.LyproxifyCLI]
+    join: CliSubCommand[join.JoinCLI]
+    split: CliSubCommand[split.SplitCLI]
+    filter: CliSubCommand[filter.FilterCLI]
+    enhance: CliSubCommand[enhance.EnhanceCLI]
+    generate: CliSubCommand[generate.GenerateCLI]
+
+    def cli_cmd(self) -> None:
+        """Run one of the ``data`` subcommands."""
+        CliApp.run_subcommand(self)

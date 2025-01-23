@@ -2,27 +2,37 @@
 
 import ast
 import functools
-import logging
 from pathlib import Path
 from typing import Annotated, Any
 
 import h5py
 import numpy as np
 from joblib import Memory
+from loguru import logger
 from pydantic import AfterValidator, BaseModel, Field
 
 from lyscripts.configs import (
-    BaseCmdSettings,
+    BaseCLI,
+    DistributionConfig,
+    GraphConfig,
+    ModelConfig,
     SamplingConfig,
     ScenarioConfig,
 )
 
-logger = logging.getLogger(__name__)
 
+class BaseComputeCLI(BaseCLI):
+    """Common command line settings for the submodule ``compute``."""
 
-class ComputeCmdSettings(BaseCmdSettings):
-    """Command line settings for the submodule ``compute``."""
-
+    graph: GraphConfig
+    model: ModelConfig = ModelConfig()
+    distributions: dict[str, DistributionConfig] = Field(
+        default={},
+        description=(
+            "Mapping of model T-categories to predefined distributions over "
+            "diagnose times."
+        ),
+    )
     cache_dir: Path = Field(
         default=Path.cwd() / ".cache",
         description="Cache directory for storing function calls.",

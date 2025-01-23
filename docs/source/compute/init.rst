@@ -1,7 +1,7 @@
 .. currentmodule:: lyscripts.compute
 
-Precomputing Quantitites
-========================
+Model Predictions
+=================
 
 .. automodule:: lyscripts.compute
     :members:

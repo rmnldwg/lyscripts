@@ -1,90 +1,73 @@
 """Split a dataset into cross-validation folds based on params.yaml file."""
 
-import argparse
-import logging
 import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from loguru import logger
+from pydantic import Field
 
-from lyscripts.utils import load_yaml_params
+from lyscripts.cli import assemble_main
+from lyscripts.configs import BaseCLI, CrossValidationConfig, DataConfig
+from lyscripts.data.utils import save_table_to_csv
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
-logger = logging.getLogger(__name__)
 
 
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    _add_arguments(parser)
+class SplitCLI(BaseCLI):
+    """Split a dataset into cross-validation folds."""
 
+    input: DataConfig
+    cross_validation: CrossValidationConfig = CrossValidationConfig()
+    output_dir: Path = Field(description="The folder to store the split CSV files in.")
 
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to the parser."""
-    parser.add_argument(
-        "input", type=Path, help="The path to the full dataset to split."
-    )
-    parser.add_argument(
-        "output", type=Path, help="Folder to store the split CSV files in."
-    )
+    def cli_cmd(self) -> None:
+        """Run the ``split`` subcommand.
 
-    parser.add_argument(
-        "-p",
-        "--params",
-        default="./params.yaml",
-        type=Path,
-        help="Path to parameter YAML file.",
-    )
+        This will load the dataset specified in the ``input`` argument and split it
+        into the number of folds specified in the ``cross_validation`` argument. The
+        resulting splits will be stored in the folder specified in the ``output_dir``
+        argument.
+        """
+        logger.debug(self.model_dump_json(indent=2))
 
-    parser.set_defaults(run_main=main)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Ensure output directory {self.output_dir} exists")
 
+        data = self.input.load()
 
-def main(args: argparse.Namespace):
-    """Run the splitting main routine."""
-    params = load_yaml_params(args.params)
-    concatenated_df = pd.read_csv(args.input)
-    logger.info(f"Read in concatenated CSV file from {args.input}")
+        shuffled_data = data.sample(
+            frac=1.0,
+            replace=False,
+            random_state=self.cross_validation.seed,
+        ).reset_index(drop=True)
 
-    args.output.mkdir(exist_ok=True)
-    shuffled_df = concatenated_df.sample(
-        frac=1.0, replace=False, random_state=params["cross-validation"]["seed"]
-    ).reset_index(drop=True)
-
-    split_dfs = np.array_split(shuffled_df, len(params["cross-validation"]["folds"]))
-    for fold_id, split_pattern in params["cross-validation"]["folds"].items():
-        # Concatenate training and evaluation DataFrames from the split DataFrames
-        # using the split pattern defined in the params file.
-        eval_df = pd.concat(
-            [split_dfs[k] for k, sym in enumerate(split_pattern) if sym == "e"],
-            ignore_index=True,
+        split_datas = np.array_split(
+            ary=shuffled_data,
+            indices_or_sections=self.cross_validation.folds,
         )
-        train_df = pd.concat(
-            [split_dfs[k] for k, sym in enumerate(split_pattern) if sym == "t"],
-            ignore_index=True,
-        )
+        for fold in range(self.cross_validation.folds):
+            _train_datas = [
+                split_datas[i] for i in range(self.cross_validation.folds) if i != fold
+            ]
+            train_data = pd.concat(
+                objs=_train_datas,
+                axis="index",
+                ignore_index=True,
+            )
+            eval_data = split_datas[fold]
 
-        eval_df.to_csv(args.output / f"{fold_id}_eval.csv", index=None)
-        train_df.to_csv(args.output / f"{fold_id}_train.csv", index=None)
-        logger.info(f"+ split data into train & eval sets for round {fold_id}")
-
-    logger.info(
-        "Split data into train & eval sets for all "
-        f"{len(params['cross-validation']['folds'])} folds"
-    )
+            save_table_to_csv(
+                file_path=self.output_dir / f"{fold}_train.csv",
+                table=train_data,
+            )
+            save_table_to_csv(
+                file_path=self.output_dir / f"{fold}_eval.csv",
+                table=eval_data,
+            )
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    _add_arguments(parser)
-
-    args = parser.parse_args()
-    args.run_main(args)
+    main = assemble_main(settings_cls=SplitCLI, prog_name="split")
+    main()

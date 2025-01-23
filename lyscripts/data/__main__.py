@@ -2,7 +2,8 @@
 
 import argparse
 
-from lyscripts import RichDefaultHelpFormatter, exit_cli
+from lyscripts import exit_cli
+from lyscripts.cli import RichDefaultHelpFormatter
 from lyscripts.data import enhance, filter, generate, join, split
 
 

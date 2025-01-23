@@ -1,78 +1,77 @@
-"""Join datasets from different sources (but of the same format) into one."""
+"""Join multiple lymphatic progression datasets into a single dataset."""
 
-import argparse
-import logging
-import warnings
 from pathlib import Path
 
 import pandas as pd
+from pydantic import Field
 
+from lyscripts.cli import assemble_main
+from lyscripts.configs import BaseCLI, DataConfig
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.utils import load_patient_data
-
-warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
-logger = logging.getLogger(__name__)
+class JoinCLI(BaseCLI):
+    """Join multiple lymphatic progression datasets into a single dataset."""
 
+    inputs: list[DataConfig] = Field(description="The datasets to join.")
+    output: Path = Field(description="The path to the output dataset.")
 
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    _add_arguments(parser)
+    def cli_cmd(self) -> None:
+        r"""Start the ``join`` subcommand.
 
+        This will load all datasets specified in the ``inputs`` attribute and
+        concatenate them into a single dataset.
 
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to the parser."""
-    parser.add_argument(
-        "-i",
-        "--inputs",
-        nargs="+",
-        type=Path,
-        required=True,
-        help="List of paths to inference-ready CSV datasets to concatenate.",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        required=True,
-        help="Location to store the concatenated CSV file.",
-    )
+        Unfortunately, the use of `pydantic`_ does make this particular command a
+        little bit more complicated (but also more powerful): If one simply wants to
+        concatenate multiple datasets on disk, the ``inputs`` should be provided like
+        this:
 
-    parser.set_defaults(run_main=main)
+        .. code-block:: bash
 
+            lydata join \
+            --inputs='["data.source": "file1.csv", "data.source": "file2.csv"]' \
+            --output="joined.csv"
 
-def load_and_join_tables(input_paths: list[Path]):
-    """Load and concatenate CSV files from the given ``input_paths``."""
-    concatenated_table = pd.DataFrame()
-    for path in input_paths:
-        input_table = load_patient_data(path).convert_dtypes()
-        concatenated_table = pd.concat(
-            [concatenated_table, input_table], axis="index", ignore_index=True
-        )
-        logger.info(f"+ concatenated data from {path}")
-    return concatenated_table
+        But it also allows for concatenating datasets fetched directly from the
+        `lydata Github repo`_. Due to the rather complex command signature, we
+        recommend defining what to concatenate using a YAML file:
 
+        .. code-block:: yaml
 
-def main(args: argparse.Namespace):
-    """Join datasets from different sources into one."""
-    concatenated_table = load_and_join_tables(args.inputs)
-    logger.info(f"Read & concatenated all {len(args.inputs)} CSV files")
-    save_table_to_csv(args.output, concatenated_table)
+            inputs:
+              - data.year: 2021
+                data.institution: "usz"
+                data.subsite: "oropharynx"
+              - data.year: 2021
+                data.institution: "clb"
+                data.subsite: "oropharynx"
+
+        Then, the command will look like this:
+
+        .. code-block:: bash
+
+            lydata join --configs=datasets.ly.yaml --output=joined.csv
+
+        .. _pydantic: https://docs.pydantic.dev/latest/
+        .. _lydata Github repo: https://github.com/rmnldwg/lydata
+        """
+        joined = None
+
+        for data_config in self.inputs:
+            data = data_config.load()
+            if joined is None:
+                joined = data
+            else:
+                joined = pd.concat(
+                    [joined, data],
+                    axis="index",
+                    ignore_index=True,
+                )
+
+        save_table_to_csv(file_path=self.output, table=joined)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    _add_arguments(parser)
-
-    args = parser.parse_args()
-    args.run_main(args)
+    main = assemble_main(settings_cls=JoinCLI, prog_name="join")
+    main()
