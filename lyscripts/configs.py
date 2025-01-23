@@ -282,12 +282,6 @@ class SamplingConfig(BaseModel):
         default=20,
         description="Number of walkers per parameter space dimension.",
     )
-    max_burnin: int | None = Field(
-        default=None,
-        description=(
-            "Maximum number of burn-in steps. Sample until convergence if `None`"
-        ),
-    )
     check_interval: int = Field(
         default=50,
         description="Check for convergence each time after this many steps.",
@@ -303,12 +297,12 @@ class SamplingConfig(BaseModel):
         default=0.05,
         description="Relative threshold for convergence.",
     )
+    num_steps: int | None = Field(
+        default=100,
+        description=("Number of steps to take in the MCMC sampling."),
+    )
     thin_by: int = Field(
         default=10, description="How many samples to draw before for saving one."
-    )
-    nsteps: int = Field(
-        default=100,
-        description="Number of samples after convergence, regardless of thinning.",
     )
     inverse_temp: float = Field(
         default=1.0,

@@ -4,5 +4,5 @@ sampling:
   check_interval: 10
   trust_factor: 10
   relative_thresh: 0.1
-  thin: 1
-  nsteps: 10
+  thin_by: 1
+  num_steps: 10

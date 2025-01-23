@@ -28,8 +28,8 @@ import numpy as np
 import pandas as pd
 from lydata.utils import ModalityConfig
 from lymph.types import ParamsType
-from pydantic import Field
-from rich.progress import Progress, ProgressColumn, Task, TimeElapsedColumn, track
+from pydantic import BaseModel, Field
+from rich.progress import Progress, ProgressColumn, Task, TimeElapsedColumn
 from rich.text import Text
 
 from lyscripts.configs import (
@@ -44,15 +44,6 @@ from lyscripts.configs import (
     construct_model,
 )
 from lyscripts.utils import get_hdf5_backend
-
-_BURNIN_KWARGS = {
-    "max_burnin",
-    "check_interval",
-    "trust_factor",
-    "relative_thresh",
-    "history_file",
-}
-_SAMPLING_KWARGS = {"nsteps", "thin_by"}
 
 
 class CompletedItersColumn(ProgressColumn):
@@ -79,6 +70,40 @@ class ItersPerSecondColumn(ProgressColumn):
         if speed is None:
             return Text("? it/s", style="progress.data.speed")
         return Text(f"{speed:.2f} it/s", style="progress.data.speed")
+
+
+class AcorTime(BaseModel, validate_assignment=True):
+    """Storage for old and new autocorrelation times."""
+
+    old: float
+    new: float
+
+    def update(self, new: float) -> None:
+        """Update the autocorrelation time."""
+        self.old = self.new
+        self.new = new
+
+    @property
+    def relative_diff(self) -> float:
+        """Get the relative difference between new and old autocorrelation time."""
+        return np.abs(self.new - self.old) / self.new
+
+
+class NumAccepted(BaseModel, validate_assignment=True):
+    """Storage for old and new number of accepted proposals."""
+
+    old: int
+    new: int
+
+    def update(self, new: int) -> None:
+        """Update the number of accepted proposals."""
+        self.old = self.new
+        self.new = new
+
+    @property
+    def newly_accepted(self) -> int:
+        """Get the number of newly accepted proposals."""
+        return self.new - self.old
 
 
 MODEL = None
@@ -111,33 +136,65 @@ def get_starting_state(sampler: emcee.EnsembleSampler) -> np.ndarray:
     return state
 
 
-def get_burnin_history(file: Path | None) -> pd.DataFrame:
-    """Try to load the history of an interrupted burn-in phase from a file.
+def ensure_history_table(file: Path | None) -> pd.DataFrame:
+    """Return the history table from a file or an empty DataFrame.
 
-    It will look for the given ``file``, but with the suffix ``.tmp``, indicating that
-    a previous run was interrupted and can be continued.
+    It will try to load a history at the given ``file`` location, but with a ``.tmp``
+    extension. This is the expected name and location of a history file that was
+    stored during an interrupted sampling run.
 
     If no file is found, an empty DataFrame is returned.
     """
     if file is None or not file.with_suffix(".tmp").exists():
         return pd.DataFrame(
-            columns=["steps", "acor_times", "accept_fracs", "max_log_probs"],
+            columns=[
+                "steps",
+                "acor_times",
+                "accept_fracs",
+                "max_log_probs",
+            ],
         ).set_index("steps")
 
     return pd.read_csv(file.with_suffix(".tmp"), index_col="steps")
 
 
+def update_history_table(
+    history: pd.DataFrame,
+    history_file: Path | None,
+    iteration: int,
+    acor_time: float,
+    accepted_frac: float,
+    max_log_prob: float,
+) -> pd.DataFrame:
+    """Update the history table with the current iteration's information."""
+    history.loc[iteration] = [acor_time, accepted_frac, max_log_prob]
+    logger.debug(history.iloc[-1].to_dict())
+
+    if history_file is not None:
+        history.to_csv(history_file.with_suffix(".tmp"))
+
+    return history
+
+
 def is_converged(
     iteration: int,
-    new_acor_time: float,
-    old_acor_time: float,
+    acor_time: AcorTime,
     trust_factor: float,
     relative_thresh: float,
 ) -> bool:
-    """Check if the chain has converged based on the autocorrelation time."""
+    """Check if the chain has converged based on the autocorrelation time.
+
+    The criterion is based on the relative change of the autocorrelation time and
+    whether the autocorrelation extimate can be trusted. Essentially, we only trust
+    the estimate if it is smaller than ``trust_factor`` times the current ``iteration``.
+
+    More details can be found in the `emcee documentation`_.
+
+    .. _emcee documentation: https://emcee.readthedocs.io/en/stable/tutorials/autocorr/
+    """
     return (
-        new_acor_time * trust_factor < iteration
-        and np.abs(new_acor_time - old_acor_time) / new_acor_time < relative_thresh
+        acor_time.new * trust_factor < iteration
+        and acor_time.relative_diff < relative_thresh
     )
 
 
@@ -151,59 +208,72 @@ def _get_columns(it: int = 0) -> list[ProgressColumn]:
     ]
 
 
-def run_burnin(
+def run_sampling(
     sampler: emcee.EnsembleSampler,
-    max_burnin: int | None = None,
+    num_steps: int | None = None,
+    thin_by: int = 1,
     check_interval: int = 100,
     trust_factor: float = 50.0,
     relative_thresh: float = 0.05,
     history_file: Path | None = None,
+    reset_backend: bool = False,
+    description: str = "Burn-in phase",
 ) -> None:
-    """Run the burn-in phase of the MCMC sampling.
+    """Run MCMC sampling.
 
-    This will run the sampler for ``max_burnin`` steps or (if ``max_burnin`` is `None`)
-    until convergence is reached. The convergence criterion is based on the
-    autocorrelation time of the chain, which is computed every ``check_interval`` steps.
-    The chain is considered to have converged if the autocorrelation time is smaller
-    than ``trust_factor`` times the number of iterations and the relative change in the
-    autocorrelation time is smaller than ``relative_thresh``.
+    This will run the ``sampler`` either for ``num_steps`` steps or - if it set to
+    ``None`` - until convergence. Convergence is determined once within a
+    ``check_interval`` of steps by the :py:func:`is_converged` function. The
+    convergence criterion is based on a trustworthy estimate of the autocorrelation
+    time. This is elaborated in the `emcee documentation`_.
 
-    The samples of the burn-in phase will be stored in the backend of the ``sampler``.
-    A history of some burn-in metrics will be stored at ``history_path`` if provided.
+    Some bookkeeping parameters may be stored in a ``history_file``. During sampling,
+    the history is stored in a temporary file with the suffix ``.tmp``. If the sampling
+    is interrupted, the history and the last state of the ``sampler`` can be recovered
+    and the sampling can be continued.
+
+    One may choose to ``reset_backend``, e.g. in case the previous sampling was run
+    until convergence and now one wants to store a length of the converged chain. This
+    may also be thinned by a factor of ``thin_by`` (directly passed to the
+    :py:class:`emcee.EnsembleSampler` class).
+
+    .. _emcee documentation: https://emcee.readthedocs.io/en/stable/tutorials/autocorr/
     """
     state = get_starting_state(sampler)
-    history = get_burnin_history(history_file)
-    previous_accepted = 0
+    history = ensure_history_table(history_file)
+
+    acor_time = AcorTime(old=np.inf, new=np.inf)
+    accepted = NumAccepted(old=0, new=0)
+
+    if reset_backend:
+        logger.debug("Resetting backend of sampler.")
+        sampler.backend.reset(sampler.nwalkers, sampler.ndim)
 
     with Progress(*_get_columns(it=sampler.iteration)) as progress:
-        task = progress.add_task(
-            description="[blue]INFO     [/blue]Burn-in phase ",
-            total=max_burnin,
-        )
-        while sampler.iteration < (max_burnin or np.inf):
-            for state in sampler.sample(state, iterations=check_interval):  # noqa: B007, B020
+        task = progress.add_task(description=description, total=num_steps)
+        while sampler.iteration < (num_steps or np.inf) * thin_by:
+            for state in sampler.sample(  # noqa: B007, B020
+                initial_state=state,
+                iterations=check_interval - sampler.iteration % check_interval,
+                thin_by=thin_by,
+            ):
                 progress.update(task, advance=1)
 
-            new_acor_time = sampler.get_autocorr_time(tol=0).mean()
-            old_acor_time = history.iloc[-1].acor_times if len(history) > 0 else np.inf
+            acor_time.update(new=sampler.get_autocorr_time(tol=0).mean())
+            accepted.update(new=np.sum(sampler.backend.accepted))
 
-            newly_accepted = np.sum(sampler.backend.accepted) - previous_accepted
-            new_accept_frac = newly_accepted / (sampler.nwalkers * check_interval)
-            previous_accepted = np.sum(sampler.backend.accepted)
-
-            history.loc[sampler.iteration] = [
-                new_acor_time,
-                new_accept_frac,
-                np.max(state.log_prob),
-            ]
-            logger.debug(history.iloc[-1].to_dict())
-            if history_file is not None:
-                history.to_csv(history_file.with_suffix(".tmp"), index=True)
-
-            if max_burnin is None and is_converged(
+            history = update_history_table(
+                history=history,
+                history_file=history_file,
                 iteration=sampler.iteration,
-                new_acor_time=new_acor_time,
-                old_acor_time=old_acor_time,
+                acor_time=acor_time.new,
+                accepted_frac=accepted.newly_accepted / sampler.iteration,
+                max_log_prob=np.max(state.log_prob),
+            )
+
+            if num_steps is None and is_converged(
+                iteration=sampler.iteration,
+                acor_time=acor_time,
                 trust_factor=trust_factor,
                 relative_thresh=relative_thresh,
             ):
@@ -212,37 +282,6 @@ def run_burnin(
 
     if history_file is not None:
         history_file.with_suffix(".tmp").rename(history_file)
-
-
-def run_sampling(
-    sampler: emcee.EnsembleSampler,
-    nsteps: int,
-    thin_by: int,
-) -> None:
-    """Run the MCMC sampling phase to produce ``nsteps`` samples.
-
-    This sampling will definitely produce ``nsteps`` samples, irrespective of the
-    ``thin_by`` parameter, which controls how many steps in between two stored samples
-    are skipped. The samples will be stored in the backend of the ``sampler``.
-
-    Note that this will reset the ``sampler``'s backend, assuming the stored samples are
-    from the burn-in phase.
-    """
-    state = get_starting_state(sampler)
-    logger.debug("Resetting backend of sampler.")
-    sampler.backend.reset(sampler.nwalkers, sampler.ndim)
-
-    for _sample in track(
-        sequence=sampler.sample(
-            initial_state=state,
-            iterations=nsteps * thin_by,
-            thin_by=thin_by,
-            store=True,
-        ),
-        description="[blue]INFO     [/blue]Sampling phase",
-        total=nsteps * thin_by,
-    ):
-        pass
 
 
 class DummyPool:
@@ -276,9 +315,9 @@ def init_sampler(settings: SampleCLI, ndim: int, pool: Any) -> emcee.EnsembleSam
         ndim=ndim,
     )
     return emcee.EnsembleSampler(
-        nwalkers,
-        ndim,
-        log_prob_fn,
+        nwalkers=nwalkers,
+        ndim=ndim,
+        log_prob_fn=log_prob_fn,
         kwargs={"inverse_temp": settings.sampling.inverse_temp},
         moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)],
         backend=backend,
@@ -332,9 +371,22 @@ class SampleCLI(BaseCLI):
         np.random.seed(self.sampling.seed)
 
         with get_pool(self.sampling.cores) as pool:
-            sampler = init_sampler(self, ndim, pool)
-            run_burnin(sampler, **self.sampling.model_dump(include=_BURNIN_KWARGS))
-            run_sampling(sampler, **self.sampling.model_dump(include=_SAMPLING_KWARGS))
+            sampler = init_sampler(settings=self, ndim=ndim, pool=pool)
+            run_sampling(
+                sampler=sampler,
+                check_interval=self.sampling.check_interval,
+                trust_factor=self.sampling.trust_factor,
+                relative_thresh=self.sampling.relative_thresh,
+                history_file=self.sampling.history_file,
+                description="Burn-in phase",
+            )
+            run_sampling(
+                sampler=sampler,
+                num_steps=self.sampling.num_steps,
+                reset_backend=True,
+                thin_by=self.sampling.thin_by,
+                description="Sampling phase",
+            )
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@
       "type": "object"
     },
     "DataConfig": {
-      "description": "Where to load the data from and how to feed it into the model.",
+      "description": "Where to load lymphatic progression data from and how to feed it into a model.",
       "properties": {
         "source": {
           "anyOf": [
@@ -366,7 +366,7 @@
       "type": "object"
     },
     "ModelConfig": {
-      "description": "Define which of the ``lymph`` models to use and how to set them up.\n\nAlso allows loading a pre-defined model from an external Python file. Note that it\nshould provide at least the methods defined by the `lymph.types.Model` protocol,\npossibly more.",
+      "description": "Define which of the ``lymph`` models to use and how to set them up.",
       "properties": {
         "external": {
           "anyOf": [
@@ -423,7 +423,7 @@
       "description": "Settings to configure the MCMC sampling.",
       "properties": {
         "file": {
-          "description": "Path to HDF5 file for the results to be stored on or loaded from.",
+          "description": "Path to HDF5 file store results or load last state.",
           "format": "path",
           "title": "File",
           "type": "string"
@@ -439,7 +439,7 @@
             }
           ],
           "default": null,
-          "description": "Path to store the burn-in metrics in (as CSV file).",
+          "description": "Path to store the burn-in metrics (as CSV file).",
           "title": "History File"
         },
         "dataset": {
@@ -474,19 +474,6 @@
           "title": "Walkers Per Dim",
           "type": "integer"
         },
-        "max_burnin": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum number of burn-in steps.",
-          "title": "Max Burnin"
-        },
         "check_interval": {
           "default": 50,
           "description": "Check for convergence each time after this many steps.",
@@ -505,16 +492,23 @@
           "title": "Relative Thresh",
           "type": "number"
         },
-        "thin": {
+        "num_steps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 100,
+          "description": "Number of steps to take in the MCMC sampling.",
+          "title": "Num Steps"
+        },
+        "thin_by": {
           "default": 10,
           "description": "How many samples to draw before for saving one.",
-          "title": "Thin",
-          "type": "integer"
-        },
-        "nsteps": {
-          "default": 100,
-          "description": "Number of samples after convergence, regardless of thinning.",
-          "title": "Nsteps",
+          "title": "Thin By",
           "type": "integer"
         },
         "inverse_temp": {
@@ -522,6 +516,15 @@
           "description": "Inverse temperature for thermodynamic integration. Note that this is not yet fully implemented.",
           "title": "Inverse Temp",
           "type": "number"
+        },
+        "param_names": {
+          "default": null,
+          "description": "If provided, only these parameters will be inferred during model sampling.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Param Names",
+          "type": "array"
         }
       },
       "required": [
