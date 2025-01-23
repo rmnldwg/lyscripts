@@ -7,7 +7,7 @@ import matplotlib.testing.compare as mpl_comp
 import numpy as np
 import pytest
 
-from lyscripts.plot.utils import (
+from lyscripts.plots import (
     BetaPosterior,
     Histogram,
     ceil_to_step,

@@ -23,7 +23,7 @@ Submodules
     data/init
     decorators
     evaluate
-    plot/init
+    plots
     sample
     schedule
     schema
