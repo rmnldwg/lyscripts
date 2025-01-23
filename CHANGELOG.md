@@ -9,9 +9,9 @@ All notable changes to this project will be documented in this file.
 - Update data loading to new lydata API.
 - Add sampling config back to sample CLI.
 - Finish `data filter` command.
-- Correctly log num excluded in `lyproxify`.
+- Correctly log number of excluded pateints in `lyproxify`.
 - Allow extra args in CLI cmds.
-- Logging during progres bar.
+- Logging during progress bar.
 
 ### Documentation
 
@@ -21,17 +21,15 @@ All notable changes to this project will be documented in this file.
 - Update link to schedule module.
 - Configure how pydantic models are displayed.
 - Add more info about schema.
-- Add details to some docstrings.
-- Update readme.
 - Better explain sampling.
 - Add proper info to `cli_cmd()` methods.
 
 ### Features
 
-- Add version to cmd settings.\
+- Add mandatory `version` field to command settings.\
   This will allow to differentiate between old and new configs and create
   the models accordingly.
-- Add translation of old model configs.
+- Add translation of old to new model configs.
 - Add dynamic YAML config source.
 - Configure logging nicely.
 - Update `data enhance` command.
@@ -58,14 +56,13 @@ All notable changes to this project will be documented in this file.
 
 ### Build
 
-- Pydantic-settings >= 2.7 needed.
+- pydantic-settings >= 2.7 needed.
 
 ### Change
 
-- Make version in cmd settings required.
+- Make `version` field in command settings required.
 - Use pydantic for subcommands.
 - Use loguru over default logging.
-- Improve some log messages slightly.
 - Rename `data` field to `input`.
 - Use pydantic for plot utils, too.
 - Use rich logging handler.
@@ -74,13 +71,12 @@ All notable changes to this project will be documented in this file.
 
 - Slightly change CLI inheritances.
 - Sort configs alphabetically.
-- Shuffle around some utility functions.
 - Make sampling more reusable.
 
 ### Remove
 
 - Unused utility functions.
-- Plotting scripts except histo/beta helpers.
+- Plotting scripts except histogram/betaposterp helpers.
 
 ## [1.0.0.a3] - 2024-11-15
 
