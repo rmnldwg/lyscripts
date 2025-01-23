@@ -104,6 +104,12 @@ def sampling_config_file() -> Path:
 
 
 @pytest.fixture(scope="session")
+def data_config_file() -> Path:
+    """Provide the path to the data configuration file."""
+    return _get_config_file("data")
+
+
+@pytest.fixture(scope="session")
 def model_config(model_config_file: Path) -> ModelConfig:
     """Provide the model configuration."""
     yaml_config = load_yaml_params(model_config_file)
@@ -216,6 +222,8 @@ def drawn_samples(
             str(sampling_config_file.resolve()),
             "--sampling.file",
             str(samples_file.resolve()),
+            # mapping because generated data already has the correct T-stage column
+            '--data.mapping={"early": "early", "late": "late"}',
             "--data.source",
             str(data_file),
         ],
