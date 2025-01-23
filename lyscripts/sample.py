@@ -118,7 +118,7 @@ def log_prob_fn(theta: ParamsType, inverse_temp: float = 1.0) -> tuple[float, fl
     return inverse_temp * MODEL.likelihood(given_params=theta), inverse_temp
 
 
-def get_starting_state(sampler: emcee.EnsembleSampler) -> np.ndarray:
+def ensure_initial_state(sampler: emcee.EnsembleSampler) -> np.ndarray:
     """Try to extract a starting state from a ``sampler``.
 
     Create a random starting state if no one was found.
@@ -210,6 +210,7 @@ def _get_columns(it: int = 0) -> list[ProgressColumn]:
 
 def run_sampling(
     sampler: emcee.EnsembleSampler,
+    initial_state: np.ndarray | None = None,
     num_steps: int | None = None,
     thin_by: int = 1,
     check_interval: int = 100,
@@ -239,7 +240,7 @@ def run_sampling(
 
     .. _emcee documentation: https://emcee.readthedocs.io/en/stable/tutorials/autocorr/
     """
-    state = get_starting_state(sampler)
+    state = initial_state or ensure_initial_state(sampler)
     history = ensure_history_table(history_file)
 
     acor_time = AcorTime(old=np.inf, new=np.inf)
@@ -373,19 +374,19 @@ class SampleCLI(BaseCLI):
         with get_pool(self.sampling.cores) as pool:
             sampler = init_sampler(settings=self, ndim=ndim, pool=pool)
             run_sampling(
+                description="Burn-in phase",
                 sampler=sampler,
                 check_interval=self.sampling.check_interval,
                 trust_factor=self.sampling.trust_factor,
                 relative_thresh=self.sampling.relative_thresh,
                 history_file=self.sampling.history_file,
-                description="Burn-in phase",
             )
             run_sampling(
+                description="Sampling phase",
                 sampler=sampler,
                 num_steps=self.sampling.num_steps,
                 reset_backend=True,
                 thin_by=self.sampling.thin_by,
-                description="Sampling phase",
             )
 
 
