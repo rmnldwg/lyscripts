@@ -1,10 +1,17 @@
-"""Learn the model params from preprocessed input data using MCMC sampling.
+"""Implementation of flexible MCMC sampling for lymphatic progression models.
 
-This command allows inferring the parameters of a predefined probabilistic model
-from detailed per-patient lymph node level involvement data.
+This module provides both helpful functions for programmatically building and running
+sampling pipelines, as well a CLI interface for th most common sampling use cases.
 
-The model, data, and sampling configuration can be specified in one or several YAML
-files, and/or via command line arguments.
+The core is the :py:func:`run_sampling` function. It has a flexible interface and
+built-in convergence detection, as well as bookkeeping for monitoring and resuming
+interrupted sampling runs. It can be used both during the burn-in phase and the actual
+sampling phase.
+
+For parallelization, the sampling tries to use the ``multiprocess(ing)`` module.
+However, we have found that this is often not necessary when the model itself
+distributes the computation of its likelihood to multiple cores (as numpy typically
+does).
 """
 
 from __future__ import annotations
