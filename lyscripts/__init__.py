@@ -35,6 +35,7 @@ from pydantic_settings import (
     CliImplicitFlag,
     CliSubCommand,
 )
+from rich.console import Console
 
 from lyscripts import compute, data, sample, schedule  # noqa: F401
 from lyscripts._version import version
@@ -51,6 +52,7 @@ __uri__ = "https://github.com/rmnldwg/lyscripts"
 pd.options.mode.copy_on_write = True
 
 logger.disable("lyscripts")
+console = Console()
 
 
 class LyscriptsCLI(BaseSettings):
@@ -72,7 +74,7 @@ class LyscriptsCLI(BaseSettings):
 
     def __init__(self, **kwargs):
         """Add logging configuration to the lyscripts CLI."""
-        configure_logging(argv=sys.argv)
+        configure_logging(argv=sys.argv, console=console)
         super().__init__(**kwargs)
 
     def cli_cmd(self) -> None:

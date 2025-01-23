@@ -9,7 +9,6 @@ some boilerplate code. Lastly, we have two functions related to the `loguru`_ se
 """
 
 import argparse
-import sys
 from collections.abc import Callable
 from typing import Literal
 
@@ -17,6 +16,8 @@ import rich
 import rich.text
 from loguru import logger
 from pydantic_settings import BaseSettings, CliApp, CliSettingsSource
+from rich.console import Console
+from rich.logging import RichHandler
 from rich_argparse import RichHelpFormatter
 
 
@@ -111,7 +112,10 @@ def somewhat_safely_get_loglevel(
     return "INFO"
 
 
-def configure_logging(argv: list[str]) -> None:
+def configure_logging(
+    argv: list[str],
+    console: Console,
+) -> None:
     """Configure the `loguru`_ logging system of the lyscripts CLI.
 
     This function sets the log level and format of the lyscripts CLI. Notably, for
@@ -123,9 +127,9 @@ def configure_logging(argv: list[str]) -> None:
     logger.enable("lydata")
     log_level = somewhat_safely_get_loglevel(argv=argv)
     logger.remove()
-    kwargs = {"format": "<lvl>{message}</>"} if log_level != "DEBUG" else {}
+    handler = RichHandler(console=console)
     logger.add(
-        sink=sys.stderr,
+        sink=handler,
         level=log_level,
-        **kwargs,
+        format="<lvl>{message}</>",
     )
