@@ -1,10 +1,11 @@
 .. currentmodule:: lyscripts.sample
 
-Sampling
-========
+MCMC Sampling
+=============
 
 .. automodule:: lyscripts.sample
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

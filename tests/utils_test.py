@@ -1,5 +1,13 @@
 """Test the core utility functions of the package."""
 
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+from pydantic import TypeAdapter
+
+from lyscripts.configs import DeprecatedModelConfig, DistributionConfig, ModelConfig
 from lyscripts.utils import (
     flatten,
     get_modalities_subset,
@@ -44,3 +52,38 @@ def test_get_modalities_subset():
 
     actual_subset = get_modalities_subset(modalities, selected)
     assert actual_subset == exp_subset, "Extraction of modalities did not work."
+
+
+@pytest.fixture
+def v0_config() -> dict[str, Any]:
+    """Return a deprecated model configuration."""
+    config_path = Path("tests/test_params_v0.yaml")
+    with open(config_path) as config_file:
+        return yaml.safe_load(config_file)
+
+
+@pytest.fixture
+def v1_config() -> dict[str, Any]:
+    """Return a deprecated model configuration."""
+    config_path = Path("tests/test_params_v1.yaml")
+    with open(config_path) as config_file:
+        return yaml.safe_load(config_file)
+
+
+def test_translate_deprecated_model_config(
+    v0_config: dict[str, Any],
+    v1_config: dict[str, Any],
+):
+    """Test the translation of the deprecated model configuration."""
+    adapter = TypeAdapter(dict[str | int, DistributionConfig])
+
+    old_model_config = DeprecatedModelConfig(**v0_config["model"])
+    exp_model_config = ModelConfig(**v1_config["model"])
+    exp_dist_configs = adapter.validate_python(v1_config["distributions"])
+
+    trans_model_config, trans_dist_configs = old_model_config.translate()
+
+    assert exp_model_config.model_dump(
+        exclude="kwargs"
+    ) == trans_model_config.model_dump(exclude="kwargs")
+    assert exp_dist_configs == trans_dist_configs

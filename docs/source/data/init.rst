@@ -5,6 +5,7 @@ Data Commands/Helpers
 
 .. automodule:: lyscripts.data
     :members:
+    :show-inheritance:
 
 Command Help
 ------------
@@ -18,10 +19,10 @@ Submodules
 .. toctree::
     :maxdepth: 1
 
-    enhance
-    filter
-    generate
-    join
     lyproxify
+    join
     split
+    filter
+    enhance
+    generate
     utils

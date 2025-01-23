@@ -1,10 +1,11 @@
 .. currentmodule:: lyscripts.compute.risks
 
-Predict Risk of Involvement
+Compute Risk of Involvement
 ===========================
 
 .. automodule:: lyscripts.compute.risks
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

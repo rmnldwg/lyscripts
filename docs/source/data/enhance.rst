@@ -5,6 +5,7 @@ Infer Additional Data Columns
 
 .. automodule:: lyscripts.data.enhance
     :members:
+    :show-inheritance:
 
 Command Help
 ------------

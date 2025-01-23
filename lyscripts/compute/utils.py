@@ -2,17 +2,17 @@
 
 import ast
 import functools
-import logging
 from pathlib import Path
 from typing import Annotated, Any
 
 import h5py
 import numpy as np
 from joblib import Memory
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
-from pydantic_settings import BaseSettings
+from loguru import logger
+from pydantic import AfterValidator, BaseModel, Field
 
 from lyscripts.configs import (
+    BaseCLI,
     DistributionConfig,
     GraphConfig,
     ModelConfig,
@@ -20,19 +20,10 @@ from lyscripts.configs import (
     ScenarioConfig,
 )
 
-logger = logging.getLogger(__name__)
 
+class BaseComputeCLI(BaseCLI):
+    """Common command line settings for the submodule ``compute``."""
 
-class ComputeCmdSettings(BaseSettings):
-    """Command line settings for the computation of posterior state distributions."""
-
-    model_config = ConfigDict(extra="allow")
-
-    cache_dir: Path = Field(
-        default=Path.cwd() / ".cache",
-        description="Cache directory for storing function calls.",
-    )
-    sampling: SamplingConfig
     graph: GraphConfig
     model: ModelConfig = ModelConfig()
     distributions: dict[str, DistributionConfig] = Field(
@@ -42,10 +33,15 @@ class ComputeCmdSettings(BaseSettings):
             "diagnose times."
         ),
     )
+    cache_dir: Path = Field(
+        default=Path.cwd() / ".cache",
+        description="Cache directory for storing function calls.",
+    )
     scenarios: list[ScenarioConfig] = Field(
         default=[],
         description="List of scenarios to compute risks for.",
     )
+    sampling: SamplingConfig
 
 
 def is_hdf5_compatible(value: Any) -> bool:

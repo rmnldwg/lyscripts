@@ -36,7 +36,7 @@ distributions:
   late:
     kind: parametric
     func: binomial
-    params: {p: 0.7}
+    params: {p: 0.3}
 
 # diagnostic modalities and their sensitivity/specificity values
 modalities:

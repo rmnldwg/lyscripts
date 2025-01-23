@@ -2,6 +2,82 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0.a4] - 2025-01-23
+
+### Bug Fixes
+
+- Update data loading to new lydata API.
+- Add sampling config back to sample CLI.
+- Finish `data filter` command.
+- Correctly log number of excluded pateints in `lyproxify`.
+- Allow extra args in CLI cmds.
+- Logging during progress bar.
+
+### Documentation
+
+- Deactivate help of removed commands.
+- Link only to stable versions.
+- Fix intersphinx links.
+- Update link to schedule module.
+- Configure how pydantic models are displayed.
+- Add more info about schema.
+- Better explain sampling.
+- Add proper info to `cli_cmd()` methods.
+
+### Features
+
+- Add mandatory `version` field to command settings.\
+  This will allow to differentiate between old and new configs and create
+  the models accordingly.
+- Add translation of old to new model configs.
+- Add dynamic YAML config source.
+- Configure logging nicely.
+- Update `data enhance` command.
+- Update `data join` command.
+- Update `data filter` command.
+- Update `data split` command.
+- Capture lydata logging output.
+- Update YAML schema for CLIs.
+- Update `data lyproxify` cmd.
+- Allow sampling only specified params.\
+  Via a new CLI arg named `param_names` one may restrict the parameters
+  sampled to a named subset. In combination with the fact that any Python
+  model may be loaded, this results in an enormously flexible sampler.
+- Update inv temp `schedule` cmd.
+- Allow providing start state to sampling func.
+
+### Testing
+
+- Replace subprocess calls with monkeypatch.\
+  This allows for better debugging during test calls.
+- Load generated data correctly.\
+  The synthetic data for testing already has "early" and "late" as
+  T-stages. Thus, the mapping needed to be adapted.
+
+### Build
+
+- pydantic-settings >= 2.7 needed.
+
+### Change
+
+- Make `version` field in command settings required.
+- Use pydantic for subcommands.
+- Use loguru over default logging.
+- Rename `data` field to `input`.
+- Use pydantic for plot utils, too.
+- Use rich logging handler.
+
+### Refac
+
+- Slightly change CLI inheritances.
+- Sort configs alphabetically.
+- Make sampling more reusable.
+
+### Remove
+
+- Unused utility functions.
+- Plotting scripts except histogram/betaposterp helpers.
+
 ## [1.0.0.a3] - 2024-11-15
 
 ### Bug Fixes

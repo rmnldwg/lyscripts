@@ -1,7 +1,8 @@
 .. currentmodule:: lyscripts.configs
 
-Configuration
-=============
+Pydantic Configurations
+=======================
 
 .. automodule:: lyscripts.configs
     :members:
+    :show-inheritance:

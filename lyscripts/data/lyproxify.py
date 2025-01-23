@@ -7,93 +7,114 @@ for more information.
 .. _LyProX: https://lyprox.org
 """
 
-import argparse
 import importlib.util
-import logging
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import pandas as pd
+from loguru import logger
+from pydantic import AfterValidator, Field, FilePath
 
+from lyscripts.cli import assemble_main
+from lyscripts.configs import BaseCLI
 from lyscripts.data.utils import save_table_to_csv
-from lyscripts.decorators import log_state
 from lyscripts.utils import delete_private_keys, flatten, load_patient_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
-logger = logging.getLogger(__name__)
+def ensure_python_file(file: Path) -> Path:
+    """Check if the file is a Python file."""
+    if file.suffix != ".py":
+        raise ValueError("Mapping file must be a Python file.")
+
+    return file
 
 
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    _add_arguments(parser)
+def ensure_column_map(file: Path) -> Path:
+    """Ensure the Python file contains a ``COLUMN_MAP`` dictionary."""
+    spec = importlib.util.spec_from_file_location("map_module", file)
+    mapping = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mapping)
+
+    if not hasattr(mapping, "COLUMN_MAP"):
+        raise ValueError("Mapping file must contain a `COLUMN_MAP` dictionary.")
+
+    return file
 
 
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to the parser."""
-    parser.add_argument(
-        "-i", "--input", type=Path, required=True, help="Location of raw CSV data."
+class LyproxifyCLI(BaseCLI):
+    """Map any CSV file to the LyProX format with the help of a Python mapping dict."""
+
+    raw_input: FilePath = Field(description="Location of raw CSV data.")
+    num_header_rows: int = Field(
+        default=1,
+        description="Number of rows comprising the header of the raw CSV file.",
     )
-    parser.add_argument(
-        "-r",
-        "--header-rows",
-        nargs="+",
-        default=[0],
-        type=int,
-        help="List with header row indices of raw file.",
+    mapping_file: Annotated[
+        FilePath,
+        AfterValidator(ensure_python_file),
+        AfterValidator(ensure_column_map),
+    ] = Field(
+        description=(
+            "Location of Python containing a `COLUMN_MAP` dictionary. It may also "
+            "contain an `EXCLUDE` list of tuples `(column, check)` to exclude patients."
+        )
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        required=True,
-        help="Location to store the lyproxified CSV file.",
-    )
-    parser.add_argument(
-        "-m",
-        "--mapping",
-        type=Path,
-        required=True,
-        help=(
-            "Location of the Python file that contains column mapping instructions. "
-            "This must contain a dictionary with the name 'column_map'."
-        ),
-    )
-    parser.add_argument(
-        "--drop-rows",
-        nargs="+",
-        type=int,
+    drop_rows: list[int] = Field(
         default=[],
-        help=(
+        description=(
             "Delete rows of specified indices. Counting of rows start at 0 _after_ "
             "the `header-rows`."
         ),
     )
-    parser.add_argument(
-        "--drop-cols",
-        nargs="+",
-        type=int,
+    drop_cols: list[int] = Field(
         default=[],
-        help="Delete columns of specified indices.",
+        description="Delete columns of specified indices.",
     )
-    parser.add_argument(
-        "--add-index",
-        action="store_true",
-        help="If the data doesn't contain an index, add it by enumerating the patients",
-    )
+    output_file: Path = Field(description="Location to store the lyproxified CSV file.")
 
-    parser.set_defaults(run_main=main)
+    def cli_cmd(self) -> None:
+        """Start the ``lyproxify`` subcommand.
+
+        After reading in the specified file, it will first ``drop_rows`` and
+        ``drop_cols``, as specified in the command line arguments. Then, it will
+        call :py:func:`.exclude_patients` which will further remove patients based
+        on the ``EXCLUDE`` object in the ``mapping_file``. Finally, it will call
+        :py:func:`.transform_to_lyprox` to transform the data into the LyProX format
+        given the ``COLUMN_MAP`` object in the ``mapping_file``.
+        """
+        logger.debug(self.model_dump_json(indent=2))
+
+        raw = load_patient_data(
+            file_path=self.raw_input,
+            header=list(range(self.num_header_rows)),
+        )
+        raw = clean_header(
+            table=raw,
+            num_cols=raw.shape[1],
+            num_header_rows=self.num_header_rows,
+        )
+
+        cols_to_drop = raw.columns[self.drop_cols]
+        trimmed = raw.drop(cols_to_drop, axis="columns")
+        trimmed = trimmed.drop(index=self.drop_rows)
+        trimmed = trimmed.dropna(axis="index", how="all")
+        logger.info(f"Dropped rows {self.drop_rows} and columns {cols_to_drop}.")
+
+        spec = importlib.util.spec_from_file_location("map_module", self.mapping_file)
+        mapping = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mapping)
+        logger.info(f"Imported mapping instructions from {self.mapping_file}")
+
+        reduced = exclude_patients(trimmed, mapping.EXCLUDE)
+        processed = transform_to_lyprox(reduced, mapping.COLUMN_MAP)
+
+        if ("tumor", "1", "side") in processed.columns:
+            processed = leftright_to_ipsicontra(processed)
+
+        save_table_to_csv(file_path=self.output_file, table=processed)
 
 
 class ParsingError(Exception):
@@ -114,6 +135,8 @@ def clean_header(
                 columns={f"Unnamed: {col}_level_{row}": f"{col}_lvl_{row}"},
                 inplace=True,
             )
+
+    logger.debug("Cleaned headers of the raw data.")
     return table
 
 
@@ -185,9 +208,9 @@ def generate_markdown_docs(
     return md_docs
 
 
-@log_state()
 def transform_to_lyprox(
-    raw: pd.DataFrame, column_map: dict[tuple, dict[str, Any]]
+    raw: pd.DataFrame,
+    column_map: dict[tuple, dict[str, Any]],
 ) -> pd.DataFrame:
     """Transform ``raw`` data into table that can be uploaded directly to `LyProX`_.
 
@@ -252,10 +275,11 @@ def transform_to_lyprox(
                     f"Column {multi_idx_col} has neither a `default` value nor `func` "
                     "describing how to fill this column."
                 )
+
+    logger.info("Transformed raw data to LyProX format.")
     return processed
 
 
-@log_state()
 def leftright_to_ipsicontra(data: pd.DataFrame):
     """Change absolute side reporting to tumor-relative.
 
@@ -277,10 +301,10 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     if len_before != len(data):
         raise RuntimeError("Number of patients changed")
 
+    logger.info("Transformed side reporting to ipsi- and contralateral.")
     return data
 
 
-@log_state()
 def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
     """Exclude patients in the ``raw`` data based on a list of what to ``exclude``.
 
@@ -298,39 +322,18 @@ def exclude_patients(raw: pd.DataFrame, exclude: list[tuple[str, Any]]):
     0   43           3
     2   18           2
     """
+    num_before = len(raw)
+    filtered = raw.copy()
+
     for column, check in exclude:
-        exclude = check(raw[column])
-        raw = raw.loc[~exclude]
-    return raw
+        is_excluded = check(filtered[column])
+        filtered = filtered.loc[~is_excluded]
+
+    num_after = len(filtered)
+    logger.info(f"Excluded {num_before - num_after} patients.")
+    return filtered
 
 
-def main(args: argparse.Namespace):
-    """Run the lyproxify main function."""
-    raw: pd.DataFrame = load_patient_data(args.input, header=args.header_rows)
-    raw = clean_header(
-        raw, num_cols=raw.shape[1], num_header_rows=len(args.header_rows)
-    )
-
-    cols_to_drop = raw.columns[args.drop_cols]
-    trimmed = raw.drop(cols_to_drop, axis="columns")
-    trimmed = trimmed.drop(index=args.drop_rows)
-    trimmed = trimmed.dropna(axis="index", how="all")
-    logger.info(f"Dropped rows {args.drop_rows} and columns {cols_to_drop}.")
-
-    spec = importlib.util.spec_from_file_location("map_module", args.mapping)
-    mapping = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mapping)
-    logger.info(f"Imported mapping instructions from {args.mapping}")
-
-    reduced = exclude_patients(trimmed, mapping.EXCLUDE)
-
-    if args.add_index:
-        reduced.insert(0, ("patient", "#", "id"), list(range(len(reduced))))
-        logger.info("Added index column to data.")
-
-    processed = transform_to_lyprox(reduced, mapping.COLUMN_MAP)
-
-    if ("tumor", "1", "side") in processed.columns:
-        processed = leftright_to_ipsicontra(processed)
-
-    save_table_to_csv(args.output, processed)
+if __name__ == "__main__":
+    main = assemble_main(settings_cls=LyproxifyCLI, prog_name="lyproxify")
+    main()

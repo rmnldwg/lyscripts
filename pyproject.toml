@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lyscripts"
-description = "Package containing scripts used in lynference pipelines"
+description = "Package to interact with lymphatic progression data and models."
 authors = [
 	{name = "Roman Ludwig", email = "roman.ludwig@usz.ch"}
 ]
@@ -36,8 +36,10 @@ dependencies = [
     "deprecated",
     "joblib",
     "pydantic",
-    "pydantic-settings",
+    "pydantic-settings >= 2.7.0",
+    "numpydantic",
     "lydata >= 0.2.0",
+    "loguru",
 ]
 dynamic = ["version"]
 

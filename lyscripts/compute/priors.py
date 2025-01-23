@@ -4,17 +4,15 @@ This is done for each sample and for a list of specified scenarios. The computat
 cached at a location specified by the ``--cache_dir`` argument using ``joblib``.
 """
 
-import argparse
-import logging
-from pathlib import Path
 from typing import Literal
 
 import numpy as np
+from loguru import logger
 from pydantic import Field
-from pydantic_settings import CliSettingsSource
 from rich import progress
 
-from lyscripts.compute.utils import ComputeCmdSettings, HDF5FileStorage, get_cached
+from lyscripts.cli import assemble_main
+from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
@@ -22,53 +20,6 @@ from lyscripts.configs import (
     add_dists,
     construct_model,
 )
-from lyscripts.utils import merge_yaml_configs
-
-logger = logging.getLogger(__name__)
-
-
-class CmdSettings(ComputeCmdSettings):
-    """Settings required to compute priors from model configs and samples."""
-
-    priors: HDF5FileStorage = Field(description="Storage for the computed priors.")
-
-
-def _add_parser(
-    subparsers: argparse._SubParsersAction,
-    help_formatter,
-):
-    """Add an ``ArgumentParser`` to the subparsers action."""
-    parser = subparsers.add_parser(
-        Path(__file__).name.replace(".py", ""),
-        description=__doc__,
-        help=__doc__,
-        formatter_class=help_formatter,
-    )
-    _add_arguments(parser)
-
-
-def _add_arguments(parser: argparse.ArgumentParser):
-    """Add arguments to a ``subparsers`` instance and run its main function when chosen.
-
-    This is called by the parent module that is called via the command line.
-    """
-    parser.add_argument(
-        "--configs",
-        default=[],
-        nargs="*",
-        help=(
-            "Path(s) to YAML configuration file(s). Subsequent files overwrite "
-            "previous ones. Command line arguments take precedence over all files."
-        ),
-    )
-    parser.set_defaults(
-        run_main=main,
-        cli_settings_source=CliSettingsSource(
-            settings_cls=CmdSettings,
-            cli_use_class_docs_for_groups=True,
-            root_parser=parser,
-        ),
-    )
 
 
 def compute_priors(
@@ -107,42 +58,52 @@ def compute_priors(
     return np.stack(priors)
 
 
-def main(args: argparse.Namespace):
-    """Compute the prior state distribution for each sample."""
-    yaml_configs = merge_yaml_configs(args.configs)
-    cmd = CmdSettings(
-        _cli_settings_source=args.cli_settings_source(parsed_args=args),
-        **yaml_configs,
-    )
-    logger.debug(cmd.model_dump_json(indent=2))
+class PriorsCLI(BaseComputeCLI):
+    """Compute the prior state distributions from MCMC samples."""
 
-    global_attrs = cmd.model_dump(include={"model", "graph", "distributions"})
-    cmd.priors.set_attrs(attrs=global_attrs, dataset="/")
+    priors: HDF5FileStorage = Field(description="Storage for the computed priors.")
 
-    samples = cmd.sampling.load()
-    cached_compute_priors = get_cached(compute_priors, cmd.cache_dir)
-    num_scenarios = len(cmd.scenarios)
+    def cli_cmd(self) -> None:
+        """Start the ``priors`` subcommand.
 
-    for i, scenario in enumerate(cmd.scenarios):
-        _fields = {"t_stages", "t_stages_dist", "mode"}
-        prior_kwargs = scenario.model_dump(include=_fields)
+        Given a ``graph``, ``model``, ``distributions`` over diagnosis times, and
+        MCMC samples loaded from the ``sampling`` argument, this command computes the
+        prior state distributions for each of the specified ``scenarios``.
 
-        priors = cached_compute_priors(
-            model_config=cmd.model,
-            graph_config=cmd.graph,
-            dist_configs=cmd.distributions,
-            samples=samples,
-            progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
-            **prior_kwargs,
-        )
+        Precomputing these state distributions is useful, because they largely only
+        depend on T-stage and not on the diagnosis or involvement of interest. Hence,
+        computing the :py:mod:`~lyscripts.compute.posteriors` and
+        :py:mod:`~lyscripts.compute.risks` can be sped up.
 
-        cmd.priors.save(values=priors, dataset=f"{i:03d}")
-        cmd.priors.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
+        Note that this command will use `joblib`_ to cache its computations.
+
+        .. _joblib: https://joblib.readthedocs.io/
+        """
+        logger.debug(self.model_dump_json(indent=2))
+        global_attrs = self.model_dump(include={"model", "graph", "distributions"})
+        self.priors.set_attrs(attrs=global_attrs, dataset="/")
+
+        samples = self.sampling.load()
+        cached_compute_priors = get_cached(compute_priors, self.cache_dir)
+        num_scenarios = len(self.scenarios)
+
+        for i, scenario in enumerate(self.scenarios):
+            _fields = {"t_stages", "t_stages_dist", "mode"}
+            prior_kwargs = scenario.model_dump(include=_fields)
+
+            priors = cached_compute_priors(
+                model_config=self.model,
+                graph_config=self.graph,
+                dist_configs=self.distributions,
+                samples=samples,
+                progress_desc=f"Computing priors for scenario {i + 1}/{num_scenarios}",
+                **prior_kwargs,
+            )
+
+            self.priors.save(values=priors, dataset=f"{i:03d}")
+            self.priors.set_attrs(attrs=prior_kwargs, dataset=f"{i:03d}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    _add_arguments(parser)
-
-    args = parser.parse_args()
-    args.run_main(args)
+    main = assemble_main(settings_cls=PriorsCLI, prog_name="compute priors")
+    main()

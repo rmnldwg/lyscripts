@@ -5,6 +5,7 @@ Filtering Datasets
 
 .. automodule:: lyscripts.data.filter
     :members:
+    :show-inheritance:
 
 Command Help
 ------------
