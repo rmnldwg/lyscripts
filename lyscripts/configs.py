@@ -510,7 +510,7 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
     of the `pydantic-settings`_ GitHub repository.
 
     Essentially, this little hack allows a user to specify a one or multiple YAML files
-    from which the CLI should read configurtions. Normally, `pydanitc-settings` only
+    from which the CLI should read configurations. Normally, `pydantic-settings` only
     allows hard-coding the location of these config files.
 
     .. _this comment: https://github.com/pydantic/pydantic-settings/issues/259#issuecomment-2549444286

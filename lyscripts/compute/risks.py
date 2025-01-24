@@ -24,6 +24,7 @@ from lyscripts.configs import (
     add_modalities,
     construct_model,
 )
+from lyscripts.utils import console
 
 
 def compute_risks(
@@ -48,8 +49,9 @@ def compute_risks(
 
     for posterior in progress.track(
         sequence=posteriors,
-        description="[blue]INFO     [/blue]" + progress_desc,
+        description=progress_desc,
         total=len(posteriors),
+        console=console,
     ):
         risks.append(
             model.marginalize(involvement=involvement, given_state_dist=posterior)

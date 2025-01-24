@@ -20,6 +20,7 @@ from lyscripts.configs import (
     add_dists,
     construct_model,
 )
+from lyscripts.utils import console
 
 
 def compute_priors(
@@ -44,8 +45,9 @@ def compute_priors(
 
     for sample in progress.track(
         sequence=samples,
-        description="[blue]INFO     [/blue]" + progress_desc,
+        description=progress_desc,
         total=len(samples),
+        console=console,
     ):
         model.set_params(*sample)
         priors.append(

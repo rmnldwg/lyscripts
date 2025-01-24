@@ -36,6 +36,7 @@ from lyscripts.configs import (
     add_modalities,
     construct_model,
 )
+from lyscripts.utils import console
 
 
 def compute_prevalences(
@@ -63,8 +64,9 @@ def compute_prevalences(
 
     for prior in progress.track(
         sequence=priors,
-        description="[blue]INFO     [/blue]" + progress_desc,
+        description=progress_desc,
         total=len(priors),
+        console=console,
     ):
         obs_dist = model.obs_dist(given_state_dist=prior)
         involvement = diagnosis.to_involvement(next(iter(modality_configs)))

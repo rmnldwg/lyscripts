@@ -27,6 +27,7 @@ from lyscripts.configs import (
     add_modalities,
     construct_model,
 )
+from lyscripts.utils import console
 
 
 def compute_posteriors(
@@ -56,8 +57,9 @@ def compute_posteriors(
 
     for prior in progress.track(
         sequence=priors,
-        description="[blue]INFO     [/blue]" + progress_desc,
+        description=progress_desc,
         total=len(priors),
+        console=console,
     ):
         posteriors.append(
             model.posterior_state_dist(
