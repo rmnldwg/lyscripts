@@ -8,6 +8,7 @@ import h5py
 import numpy as np
 import pandas as pd
 import pytest
+from lydata import C
 from lydata.utils import ModalityConfig
 from pydantic import TypeAdapter
 
@@ -306,6 +307,15 @@ def computed_priors(
 def test_generated_data(generated_data: pd.DataFrame) -> None:
     """Test the generated data."""
     assert generated_data.shape == (200, 3)
+    assert (
+        generated_data["imaging", "ipsi", "II"].sum()
+        > generated_data["imaging", "ipsi", "III"].sum()
+    )
+    assert generated_data.ly.t_stage.isin(["early", "late"]).all()
+    assert all(
+        generated_data.ly.query(C("t_stage") == "early")["imaging", "ipsi"].mean()
+        < generated_data.ly.query(C("t_stage") == "late")["imaging", "ipsi"].mean()
+    )
 
 
 def test_scenarios(scenarios_config: list[ScenarioConfig]) -> None:
