@@ -20,7 +20,7 @@ from lyscripts.configs import (
     InvolvementConfig,
     ModalityConfig,
     ModelConfig,
-    add_dists,
+    add_distributions,
     add_modalities,
     construct_model,
 )
@@ -43,7 +43,7 @@ def compute_risks(
     distribution over the states that correspond to the involvement of interest.
     """
     model = construct_model(model_config, graph_config)
-    model = add_dists(model, dist_configs)
+    model = add_distributions(model, dist_configs)
     model = add_modalities(model, modality_configs)
     risks = []
 

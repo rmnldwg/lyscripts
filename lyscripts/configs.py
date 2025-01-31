@@ -169,6 +169,15 @@ class ModelConfig(BaseModel):
     max_time: int = Field(
         default=10, description="Max. number of time-steps to evolve the model over."
     )
+    named_params: Sequence[str] = Field(
+        default=None,
+        description=(
+            "Subset of valid model parameters a sampler may provide in the form of a "
+            "dictionary to the model instead of as an array. Or, after sampling, with "
+            "this list, one may safely recover which parameter corresponds to which "
+            "index in the sample."
+        ),
+    )
     kwargs: dict[str, Any] = Field(
         default={},
         description="Additional keyword arguments to pass to the model constructor.",
@@ -311,12 +320,6 @@ class SamplingConfig(BaseModel):
             "yet fully implemented."
         ),
     )
-    param_names: list[str] = Field(
-        default=None,
-        description=(
-            "If provided, only these parameters will be inferred during model sampling."
-        ),
-    )
 
     def load(self, thin: int = 1) -> np.ndarray:
         """Load the samples from the HDF5 file.
@@ -420,16 +423,17 @@ def construct_model(
     model = constructor(
         graph_dict=flatten(graph_config.model_dump()),
         max_time=model_config.max_time,
+        named_params=model_config.named_params,
         **model_config.kwargs,
     )
     logger.info(f"Constructed model: {model}")
     return model
 
 
-def add_dists(
+def add_distributions(
     model: Model,
-    distributions: dict[str | int, DistributionConfig],
-    dist_map: dict[FuncNameType, Callable] | None = None,
+    configs: dict[str | int, DistributionConfig],
+    mapping: dict[FuncNameType, Callable] | None = None,
     inplace: bool = False,
 ) -> Model:
     """Construct and add distributions over diagnose times to a ``model``."""
@@ -437,14 +441,14 @@ def add_dists(
         model = deepcopy(model)
         logger.debug("Created deepcopy of model.")
 
-    dist_map = dist_map or DIST_MAP
+    mapping = mapping or DIST_MAP
 
-    for t_stage, dist_config in distributions.items():
+    for t_stage, dist_config in configs.items():
         if dist_config.kind == "frozen":
             support = np.arange(model.max_time + 1)
-            dist = dist_map[dist_config.func](support, **dist_config.params)
+            dist = mapping[dist_config.func](support, **dist_config.params)
         elif dist_config.kind == "parametric":
-            dist = dist_map[dist_config.func]
+            dist = mapping[dist_config.func]
         else:
             raise ValueError(f"Unknown distribution kind: {dist_config.kind}")
 
@@ -454,7 +458,7 @@ def add_dists(
 
         logger.debug(f"Set {dist_config.kind} distribution for '{t_stage}': {dist}")
 
-    logger.info(f"Added {len(distributions)} distributions to model: {model}")
+    logger.info(f"Added {len(configs)} distributions to model: {model}")
     return model
 
 

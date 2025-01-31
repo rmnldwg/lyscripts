@@ -17,7 +17,7 @@ from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
     ModelConfig,
-    add_dists,
+    add_distributions,
     construct_model,
 )
 from lyscripts.utils import console
@@ -40,7 +40,7 @@ def compute_priors(
     each of the ``t_stages`` and marginalized over using the ``t_stages_dist``.
     """
     model = construct_model(model_config, graph_config)
-    model = add_dists(model, dist_configs)
+    model = add_distributions(model, dist_configs)
     priors = []
 
     for sample in progress.track(

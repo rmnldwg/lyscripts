@@ -32,7 +32,7 @@ from lyscripts.configs import (
     ModalityConfig,
     ModelConfig,
     ScenarioConfig,
-    add_dists,
+    add_distributions,
     add_modalities,
     construct_model,
 )
@@ -51,7 +51,7 @@ def compute_prevalences(
 ) -> np.ndarray:
     """Compute the prevalence of a diagnosis given the priors and the model."""
     model = construct_model(model_config, graph_config)
-    model = add_dists(model, dist_configs)
+    model = add_distributions(model, dist_configs)
 
     if len(modality_configs) != 1:
         msg = "Only one modality is supported for prevalence prediction."
