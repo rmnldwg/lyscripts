@@ -18,7 +18,7 @@ import warnings
 from collections.abc import Callable, Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,13 @@ from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
 from lymph import models
 from lymph.types import Model, PatternType
-from pydantic import BaseModel, ConfigDict, Field, FilePath
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+)
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -153,10 +159,22 @@ class GraphConfig(BaseModel):
     )
 
 
+def has_model_symbol(path: Path) -> Path:
+    """Check if the Python file at ``path`` defines a symbol named ``model``."""
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "model"):
+        raise ValueError(f"Python file at {path} does not define a symbol 'model'.")
+
+    return path
+
+
 class ModelConfig(BaseModel):
     """Define which of the ``lymph`` models to use and how to set them up."""
 
-    external: FilePath | None = Field(
+    external_file: Annotated[FilePath, AfterValidator(has_model_symbol)] | None = Field(
         default=None,
         description="Path to a Python file that defines a model.",
     )
@@ -265,7 +283,7 @@ class DeprecatedModelConfig(BaseModel):
 class SamplingConfig(BaseModel):
     """Settings to configure the MCMC sampling."""
 
-    file: Path = Field(
+    storage_file: Path = Field(
         description="Path to HDF5 file store results or load last state."
     )
     history_file: Path | None = Field(
@@ -329,7 +347,7 @@ class SamplingConfig(BaseModel):
         not necessary if the samples were already thinned during the sampling process.
         """
         return load_model_samples(
-            file_path=self.file,
+            file_path=self.storage_file,
             name=self.dataset,
             thin=thin,
         )
@@ -384,13 +402,7 @@ def _construct_model_from_external(path: Path) -> Model:
     module_name = path.stem
     spec = importlib.util.spec_from_file_location(module_name, path)
     module = importlib.util.module_from_spec(spec)
-
-    try:
-        spec.loader.exec_module(module)
-    except FileNotFoundError as fnf_err:
-        logger.error(f"Could not load model from {path}: {fnf_err}")
-        raise fnf_err
-
+    spec.loader.exec_module(module)
     logger.info(f"Loaded model from {path}. This ignores model and graph configs.")
     return module.model
 
@@ -416,8 +428,8 @@ def construct_model(
 
     .. _lymph: https://lymph-model.readthedocs.io/stable/
     """
-    if model_config.external is not None:
-        return _construct_model_from_external(model_config.external)
+    if model_config.external_file is not None:
+        return _construct_model_from_external(model_config.external_file)
 
     cls = getattr(models, model_config.class_name)
     constructor = getattr(cls, model_config.constructor)

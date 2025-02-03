@@ -319,7 +319,7 @@ def init_sampler(settings: SampleCLI, ndim: int, pool: Any) -> emcee.EnsembleSam
     """Initialize the ``emcee.EnsembleSampler`` with the given ``settings``."""
     nwalkers = ndim * settings.sampling.walkers_per_dim
     backend = get_hdf5_backend(
-        file_path=settings.sampling.file,
+        file_path=settings.sampling.storage_file,
         dataset=settings.sampling.dataset,
         nwalkers=nwalkers,
         ndim=ndim,

@@ -14,7 +14,7 @@ class JoinCLI(BaseCLI):
     """Join multiple lymphatic progression datasets into a single dataset."""
 
     inputs: list[DataConfig] = Field(description="The datasets to join.")
-    output: Path = Field(description="The path to the output dataset.")
+    output_file: Path = Field(description="The path to the output dataset.")
 
     def cli_cmd(self) -> None:
         r"""Start the ``join`` subcommand.
@@ -69,7 +69,7 @@ class JoinCLI(BaseCLI):
                     ignore_index=True,
                 )
 
-        save_table_to_csv(file_path=self.output, table=joined)
+        save_table_to_csv(file_path=self.output_file, table=joined)
 
 
 if __name__ == "__main__":

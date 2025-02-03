@@ -47,7 +47,7 @@ def ensure_column_map(file: Path) -> Path:
 class LyproxifyCLI(BaseCLI):
     """Map any CSV file to the LyProX format with the help of a Python mapping dict."""
 
-    raw_input: FilePath = Field(description="Location of raw CSV data.")
+    input_file: FilePath = Field(description="Location of raw CSV data.")
     num_header_rows: int = Field(
         default=1,
         description="Number of rows comprising the header of the raw CSV file.",
@@ -58,7 +58,7 @@ class LyproxifyCLI(BaseCLI):
         AfterValidator(ensure_column_map),
     ] = Field(
         description=(
-            "Location of Python containing a `COLUMN_MAP` dictionary. It may also "
+            "Location of Python file containing a `COLUMN_MAP` dictionary. It may also "
             "contain an `EXCLUDE` list of tuples `(column, check)` to exclude patients."
         )
     )
@@ -88,7 +88,7 @@ class LyproxifyCLI(BaseCLI):
         logger.debug(self.model_dump_json(indent=2))
 
         raw = load_patient_data(
-            file_path=self.raw_input,
+            file_path=self.input_file,
             header=list(range(self.num_header_rows)),
         )
         raw = clean_header(
