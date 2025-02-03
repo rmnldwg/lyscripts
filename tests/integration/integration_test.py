@@ -221,7 +221,7 @@ def drawn_samples(
             str(modalities_config_file.resolve()),
             "--configs",
             str(sampling_config_file.resolve()),
-            "--sampling.file",
+            "--sampling.storage-file",
             str(samples_file.resolve()),
             # mapping because generated data already has the correct T-stage column
             '--data.mapping={"early": "early", "late": "late"}',
@@ -232,7 +232,9 @@ def drawn_samples(
     main = assemble_main(settings_cls=SampleCLI, prog_name="sample")
     main()
     _yaml_params = load_yaml_params(sampling_config_file)
-    _sampling_config = SamplingConfig(file=samples_file, **_yaml_params["sampling"])
+    _sampling_config = SamplingConfig(
+        storage_file=samples_file, **_yaml_params["sampling"]
+    )
     return _sampling_config.load()
 
 
@@ -292,7 +294,7 @@ def computed_priors(
             str(scenarios_config_file.resolve()),
             "--configs",
             str(sampling_config_file.resolve()),
-            "--sampling.file",
+            "--sampling.storage-file",
             str(samples_file.resolve()),
             "--priors.file",
             str(priors_file),

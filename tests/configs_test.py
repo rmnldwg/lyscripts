@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from lyscripts.configs import (
     DistributionConfig,
@@ -15,7 +16,7 @@ from lyscripts.configs import (
 
 @pytest.fixture
 def external_model_config() -> ModelConfig:
-    return ModelConfig(external=Path("tests/_dummy_model.py"))
+    return ModelConfig(external_file=Path("tests/_dummy_model.py"))
 
 
 @pytest.fixture
@@ -50,6 +51,18 @@ def test_model_from_external(
     """Check if loading model from external file works."""
     model = construct_model(external_model_config, graph_config)
     assert model.was_externally_loaded
+
+
+def test_no_model_from_external() -> None:
+    """Ensure a `ValidationError` is raised when no model is provided."""
+    with pytest.raises(ValidationError):
+        ModelConfig(external_file=Path("tests/_dummy_no_model.py"))
+
+
+def test_model_from_no_file() -> None:
+    """Ensure a `ValidationError` is raised when the file does not exist."""
+    with pytest.raises(ValidationError):
+        ModelConfig(external_file=Path("tests/_no_file.py"))
 
 
 def test_model_from_config(
