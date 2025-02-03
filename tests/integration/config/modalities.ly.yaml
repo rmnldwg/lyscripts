@@ -1,3 +1,5 @@
+version: 1
+
 modalities:
   imaging:
     spec: 0.85

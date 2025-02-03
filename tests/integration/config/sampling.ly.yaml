@@ -1,3 +1,5 @@
+version: 1
+
 sampling:
   seed: 42
   walkers_per_dim: 2
