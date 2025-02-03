@@ -545,7 +545,10 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
         with open(file_path, encoding=self.yaml_file_encoding) as yaml_file:
             data = yaml.safe_load(yaml_file) or {}
             if data.get("version") != 1:
-                raise ValueError(f"`version` of config file {file_path} must be 1.")
+                raise ValueError(
+                    f"Config file {file_path} does not have a 'version: 1' key. "
+                    "For compatibility reasons, all config files must have this key."
+                )
             return data
 
     def __call__(self) -> dict[str, Any]:
