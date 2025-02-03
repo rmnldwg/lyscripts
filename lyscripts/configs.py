@@ -584,17 +584,9 @@ class BaseCLI(BaseSettings):
         description=(
             "Path to the YAML file(s) that contain the configuration(s). Configs from "
             "YAML files may be overwritten by command line arguments. When multiple "
-            "files are specified, the configs are merged in the order they are given."
+            "files are specified, the configs are merged in the order they are given. "
+            "Note that every config file must have a `version: 1` key in it."
         ),
-    )
-    version: int = Field(
-        description=(
-            "Version of the configuration. Must conform to the major version of the "
-            "lyscripts package (can only be 1 at the moment). This is used to avoid "
-            "compatibility issues when the configuration format changes."
-        ),
-        ge=1,
-        le=1,
     )
 
     @classmethod
