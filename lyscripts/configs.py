@@ -22,6 +22,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+import yaml
 from loguru import logger
 from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
@@ -532,9 +533,20 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
 
         The argument ``yaml_file_path_field`` should be the :py:class:`BaseSettings`
         field that contains the path(s) to the YAML file(s).
+
+        Note that all config files must have a ``version: 1`` key in them to be
+        recognized as valid config files.
         """
         self.yaml_file_path_field = yaml_file_path_field
         super().__init__(settings_cls, yaml_file, yaml_file_encoding)
+
+    def _read_file(self, file_path: Path) -> dict[str, Any]:
+        """Read the YAML and raise exception when ``version: 1`` not found."""
+        with open(file_path, encoding=self.yaml_file_encoding) as yaml_file:
+            data = yaml.safe_load(yaml_file) or {}
+            if data.get("version") != 1:
+                raise ValueError(f"`version` of config file {file_path} must be 1.")
+            return data
 
     def __call__(self) -> dict[str, Any]:
         """Reload the config files from the paths in the current state."""
