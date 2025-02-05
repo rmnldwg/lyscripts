@@ -79,4 +79,7 @@ def test_model_from_config(
         model=model,
         configs=distribution_configs,
     )
+    assert model.ipsi.get_distribution(t_stage="late") == model.contra.get_distribution(
+        t_stage="late"
+    )
     assert model.get_num_dims() == len(model_config.named_params)
