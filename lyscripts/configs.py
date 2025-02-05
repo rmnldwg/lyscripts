@@ -229,7 +229,7 @@ class DeprecatedModelConfig(BaseModel):
             "distributions are supported."
         ),
     )
-    class_: Literal["Unilateral", "Bilateral", "Midline"] = Field(
+    class_: Literal["Unilateral", "Bilateral", "MidlineBilateral"] = Field(
         description="Name of the model class. Only binary models are supported.",
         alias="class",
     )
@@ -245,6 +245,8 @@ class DeprecatedModelConfig(BaseModel):
             category=DeprecationWarning,
             stacklevel=2,
         )
+        if self.class_ == "MidlineBilateral":
+            self.class_ = "Midline"
         return super().model_post_init(__context)
 
     def translate(self) -> tuple[ModelConfig, dict[int | str, DistributionConfig]]:
@@ -467,7 +469,8 @@ def add_distributions(
 
         model.set_distribution(t_stage, dist)
         if dist_config.kind == "parametric" and dist_config.params:
-            model.get_distribution(t_stage).set_params(**dist_config.params)
+            params = {f"{t_stage}_{k}": v for k, v in dist_config.params.items()}
+            model.set_params(**params)
 
         logger.debug(f"Set {dist_config.kind} distribution for '{t_stage}': {dist}")
 
