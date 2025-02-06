@@ -17,7 +17,7 @@ model:
   first_binom_prob: 0.3         # defines shape of time prior of first T-stage
   max_t: 10                     # max number of time steps to evolve system
   t_stages: [early, late]       # T-stages to consider in the data
-  class: Midline             # model class to use (see `lymph-model` docs)
+  class: MidlineBilateral       # model class to use (see `lymph-model` docs)
   # keyword arguments to pass to the model constructor
   kwargs:
     base_symmetric: false
