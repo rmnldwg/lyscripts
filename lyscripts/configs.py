@@ -18,16 +18,23 @@ import warnings
 from collections.abc import Callable, Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import numpy as np
 import pandas as pd
+import yaml
 from loguru import logger
 from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
 from lymph import models
 from lymph.types import Model, PatternType
-from pydantic import BaseModel, ConfigDict, Field, FilePath
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+)
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -152,10 +159,22 @@ class GraphConfig(BaseModel):
     )
 
 
+def has_model_symbol(path: Path) -> Path:
+    """Check if the Python file at ``path`` defines a symbol named ``model``."""
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "model"):
+        raise ValueError(f"Python file at {path} does not define a symbol 'model'.")
+
+    return path
+
+
 class ModelConfig(BaseModel):
     """Define which of the ``lymph`` models to use and how to set them up."""
 
-    external: FilePath | None = Field(
+    external_file: Annotated[FilePath, AfterValidator(has_model_symbol)] | None = Field(
         default=None,
         description="Path to a Python file that defines a model.",
     )
@@ -168,6 +187,15 @@ class ModelConfig(BaseModel):
     )
     max_time: int = Field(
         default=10, description="Max. number of time-steps to evolve the model over."
+    )
+    named_params: Sequence[str] = Field(
+        default=None,
+        description=(
+            "Subset of valid model parameters a sampler may provide in the form of a "
+            "dictionary to the model instead of as an array. Or, after sampling, with "
+            "this list, one may safely recover which parameter corresponds to which "
+            "index in the sample."
+        ),
     )
     kwargs: dict[str, Any] = Field(
         default={},
@@ -201,7 +229,7 @@ class DeprecatedModelConfig(BaseModel):
             "distributions are supported."
         ),
     )
-    class_: Literal["Unilateral", "Bilateral", "Midline"] = Field(
+    class_: Literal["Unilateral", "Bilateral", "Midline", "MidlineBilateral"] = Field(
         description="Name of the model class. Only binary models are supported.",
         alias="class",
     )
@@ -217,6 +245,8 @@ class DeprecatedModelConfig(BaseModel):
             category=DeprecationWarning,
             stacklevel=2,
         )
+        if "Midline" in self.class_:
+            self.class_ = "Midline"
         return super().model_post_init(__context)
 
     def translate(self) -> tuple[ModelConfig, dict[int | str, DistributionConfig]]:
@@ -255,7 +285,7 @@ class DeprecatedModelConfig(BaseModel):
 class SamplingConfig(BaseModel):
     """Settings to configure the MCMC sampling."""
 
-    file: Path = Field(
+    storage_file: Path = Field(
         description="Path to HDF5 file store results or load last state."
     )
     history_file: Path | None = Field(
@@ -311,12 +341,6 @@ class SamplingConfig(BaseModel):
             "yet fully implemented."
         ),
     )
-    param_names: list[str] = Field(
-        default=None,
-        description=(
-            "If provided, only these parameters will be inferred during model sampling."
-        ),
-    )
 
     def load(self, thin: int = 1) -> np.ndarray:
         """Load the samples from the HDF5 file.
@@ -325,7 +349,7 @@ class SamplingConfig(BaseModel):
         not necessary if the samples were already thinned during the sampling process.
         """
         return load_model_samples(
-            file_path=self.file,
+            file_path=self.storage_file,
             name=self.dataset,
             thin=thin,
         )
@@ -380,13 +404,7 @@ def _construct_model_from_external(path: Path) -> Model:
     module_name = path.stem
     spec = importlib.util.spec_from_file_location(module_name, path)
     module = importlib.util.module_from_spec(spec)
-
-    try:
-        spec.loader.exec_module(module)
-    except FileNotFoundError as fnf_err:
-        logger.error(f"Could not load model from {path}: {fnf_err}")
-        raise fnf_err
-
+    spec.loader.exec_module(module)
     logger.info(f"Loaded model from {path}. This ignores model and graph configs.")
     return module.model
 
@@ -412,24 +430,25 @@ def construct_model(
 
     .. _lymph: https://lymph-model.readthedocs.io/stable/
     """
-    if model_config.external is not None:
-        return _construct_model_from_external(model_config.external)
+    if model_config.external_file is not None:
+        return _construct_model_from_external(model_config.external_file)
 
     cls = getattr(models, model_config.class_name)
     constructor = getattr(cls, model_config.constructor)
     model = constructor(
         graph_dict=flatten(graph_config.model_dump()),
         max_time=model_config.max_time,
+        named_params=model_config.named_params,
         **model_config.kwargs,
     )
     logger.info(f"Constructed model: {model}")
     return model
 
 
-def add_dists(
+def add_distributions(
     model: Model,
-    distributions: dict[str | int, DistributionConfig],
-    dist_map: dict[FuncNameType, Callable] | None = None,
+    configs: dict[str | int, DistributionConfig],
+    mapping: dict[FuncNameType, Callable] | None = None,
     inplace: bool = False,
 ) -> Model:
     """Construct and add distributions over diagnose times to a ``model``."""
@@ -437,24 +456,25 @@ def add_dists(
         model = deepcopy(model)
         logger.debug("Created deepcopy of model.")
 
-    dist_map = dist_map or DIST_MAP
+    mapping = mapping or DIST_MAP
 
-    for t_stage, dist_config in distributions.items():
+    for t_stage, dist_config in configs.items():
         if dist_config.kind == "frozen":
             support = np.arange(model.max_time + 1)
-            dist = dist_map[dist_config.func](support, **dist_config.params)
+            dist = mapping[dist_config.func](support, **dist_config.params)
         elif dist_config.kind == "parametric":
-            dist = dist_map[dist_config.func]
+            dist = mapping[dist_config.func]
         else:
             raise ValueError(f"Unknown distribution kind: {dist_config.kind}")
 
         model.set_distribution(t_stage, dist)
         if dist_config.kind == "parametric" and dist_config.params:
-            model.get_distribution(t_stage).set_params(**dist_config.params)
+            params = {f"{t_stage}_{k}": v for k, v in dist_config.params.items()}
+            model.set_params(**params)
 
         logger.debug(f"Set {dist_config.kind} distribution for '{t_stage}': {dist}")
 
-    logger.info(f"Added {len(distributions)} distributions to model: {model}")
+    logger.info(f"Added {len(configs)} distributions to model: {model}")
     return model
 
 
@@ -510,7 +530,7 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
     of the `pydantic-settings`_ GitHub repository.
 
     Essentially, this little hack allows a user to specify a one or multiple YAML files
-    from which the CLI should read configurtions. Normally, `pydanitc-settings` only
+    from which the CLI should read configurations. Normally, `pydantic-settings` only
     allows hard-coding the location of these config files.
 
     .. _this comment: https://github.com/pydantic/pydantic-settings/issues/259#issuecomment-2549444286
@@ -528,9 +548,23 @@ class DynamicYamlConfigSettingsSource(YamlConfigSettingsSource):
 
         The argument ``yaml_file_path_field`` should be the :py:class:`BaseSettings`
         field that contains the path(s) to the YAML file(s).
+
+        Note that all config files must have a ``version: 1`` key in them to be
+        recognized as valid config files.
         """
         self.yaml_file_path_field = yaml_file_path_field
         super().__init__(settings_cls, yaml_file, yaml_file_encoding)
+
+    def _read_file(self, file_path: Path) -> dict[str, Any]:
+        """Read the YAML and raise exception when ``version: 1`` not found."""
+        with open(file_path, encoding=self.yaml_file_encoding) as yaml_file:
+            data = yaml.safe_load(yaml_file) or {}
+            if data.get("version") != 1:
+                raise ValueError(
+                    f"Config file {file_path} does not have a 'version: 1' key. "
+                    "For compatibility reasons, all config files must have this key."
+                )
+            return data
 
     def __call__(self) -> dict[str, Any]:
         """Reload the config files from the paths in the current state."""
@@ -568,17 +602,9 @@ class BaseCLI(BaseSettings):
         description=(
             "Path to the YAML file(s) that contain the configuration(s). Configs from "
             "YAML files may be overwritten by command line arguments. When multiple "
-            "files are specified, the configs are merged in the order they are given."
+            "files are specified, the configs are merged in the order they are given. "
+            "Note that every config file must have a `version: 1` key in it."
         ),
-    )
-    version: int = Field(
-        description=(
-            "Version of the configuration. Must conform to the major version of the "
-            "lyscripts package (can only be 1 at the moment). This is used to avoid "
-            "compatibility issues when the configuration format changes."
-        ),
-        ge=1,
-        le=1,
     )
 
     @classmethod

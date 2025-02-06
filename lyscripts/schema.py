@@ -37,9 +37,8 @@ class SchemaSettings(BaseModel):
 
     version: int = Field(
         description=(
-            "Version of the configuration. Must conform to the major version of the "
-            "lyscripts package (can only be 1 at the moment). This is used to avoid "
-            "compatibility issues when the configuration format changes."
+            "For future compatibility reasons, every config file must have a "
+            "`version: 1` field at the top level."
         ),
         ge=1,
         le=1,

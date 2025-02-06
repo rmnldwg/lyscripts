@@ -409,6 +409,15 @@
           "title": "Max Time",
           "type": "integer"
         },
+        "named_params": {
+          "default": null,
+          "description": "Subset of valid model parameters a sampler may provide in the form of a dictionary to the model instead of as an array. Or, after sampling, with this list, one may safely recover which parameter corresponds to which index in the sample.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Named Params",
+          "type": "array"
+        },
         "kwargs": {
           "default": {},
           "description": "Additional keyword arguments to pass to the model constructor.",
@@ -516,15 +525,6 @@
           "description": "Inverse temperature for thermodynamic integration. Note that this is not yet fully implemented.",
           "title": "Inverse Temp",
           "type": "number"
-        },
-        "param_names": {
-          "default": null,
-          "description": "If provided, only these parameters will be inferred during model sampling.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Param Names",
-          "type": "array"
         }
       },
       "required": [
@@ -628,7 +628,7 @@
   "description": "Settings for generating a JSON schema for lyscripts configuration files.",
   "properties": {
     "version": {
-      "description": "Version of the configuration. Must conform to the major version of the lyscripts package (can only be 1 at the moment). This is used to avoid compatibility issues when the configuration format changes.",
+      "description": "For future compatibility reasons, every config file must have a `version: 1` field at the top level.",
       "maximum": 1,
       "minimum": 1,
       "title": "Version",

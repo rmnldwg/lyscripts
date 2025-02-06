@@ -23,10 +23,11 @@ from lyscripts.configs import (
     GraphConfig,
     ModalityConfig,
     ModelConfig,
-    add_dists,
+    add_distributions,
     add_modalities,
     construct_model,
 )
+from lyscripts.utils import console
 
 
 def compute_posteriors(
@@ -49,15 +50,16 @@ def compute_posteriors(
     used to specify whether the midline extension is present or not.
     """
     model = construct_model(model_config, graph_config)
-    model = add_dists(model, dist_configs)
+    model = add_distributions(model, dist_configs)
     model = add_modalities(model, modality_configs)
     posteriors = []
     kwargs = {"midext": midext} if isinstance(model, models.Midline) else {}
 
     for prior in progress.track(
         sequence=priors,
-        description="[blue]INFO     [/blue]" + progress_desc,
+        description=progress_desc,
         total=len(priors),
+        console=console,
     ):
         posteriors.append(
             model.posterior_state_dist(

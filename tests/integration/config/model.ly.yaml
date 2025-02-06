@@ -4,3 +4,8 @@ model:
   class_name: Unilateral
   constructor: binary
   max_time: 10
+  named_params:
+    - TtoII_spread
+    - TtoIII_spread
+    - IItoIII_spread
+    - late_p

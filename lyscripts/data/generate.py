@@ -19,7 +19,7 @@ from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
     ModelConfig,
-    add_dists,
+    add_distributions,
     add_modalities,
     construct_model,
 )
@@ -76,7 +76,7 @@ class GenerateCLI(BaseCLI):
         logger.debug(self.model_dump_json(indent=2))
 
         model = construct_model(self.model, self.graph)
-        model = add_dists(model, self.distributions)
+        model = add_distributions(model, self.distributions)
         model = add_modalities(model, self.modalities)
         model.set_params(**self.params)
         logger.info(f"Set parameters: {model.get_params(as_dict=True)}")

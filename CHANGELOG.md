@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0.a5] - 2025-02-05
+
+### Bug Fixes
+
+- Provide rich `console` to compute progress bars.
+- Correctly build deprecated models.
+
+### Features
+
+- Enable sampling only named parameter subset.
+
+### Testing
+
+- Check model construction & named params.
+- Update integration test config YAML files.
+- Add external model symbol check.
+- Adding dists works correctly.\
+  Previously, it could happen that in a `Bilateral` or `Midline` model the
+  individual submodel's distributions where not synced.
+
+### Build
+
+- Bump lymph-model.
+
+### Change
+
+- Require every YAML file to have `version`.
+- Better version-related error and docs.
+- Make in-/output names more consistent.
+
+### Remove
+
+- Drop CLI required argument `version`.
+
 ## [1.0.0.a4] - 2025-01-23
 
 ### Bug Fixes
@@ -695,6 +729,8 @@ returns `None` instead. Fixes [#11]
 
 <!-- markdownlint-disable-file MD024 -->
 
+[1.0.0.a5]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a4...1.0.0.a5
+[1.0.0.a4]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a3...1.0.0.a4
 [1.0.0.a3]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a2...1.0.0.a3
 [1.0.0.a2]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a1...1.0.0.a2
 [1.0.0.a1]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a0...1.0.0.a1

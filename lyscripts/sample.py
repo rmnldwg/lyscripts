@@ -46,7 +46,7 @@ from lyscripts.configs import (
     GraphConfig,
     ModelConfig,
     SamplingConfig,
-    add_dists,
+    add_distributions,
     add_modalities,
     construct_model,
 )
@@ -319,7 +319,7 @@ def init_sampler(settings: SampleCLI, ndim: int, pool: Any) -> emcee.EnsembleSam
     """Initialize the ``emcee.EnsembleSampler`` with the given ``settings``."""
     nwalkers = ndim * settings.sampling.walkers_per_dim
     backend = get_hdf5_backend(
-        file_path=settings.sampling.file,
+        file_path=settings.sampling.storage_file,
         dataset=settings.sampling.dataset,
         nwalkers=nwalkers,
         ndim=ndim,
@@ -333,7 +333,7 @@ def init_sampler(settings: SampleCLI, ndim: int, pool: Any) -> emcee.EnsembleSam
         backend=backend,
         pool=pool,
         blobs_dtype=[("inverse_temp", np.float64)],
-        parameter_names=settings.sampling.param_names,
+        parameter_names=list(MODEL.get_named_params().keys()),
     )
 
 
@@ -369,9 +369,10 @@ class SampleCLI(BaseCLI):
         argument.
 
         When the model is constructed, an :py:class:`emcee.EnsembleSampler` is
-        initialied (see :py:func:`init_sampler`) and :py:func:`run_sampling` is executed
-        twice: once for the burn-in phase and once for the actual sampling phase.
-        The ``sampling`` argument provides all necessary settings for the sampling.
+        initialized (see :py:func:`init_sampler`) and :py:func:`run_sampling` is
+        executed twice: once for the burn-in phase and once for the actual sampling
+        phase. The ``sampling`` argument provides all necessary settings for the
+        sampling.
         """
         # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
         os.environ["OMP_NUM_THREADS"] = "1"
@@ -381,14 +382,10 @@ class SampleCLI(BaseCLI):
         # ugly, but necessary for pickling
         global MODEL
         MODEL = construct_model(self.model, self.graph)
-        MODEL = add_dists(MODEL, self.distributions)
+        MODEL = add_distributions(MODEL, self.distributions)
         MODEL = add_modalities(MODEL, self.modalities)
         MODEL.load_patient_data(**self.data.get_load_kwargs())
-        ndim = (
-            len(self.sampling.param_names)
-            if self.sampling.param_names is not None
-            else MODEL.get_num_dims()
-        )
+        ndim = MODEL.get_num_dims()
 
         # emcee does not support numpy's new random number generator yet.
         np.random.seed(self.sampling.seed)

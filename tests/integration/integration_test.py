@@ -8,6 +8,7 @@ import h5py
 import numpy as np
 import pandas as pd
 import pytest
+from lydata import C
 from lydata.utils import ModalityConfig
 from pydantic import TypeAdapter
 
@@ -220,7 +221,7 @@ def drawn_samples(
             str(modalities_config_file.resolve()),
             "--configs",
             str(sampling_config_file.resolve()),
-            "--sampling.file",
+            "--sampling.storage-file",
             str(samples_file.resolve()),
             # mapping because generated data already has the correct T-stage column
             '--data.mapping={"early": "early", "late": "late"}',
@@ -231,7 +232,9 @@ def drawn_samples(
     main = assemble_main(settings_cls=SampleCLI, prog_name="sample")
     main()
     _yaml_params = load_yaml_params(sampling_config_file)
-    _sampling_config = SamplingConfig(file=samples_file, **_yaml_params["sampling"])
+    _sampling_config = SamplingConfig(
+        storage_file=samples_file, **_yaml_params["sampling"]
+    )
     return _sampling_config.load()
 
 
@@ -291,7 +294,7 @@ def computed_priors(
             str(scenarios_config_file.resolve()),
             "--configs",
             str(sampling_config_file.resolve()),
-            "--sampling.file",
+            "--sampling.storage-file",
             str(samples_file.resolve()),
             "--priors.file",
             str(priors_file),
@@ -306,6 +309,15 @@ def computed_priors(
 def test_generated_data(generated_data: pd.DataFrame) -> None:
     """Test the generated data."""
     assert generated_data.shape == (200, 3)
+    assert (
+        generated_data["imaging", "ipsi", "II"].sum()
+        > generated_data["imaging", "ipsi", "III"].sum()
+    )
+    assert generated_data.ly.t_stage.isin(["early", "late"]).all()
+    assert all(
+        generated_data.ly.query(C("t_stage") == "early")["imaging", "ipsi"].mean()
+        < generated_data.ly.query(C("t_stage") == "late")["imaging", "ipsi"].mean()
+    )
 
 
 def test_scenarios(scenarios_config: list[ScenarioConfig]) -> None:
