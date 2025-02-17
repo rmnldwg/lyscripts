@@ -247,12 +247,17 @@ class DeprecatedModelConfig(BaseModel):
         )
         if "Midline" in self.class_:
             self.class_ = "Midline"
+            warnings.warn(
+                "Model may not be recreated as expected due to extra parameter "
+                "`midext_prob`. Make sure to manually handle edge cases.",
+                stacklevel=2,
+            )
         return super().model_post_init(__context)
 
     def translate(self) -> tuple[ModelConfig, dict[int | str, DistributionConfig]]:
         """Translate the deprecated model config to the new format."""
         old_kwargs = self.kwargs.copy()
-        new_kwargs = {}
+        new_kwargs = {"use_midext_evo": False} if "Midline" in self.class_ else {}
 
         if (tumor_spread := old_kwargs.pop("base_symmetric")) is not None:
             new_kwargs["is_symmetric"] = new_kwargs.get("is_symmetric", {})
