@@ -229,7 +229,7 @@ class DeprecatedModelConfig(BaseModel):
             "distributions are supported."
         ),
     )
-    class_: Literal["Unilateral", "Bilateral", "MidlineBilateral"] = Field(
+    class_: Literal["Unilateral", "Bilateral", "Midline", "MidlineBilateral"] = Field(
         description="Name of the model class. Only binary models are supported.",
         alias="class",
     )
@@ -245,7 +245,7 @@ class DeprecatedModelConfig(BaseModel):
             category=DeprecationWarning,
             stacklevel=2,
         )
-        if self.class_ == "MidlineBilateral":
+        if "Midline" in self.class_:
             self.class_ = "Midline"
         return super().model_post_init(__context)
 
