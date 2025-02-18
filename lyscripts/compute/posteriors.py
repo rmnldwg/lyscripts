@@ -57,6 +57,8 @@ def compute_posteriors(
 
     if isinstance(model, models.Unilateral | models.HPVUnilateral):
         diagnosis = diagnosis.ipsi
+    else:
+        diagnosis = diagnosis.model_dump()
 
     for prior in progress.track(
         sequence=priors,

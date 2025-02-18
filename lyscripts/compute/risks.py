@@ -7,6 +7,7 @@ their computation.
 
 import numpy as np
 from loguru import logger
+from lymph import models
 from pydantic import Field
 from rich import progress
 
@@ -46,6 +47,11 @@ def compute_risks(
     model = add_distributions(model, dist_configs)
     model = add_modalities(model, modality_configs)
     risks = []
+
+    if isinstance(model, models.Unilateral | models.HPVUnilateral):
+        involvement = involvement.ipsi
+    else:
+        involvement = involvement.model_dump()
 
     for posterior in progress.track(
         sequence=posteriors,
