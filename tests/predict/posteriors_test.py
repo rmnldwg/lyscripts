@@ -19,10 +19,10 @@ from lyscripts.configs import (
 RNG = np.random.default_rng(42)
 
 
-@pytest.fixture
-def model_config() -> ModelConfig:
+@pytest.fixture(params=["Unilateral", "Bilateral"])
+def model_config(request) -> ModelConfig:
     """Create unilateral model config."""
-    return ModelConfig(class_name="Unilateral")
+    return ModelConfig(class_name=request.param)
 
 
 @pytest.fixture
@@ -88,7 +88,7 @@ def priors(
     )
 
 
-def test_compute_posterior_with_unilateral(
+def test_compute_posterior(
     model_config: ModelConfig,
     graph_config: GraphConfig,
     dist_configs: dict[str, DistributionConfig],
