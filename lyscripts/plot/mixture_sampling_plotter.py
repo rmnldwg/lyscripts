@@ -9,7 +9,7 @@ import emcee
 from lymph import models
 import matplotlib.pyplot as plt
 import pandas as pd
-
+import json
 from lyscripts.plot.utils import COLORS, save_figure
 from lymixture.em import _set_params, expectation
 
@@ -93,7 +93,7 @@ def multiple_plotter(dataset, risk_dictionary_extended, subsite, stage = ''):
     risk_dictionary = risk_dictionary_extended[subsite]
     for key in risk_dictionary.keys():
         prevalence[key] = (data_selected['max_llh']['ipsi'][key] == True).sum()
-        number_of_patients[key] = len(data_selected)
+        number_of_patients[key] = data_selected['max_llh']['ipsi'][key].notna().sum()
         risks[key] = np.array(risk_dictionary[key])*100
     
     num_matches = [prevalence[key] for key in risk_dictionary.keys()]
@@ -236,7 +236,7 @@ def main(args: argparse.Namespace):
                 subsite_dictionary_early_full_sampling[subsite][lnl].append(MIXTURE.risk(subgroup = subsite, involvement = involvement_dict[lnl],t_stage = 'early'))
                 subsite_dictionary_late_full_sampling[subsite][lnl].append(MIXTURE.risk(subgroup = subsite, involvement = involvement_dict[lnl],t_stage = 'late'))
         print(round, ' done')
-    print(inference_data)
+
     for component in component_list:
         fig = multiple_plotter_component(component_dictionary_early_full_sampling, str(component), stage = 'early')
         save_figure(args.output/f"component_{component}_early", fig, formats = ['png','svg'])
@@ -248,6 +248,15 @@ def main(args: argparse.Namespace):
         fig = multiple_plotter(inference_data,subsite_dictionary_late_full_sampling, subsite, stage = 'late')
         save_figure(args.output/f"{subsite}_late", fig, formats = ['png','svg'])
 
+        # Save dictionary to a JSON file
+    with open("subsite_early.json", "w") as file:
+        json.dump(subsite_dictionary_early_full_sampling, file)
+    with open("subsite_late.json", "w") as file:
+        json.dump(subsite_dictionary_late_full_sampling, file)
+    with open("component_early.json", "w") as file:
+        json.dump(component_dictionary_early_full_sampling, file)
+    with open("component_late.json", "w") as file:
+        json.dump(component_dictionary_late_full_sampling, file)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     _add_arguments(parser)
