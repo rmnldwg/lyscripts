@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0.a6] - 2025-03-12
+
+### Bug Fixes
+
+- Better handle midline model. \
+  This means disabling the evolution over midline extension. Also, since the new
+  version of `lymph-model`, the `midext_prob` parameter is not epected to be the
+  first one anymore when passed to `set_params()`.
+- Pass only ipsilateral diagnosis to unilateral model.
+- Pass diagnose & involvement correctly to models as dict.
+
+### Testing
+
+- Ensure unilateral model receives correct diagnosis.
+- Test that diagnosis is used correctly in posteriors.
+
+### Build
+
+- Bump lydata & lymph-model dependency.
+
 ## [1.0.0.a5] - 2025-02-05
 
 ### Bug Fixes

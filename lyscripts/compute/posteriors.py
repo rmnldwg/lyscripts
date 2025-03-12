@@ -55,6 +55,11 @@ def compute_posteriors(
     posteriors = []
     kwargs = {"midext": midext} if isinstance(model, models.Midline) else {}
 
+    if isinstance(model, models.Unilateral | models.HPVUnilateral):
+        diagnosis = diagnosis.ipsi
+    else:
+        diagnosis = diagnosis.model_dump()
+
     for prior in progress.track(
         sequence=priors,
         description=progress_desc,
