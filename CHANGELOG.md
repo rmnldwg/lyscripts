@@ -748,7 +748,7 @@ returns `None` instead. Fixes [#11]
 ## [0.5.3] - 2022-08-22
 
 <!-- markdownlint-disable-file MD024 -->
-
+[1.0.0.a6]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a5...1.0.0.a6
 [1.0.0.a5]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a4...1.0.0.a5
 [1.0.0.a4]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a3...1.0.0.a4
 [1.0.0.a3]: https://github.com/rmnldwg/lyscripts/compare/1.0.0.a2...1.0.0.a3
