@@ -44,13 +44,13 @@ dependencies = [
     "rich",
     "rich-argparse",
     "pyyaml",
-    "lymph-model >= 1.3.2",
+    "lymph-model >= 1.3.3",
     "deprecated",
     "joblib",
     "pydantic",
     "pydantic-settings >= 2.7.0",
     "numpydantic",
-    "lydata >= 0.2.0",
+    "lydata >= 0.2.5",
     "loguru",
 ]
 dynamic = ["version"]

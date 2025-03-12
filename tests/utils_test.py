@@ -83,7 +83,8 @@ def test_translate_deprecated_model_config(
 
     trans_model_config, trans_dist_configs = old_model_config.translate()
 
-    assert exp_model_config.model_dump(
-        exclude="kwargs"
-    ) == trans_model_config.model_dump(exclude="kwargs")
+    assert (  # noqa
+        exp_model_config.model_dump(exclude="kwargs")
+        == trans_model_config.model_dump(exclude="kwargs")
+    )
     assert exp_dist_configs == trans_dist_configs
