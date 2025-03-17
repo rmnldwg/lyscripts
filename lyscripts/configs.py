@@ -206,6 +206,17 @@ def has_model_symbol(path: Path) -> Path:
     return path
 
 
+def get_symmetry_kwargs(model: Model) -> dict[str, Any]:
+    """Get the symmetry kwargs from a model."""
+    if isinstance(model, models.Unilateral | models.HPVUnilateral):
+        raise TypeError("Unilateral models do not have symmetry kwargs.")
+
+    if hasattr(model, "ext"):
+        return get_symmetry_kwargs(model.ext)
+
+    return getattr(model, "is_symmetric", {})
+
+
 class ModelConfig(BaseModel):
     """Define which of the ``lymph`` models to use and how to set them up."""
 
@@ -236,6 +247,33 @@ class ModelConfig(BaseModel):
         default={},
         description="Additional keyword arguments to pass to the model constructor.",
     )
+
+    @classmethod
+    def from_model(cls: type, model: Model) -> ModelConfig:
+        """Create a ``ModelConfig`` from a ``Model``."""
+        warnings.warn(
+            message=(
+                "Not all kwargs passed at initialization can be recovered into a "
+                "config. Make sure to manually double-check the config."
+            ),
+            category=UserWarning,
+            stacklevel=2,
+        )
+
+        additional_kwargs = {}
+
+        try:
+            additional_kwargs["is_symmetric"] = get_symmetry_kwargs(model)
+        except TypeError:
+            pass
+
+        return cls(
+            class_name=model.__class__.__name__,
+            constructor="binary" if model.is_binary else "trinary",
+            max_time=model.max_time,
+            named_params=model.named_params,
+            kwargs=additional_kwargs,
+        )
 
 
 class DeprecatedModelConfig(BaseModel):
