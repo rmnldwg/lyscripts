@@ -133,6 +133,16 @@ class DistributionConfig(BaseModel):
         default={}, description="Parameters to pass to the predefined function."
     )
 
+    @classmethod
+    def from_model(cls: type, model: Model, t_stage: int | str) -> DistributionConfig:
+        """Create a ``DistributionConfig`` from a ``Model``."""
+        dist = model.get_distribution(t_stage)
+
+        if dist.is_updateable:
+            return cls(kind="parametric", func=dist._func, params=dist.get_params())
+
+        return cls(kind="frozen", func=dist.pmf)
+
 
 class InvolvementConfig(BaseModel):
     """Config that defines an ipsi- and contralateral involvement pattern."""
