@@ -26,7 +26,7 @@ import yaml
 from loguru import logger
 from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
-from lymph import models
+from lymph import graph, models
 from lymph.types import Model, PatternType
 from pydantic import (
     AfterValidator,
@@ -158,6 +158,20 @@ class InvolvementConfig(BaseModel):
     )
 
 
+def retrieve_graph_representation(model: Model) -> graph.Representation:
+    """Retrieve the graph representation from a model."""
+    if hasattr(model, "graph"):
+        return model.graph
+
+    if hasattr(model, "ipsi"):
+        return retrieve_graph_representation(model.ipsi)
+
+    if hasattr(model, "ext"):
+        return retrieve_graph_representation(model.ext)
+
+    raise ValueError("Model does not have a graph representation.")
+
+
 class GraphConfig(BaseModel):
     """Specifies how the tumor(s) and LNLs are connected in a DAG."""
 
@@ -167,6 +181,17 @@ class GraphConfig(BaseModel):
     lnl: dict[str, list[str]] = Field(
         description="Define the name of the LNL(s) and which LNLs it/they drain to.",
     )
+
+    @classmethod
+    def from_model(cls: type, model: Model) -> GraphConfig:
+        """Create a ``GraphConfig`` from a ``Model``."""
+        graph = retrieve_graph_representation(model)
+        return cls(
+            tumor={
+                name: [lnl.name for lnl in tumor.out] for name, tumor in graph.tumors
+            },
+            lnl={name: [lnl.name for lnl in lnl.out] for name, lnl in graph.lnls},
+        )
 
 
 def has_model_symbol(path: Path) -> Path:
