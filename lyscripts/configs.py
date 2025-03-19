@@ -27,6 +27,7 @@ from loguru import logger
 from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
 from lymph import graph, models
+from lymph.modalities import Pathological
 from lymph.types import Model, PatternType
 from pydantic import (
     AfterValidator,
@@ -133,16 +134,6 @@ class DistributionConfig(BaseModel):
         default={}, description="Parameters to pass to the predefined function."
     )
 
-    @classmethod
-    def from_model(cls: type, model: Model, t_stage: int | str) -> DistributionConfig:
-        """Create a ``DistributionConfig`` from a ``Model``."""
-        dist = model.get_distribution(t_stage)
-
-        if dist.is_updateable:
-            return cls(kind="parametric", func=dist._func, params=dist.get_params())
-
-        return cls(kind="frozen", func=dist.pmf)
-
 
 class InvolvementConfig(BaseModel):
     """Config that defines an ipsi- and contralateral involvement pattern."""
@@ -162,6 +153,9 @@ def retrieve_graph_representation(model: Model) -> graph.Representation:
     """Retrieve the graph representation from a model."""
     if hasattr(model, "graph"):
         return model.graph
+
+    if hasattr(model, "hpv"):
+        return retrieve_graph_representation(model.hpv)
 
     if hasattr(model, "ipsi"):
         return retrieve_graph_representation(model.ipsi)
@@ -188,9 +182,13 @@ class GraphConfig(BaseModel):
         graph = retrieve_graph_representation(model)
         return cls(
             tumor={
-                name: [lnl.name for lnl in tumor.out] for name, tumor in graph.tumors
+                name: [edge.child.name for edge in tumor.out]
+                for name, tumor in graph.tumors.items()
             },
-            lnl={name: [lnl.name for lnl in lnl.out] for name, lnl in graph.lnls},
+            lnl={
+                name: [edge.child.name for edge in lnl.out]  # noqa
+                for name, lnl in graph.lnls.items()
+            },
         )
 
 
@@ -260,20 +258,40 @@ class ModelConfig(BaseModel):
             stacklevel=2,
         )
 
-        additional_kwargs = {}
+        if getattr(model, "_named_params", None):
+            additional_kwargs = {"named_params": list(model.named_params)}
+        else:
+            additional_kwargs = {}
 
         try:
             additional_kwargs["is_symmetric"] = get_symmetry_kwargs(model)
         except TypeError:
             pass
 
+        if isinstance(model, models.Midline):
+            additional_kwargs["use_midext_evo"] = model.use_midext_evo
+            additional_kwargs["use_central"] = hasattr(model, "_central")
+            additional_kwargs["use_mixing"] = hasattr(model, "mixing_param")
+
+            if not hasattr(model, "_unknown"):
+                additional_kwargs["marginalize_unknown"] = False
+
         return cls(
             class_name=model.__class__.__name__,
-            constructor="binary" if model.is_binary else "trinary",
+            constructor="trinary" if model.is_trinary else "binary",
             max_time=model.max_time,
-            named_params=model.named_params,
             kwargs=additional_kwargs,
         )
+
+
+def modalityconfig_from_model(model: Model, modality_name: str) -> ModalityConfig:
+    """Create a ``ModalityConfig`` from a ``Model``."""
+    modality = model.get_modality(modality_name)
+    return ModalityConfig(
+        spec=modality.spec,
+        sens=modality.sens,
+        kind="pathological" if isinstance(modality, Pathological) else "clinical",
+    )
 
 
 class DeprecatedModelConfig(BaseModel):
