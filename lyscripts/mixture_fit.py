@@ -117,8 +117,8 @@ def run_EM(tolerance, history_dir = None):
     look_back_steps = 3
 
     while not is_converged:
-        print('iteration',iteration)
-        print('likelihood', likelihood_history[-1])
+        logger.info(f"Iteration: {iteration}")
+        logger.info(f"Likelihood: {likelihood_history[-1]}")
         latent = expectation(MIXTURE, params)
         params = maximization(MIXTURE, latent)
         

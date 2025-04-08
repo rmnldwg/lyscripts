@@ -85,10 +85,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 MIXTURE = None
 
-def log_prob_fn() -> float:
-    """log probability function using global variables because of pickling."""
-    return MIXTURE.likelihood(use_complete = True, given_resps = MIXTURE.get_resps(norm = True))
-
 def main(args: argparse.Namespace) -> None:
     """Main function to sample parameters for a mixture model"""
 
