@@ -103,7 +103,7 @@ def test_compute_posterior(
         dist_configs=dist_configs,
         modality_configs={"D": modality_config},
         priors=priors,
-        diagnosis=diagnosis_config,
+        diagnosis=diagnosis_config.model_dump(),
     )
 
     assert np.all(posteriors >= 0), "Negative probabilities in posterior."

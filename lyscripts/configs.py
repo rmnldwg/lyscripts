@@ -26,7 +26,8 @@ import yaml
 from loguru import logger
 from lydata.loader import LyDataset
 from lydata.utils import ModalityConfig
-from lymph import models
+from lymph import graph, models
+from lymph.modalities import Pathological
 from lymph.types import Model, PatternType
 from pydantic import (
     AfterValidator,
@@ -148,6 +149,23 @@ class InvolvementConfig(BaseModel):
     )
 
 
+def retrieve_graph_representation(model: Model) -> graph.Representation:
+    """Retrieve the graph representation from a model."""
+    if hasattr(model, "graph"):
+        return model.graph
+
+    if hasattr(model, "hpv"):
+        return retrieve_graph_representation(model.hpv)
+
+    if hasattr(model, "ipsi"):
+        return retrieve_graph_representation(model.ipsi)
+
+    if hasattr(model, "ext"):
+        return retrieve_graph_representation(model.ext)
+
+    raise ValueError("Model does not have a graph representation.")
+
+
 class GraphConfig(BaseModel):
     """Specifies how the tumor(s) and LNLs are connected in a DAG."""
 
@@ -157,6 +175,21 @@ class GraphConfig(BaseModel):
     lnl: dict[str, list[str]] = Field(
         description="Define the name of the LNL(s) and which LNLs it/they drain to.",
     )
+
+    @classmethod
+    def from_model(cls: type, model: Model) -> GraphConfig:
+        """Create a ``GraphConfig`` from a ``Model``."""
+        graph = retrieve_graph_representation(model)
+        return cls(
+            tumor={
+                name: [edge.child.name for edge in tumor.out]
+                for name, tumor in graph.tumors.items()
+            },
+            lnl={
+                name: [edge.child.name for edge in lnl.out]  # noqa
+                for name, lnl in graph.lnls.items()
+            },
+        )
 
 
 def has_model_symbol(path: Path) -> Path:
@@ -169,6 +202,17 @@ def has_model_symbol(path: Path) -> Path:
         raise ValueError(f"Python file at {path} does not define a symbol 'model'.")
 
     return path
+
+
+def get_symmetry_kwargs(model: Model) -> dict[str, Any]:
+    """Get the symmetry kwargs from a model."""
+    if isinstance(model, models.Unilateral | models.HPVUnilateral):
+        raise TypeError("Unilateral models do not have symmetry kwargs.")
+
+    if hasattr(model, "ext"):
+        return get_symmetry_kwargs(model.ext)
+
+    return getattr(model, "is_symmetric", {})
 
 
 class ModelConfig(BaseModel):
@@ -200,6 +244,53 @@ class ModelConfig(BaseModel):
     kwargs: dict[str, Any] = Field(
         default={},
         description="Additional keyword arguments to pass to the model constructor.",
+    )
+
+    @classmethod
+    def from_model(cls: type, model: Model) -> ModelConfig:
+        """Create a ``ModelConfig`` from a ``Model``."""
+        warnings.warn(
+            message=(
+                "Not all kwargs passed at initialization can be recovered into a "
+                "config. Make sure to manually double-check the config."
+            ),
+            category=UserWarning,
+            stacklevel=2,
+        )
+
+        if getattr(model, "_named_params", None):
+            additional_kwargs = {"named_params": list(model.named_params)}
+        else:
+            additional_kwargs = {}
+
+        try:
+            additional_kwargs["is_symmetric"] = get_symmetry_kwargs(model)
+        except TypeError:
+            pass
+
+        if isinstance(model, models.Midline):
+            additional_kwargs["use_midext_evo"] = model.use_midext_evo
+            additional_kwargs["use_central"] = hasattr(model, "_central")
+            additional_kwargs["use_mixing"] = hasattr(model, "mixing_param")
+
+            if not hasattr(model, "_unknown"):
+                additional_kwargs["marginalize_unknown"] = False
+
+        return cls(
+            class_name=model.__class__.__name__,
+            constructor="trinary" if model.is_trinary else "binary",
+            max_time=model.max_time,
+            kwargs=additional_kwargs,
+        )
+
+
+def modalityconfig_from_model(model: Model, modality_name: str) -> ModalityConfig:
+    """Create a ``ModalityConfig`` from a ``Model``."""
+    modality = model.get_modality(modality_name)
+    return ModalityConfig(
+        spec=modality.spec,
+        sens=modality.sens,
+        kind="pathological" if isinstance(modality, Pathological) else "clinical",
     )
 
 

@@ -259,7 +259,7 @@ def run_sampling(
 
     with Progress(*_get_columns(it=sampler.iteration), console=console) as progress:
         task = progress.add_task(description=description, total=num_steps)
-        while sampler.iteration < (num_steps or np.inf) * thin_by:
+        while sampler.iteration < (num_steps or np.inf):
             for state in sampler.sample(  # noqa: B007, B020
                 initial_state=state,
                 iterations=check_interval - sampler.iteration % check_interval,
