@@ -5,6 +5,8 @@ computation of these two initial steps if the cache directory is the same as dur
 their computation.
 """
 
+from typing import Literal
+
 import numpy as np
 from loguru import logger
 from lymph import models
@@ -18,7 +20,6 @@ from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
 from lyscripts.configs import (
     DistributionConfig,
     GraphConfig,
-    InvolvementConfig,
     ModalityConfig,
     ModelConfig,
     add_distributions,
@@ -34,7 +35,7 @@ def compute_risks(
     dist_configs: dict[str, DistributionConfig],
     modality_configs: dict[str, ModalityConfig],
     posteriors: np.ndarray,
-    involvement: InvolvementConfig,
+    involvement: dict[Literal["ipsi", "contra"], dict],
     progress_desc: str = "Computing risks from posteriors",
 ) -> np.ndarray:
     """Compute the risk of ``involvement`` from each of the ``posteriors``.
@@ -49,9 +50,7 @@ def compute_risks(
     risks = []
 
     if isinstance(model, models.Unilateral | models.HPVUnilateral):
-        involvement = involvement.ipsi
-    else:
-        involvement = involvement.model_dump()
+        involvement = involvement.get("ipsi")
 
     for posterior in progress.track(
         sequence=posteriors,

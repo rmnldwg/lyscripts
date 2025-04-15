@@ -6,6 +6,7 @@ risk prediction, this uses caching and computes the priors first.
 """
 
 from collections.abc import Callable
+from typing import Literal
 
 import lydata  # noqa: F401
 import numpy as np
@@ -45,7 +46,7 @@ def compute_prevalences(
     dist_configs: dict[str, DistributionConfig],
     modality_configs: dict[str, ModalityConfig],
     priors: np.ndarray,
-    diagnosis: DiagnosisConfig,
+    diagnosis: dict[Literal["ipsi", "contra"], dict],
     midext: bool | None = None,
     progress_desc: str = "Computing prevalences from priors",
 ) -> np.ndarray:
@@ -69,11 +70,18 @@ def compute_prevalences(
         console=console,
     ):
         obs_dist = model.obs_dist(given_state_dist=prior)
-        involvement = diagnosis.to_involvement(next(iter(modality_configs)))
+        involvement = {
+            side: diagnosis.get(side).get(next(iter(modality_configs)))
+            for side in ["ipsi", "contra"]
+        }
+
+        if isinstance(model, models.Unilateral | models.HPVUnilateral):
+            involvement = involvement.get("ipsi")
+
         prevalences.append(
             model.marginalize(
                 given_state_dist=obs_dist,
-                involvement=involvement.model_dump(),
+                involvement=involvement,
                 **kwargs,
             )
         )
@@ -179,9 +187,8 @@ class PrevalencesCLI(BaseComputeCLI):
                 dist_configs=self.distributions,
                 modality_configs=self.modalities,
                 priors=_priors,
-                diagnosis=scenario.diagnosis,
-                midext=scenario.midext,
                 progress_desc=f"Computing prevalences for scenario {i + 1}/{num_scens}",
+                **prevalence_kwargs,
             )
 
             portion = observe_prevalence(
