@@ -92,6 +92,10 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
+# uv
+#   This could be tracked, but is not really necessary for library development
+uv.lock
+
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 

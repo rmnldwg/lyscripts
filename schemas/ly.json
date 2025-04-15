@@ -368,7 +368,7 @@
     "ModelConfig": {
       "description": "Define which of the ``lymph`` models to use and how to set them up.",
       "properties": {
-        "external": {
+        "external_file": {
           "anyOf": [
             {
               "format": "file-path",
@@ -380,7 +380,7 @@
           ],
           "default": null,
           "description": "Path to a Python file that defines a model.",
-          "title": "External"
+          "title": "External File"
         },
         "class_name": {
           "default": "Unilateral",
@@ -431,10 +431,10 @@
     "SamplingConfig": {
       "description": "Settings to configure the MCMC sampling.",
       "properties": {
-        "file": {
+        "storage_file": {
           "description": "Path to HDF5 file store results or load last state.",
           "format": "path",
-          "title": "File",
+          "title": "Storage File",
           "type": "string"
         },
         "history_file": {
@@ -528,7 +528,7 @@
         }
       },
       "required": [
-        "file"
+        "storage_file"
       ],
       "title": "SamplingConfig",
       "type": "object"

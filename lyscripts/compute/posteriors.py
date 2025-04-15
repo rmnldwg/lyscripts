@@ -18,7 +18,6 @@ from lyscripts.cli import assemble_main
 from lyscripts.compute.priors import compute_priors
 from lyscripts.compute.utils import BaseComputeCLI, HDF5FileStorage, get_cached
 from lyscripts.configs import (
-    DiagnosisConfig,
     DistributionConfig,
     GraphConfig,
     ModalityConfig,
@@ -36,7 +35,7 @@ def compute_posteriors(
     dist_configs: dict[str, DistributionConfig],
     modality_configs: dict[str, ModalityConfig],
     priors: np.ndarray,
-    diagnosis: DiagnosisConfig,
+    diagnosis: dict[Literal["ipsi", "contra"], dict],
     midext: bool | None = None,
     mode: Literal["HMM", "BN"] = "HMM",
     progress_desc: str = "Computing posteriors from priors",
@@ -56,9 +55,7 @@ def compute_posteriors(
     kwargs = {"midext": midext} if isinstance(model, models.Midline) else {}
 
     if isinstance(model, models.Unilateral | models.HPVUnilateral):
-        diagnosis = diagnosis.ipsi
-    else:
-        diagnosis = diagnosis.model_dump()
+        diagnosis = diagnosis.get("ipsi")
 
     for prior in progress.track(
         sequence=priors,
