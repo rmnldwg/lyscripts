@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0.a7] - 2025-04-15
+
+### Bug Fixes
+
+- Make config -> model -> config round trip test pass.
+- Remove `thin_by` factor in wrong place.
+- Pass involvement & diagnosis correctly to risks and prevalences.
+
+### Features
+
+- Create Modality config from model.
+- Create Graph config from model.
+- Create Model config from model.
+
+Note that the three features above come with certain limitations. It is not possible
+to export all aspects of a model to a configuration. Especially the distributions
+over diagnosis times cannot be converted to a `DistributionConfig`.
+
+### Miscellaneous Tasks
+
+- Fix changelog version link.
+- Update ly schema.
+
+### Testing
+
+- Round trip config -> model -> config.
+
+### Merge
+
+- Branch 'main' into 'dev'.
+- Branch 'configs-from-model' into 'dev'.\
+  Constructing configs from models is only partially possible with the
+  current implementation of the `lymph` model.
+
 ## [1.0.0.a6] - 2025-03-12
 
 ### Bug Fixes
