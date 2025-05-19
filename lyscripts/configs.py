@@ -716,6 +716,7 @@ class BaseCLI(BaseSettings):
         dynamic_yaml_config_source = DynamicYamlConfigSettingsSource(
             settings_cls=settings_cls,
             yaml_file_path_field="configs",
+            yaml_file_encoding="utf-8",
         )
         logger.debug(f"Created {dynamic_yaml_config_source = }")
         return (
