@@ -8,10 +8,12 @@ built-in convergence detection, as well as bookkeeping for monitoring and resumi
 interrupted sampling runs. It can be used both during the burn-in phase and the actual
 sampling phase.
 
-For parallelization, the sampling tries to use the ``multiprocess(ing)`` module.
-However, we have found that this is often not necessary when the model itself
-distributes the computation of its likelihood to multiple cores (as numpy typically
-does).
+.. warning::
+
+    We strongly recommend to set the CLI's ``--cores`` argument to ``None`` (or ``null``
+    in the YAML config file) if you are on MacOS or Windows. This is because we haven't
+    yet figured out how we can safely and efficiently use the ``multiprocess(ing)``
+    library on these two platforms.
 """
 
 from __future__ import annotations
