@@ -13,6 +13,7 @@ from lydata.utils import ModalityConfig
 from pydantic import TypeAdapter
 
 from lyscripts.cli import assemble_main
+from lyscripts.compute.prevalences import PrevalencesCLI
 from lyscripts.compute.priors import PriorsCLI, compute_priors
 from lyscripts.compute.utils import get_cached
 from lyscripts.configs import (
@@ -264,6 +265,19 @@ def priors_file() -> Path:
 
 
 @pytest.fixture(scope="session")
+def prevalences_file() -> Path:
+    """Provide the path to the computed prevalences as a fixture.
+
+    Delete any file at the beginning of a session if it exists.
+    """
+    res = Path("tests/integration/prevalences.hdf5")
+    res.parent.mkdir(exist_ok=True)
+    if res.exists():
+        res.unlink()
+    return res
+
+
+@pytest.fixture(scope="session")
 def computed_priors(
     monkeymodule,
     cache_dir: Path,
@@ -304,6 +318,64 @@ def computed_priors(
     main()
     with h5py.File(priors_file, "r") as h5file:
         return h5file[dataset][:]
+
+
+@pytest.fixture(scope="session")
+def computed_prevalences(
+    monkeymodule,
+    cache_dir: Path,
+    model_config_file: Path,
+    graph_config_file: Path,
+    distributions_config_file: Path,
+    scenarios_config_file: Path,
+    modalities_config_file: Path,
+    sampling_config_file: Path,
+    samples_file: Path,
+    prevalences_file: Path,
+    data_file: Path,
+    # to ensure the correct execution order, also require data and samples
+    generated_data: pd.DataFrame,
+    drawn_samples: np.ndarray,
+    dataset: str = "000",
+) -> tuple[np.ndarray, int, int]:
+    """Provide the computed prevalences as a fixture."""
+    monkeymodule.setattr(
+        sys,
+        "argv",
+        [
+            "prevalences",
+            "--cache-dir",
+            str(cache_dir.resolve()),
+            "--configs",
+            str(graph_config_file.resolve()),
+            "--configs",
+            str(model_config_file.resolve()),
+            "--configs",
+            str(distributions_config_file.resolve()),
+            "--configs",
+            str(scenarios_config_file.resolve()),
+            "--configs",
+            str(modalities_config_file.resolve()),
+            "--configs",
+            str(sampling_config_file.resolve()),
+            "--sampling.storage-file",
+            str(samples_file.resolve()),
+            "--prevalences.file",
+            str(prevalences_file),
+            "--data.source",
+            str(data_file.resolve()),
+            "--data.mapping",
+            '{"early": "early", "late": "late"}',
+        ],
+    )
+    main = assemble_main(settings_cls=PrevalencesCLI, prog_name="prevalences")
+    main()
+    with h5py.File(prevalences_file, "r") as h5file:
+        return (
+            h5file[dataset][:],
+            h5file[dataset].attrs["num_match"],
+            h5file[dataset].attrs["num_total"],
+        )
 
 
 def test_generated_data(generated_data: pd.DataFrame) -> None:
@@ -360,3 +432,13 @@ def test_computed_priors(
     assert computed_priors.shape[-1] == 4
     assert np.all(computed_priors >= 0.0)
     assert np.all(computed_priors <= 1.0)
+
+
+def test_computed_prevalences(
+    computed_prevalences: tuple[np.ndarray, int, int],
+) -> None:
+    """Test the computed prevalences."""
+    prevalences, num_match, num_total = computed_prevalences
+    num_match, num_total = int(num_match), int(num_total)
+    assert num_match == 64
+    assert num_total == 123

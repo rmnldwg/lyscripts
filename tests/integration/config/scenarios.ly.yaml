@@ -3,6 +3,12 @@ version: 1
 scenarios:
   - t_stages: [early]
     mode: "HMM"
+    diagnosis:
+      ipsi:
+        imaging: {II: involved}
   - t_stages: [early, late]
     t_stages_dist: [0.7, 0.3]
     mode: "HMM"
+    diagnosis:
+      ipsi:
+        imaging: {III: 1}
