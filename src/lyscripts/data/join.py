@@ -29,9 +29,10 @@ class JoinCLI(BaseCLI):
 
         .. code-block:: bash
 
-            lydata join \
-            --inputs='["data.source": "file1.csv", "data.source": "file2.csv"]' \
-            --output="joined.csv"
+            lyscripts data join \
+            --inputs '{"source": "file1.csv"}' \
+            --inputs '{"source": "file2.csv"}' \
+            --output-file "joined.csv"
 
         But it also allows for concatenating datasets fetched directly from the
         `lydata Github repo`_. Due to the rather complex command signature, we
@@ -51,7 +52,7 @@ class JoinCLI(BaseCLI):
 
         .. code-block:: bash
 
-            lydata join --configs=datasets.ly.yaml --output=joined.csv
+            lyscripts data join --configs datasets.ly.yaml --output-file joined.csv
 
         .. _pydantic: https://docs.pydantic.dev/latest/
         .. _lydata Github repo: https://github.com/rmnldwg/lydata
