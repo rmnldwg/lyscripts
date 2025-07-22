@@ -226,7 +226,7 @@ def transform_to_lyprox(
     .. code-block:: python
 
         column_map = {
-            ("patient", "#", "age"): {
+            ("patient", "info", "age"): {
                 "func": compute_age_from_raw,
                 "kwargs": {"randomize": False},
                 "columns": ["birthday", "date of diagnosis"]
@@ -237,7 +237,7 @@ def transform_to_lyprox(
     values of the columns ``"birthday"`` and ``"date of diagnosis"`` as positional
     arguments, and the keyword argument ``"randomize"`` is set to ``False``. The
     function then returns the patient's age, which is subsequently stored in the column
-    ``("patient", "#", "age")``.
+    ``("patient", "info", "age")``.
 
     Note that the ``column_map`` dictionary must have either a ``"default"`` key or
     ``"func"`` along with ``"columns"`` and ``"kwargs"``, depending on the function
