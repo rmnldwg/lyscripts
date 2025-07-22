@@ -12,8 +12,10 @@ import warnings
 from pathlib import Path
 from typing import Annotated, Any
 
+import lydata  # noqa: F401
 import pandas as pd
 from loguru import logger
+from lydata import C
 from pydantic import AfterValidator, Field, FilePath
 
 from lyscripts.cli import assemble_main
@@ -111,7 +113,7 @@ class LyproxifyCLI(BaseCLI):
         reduced = exclude_patients(trimmed, mapping.EXCLUDE)
         processed = transform_to_lyprox(reduced, mapping.COLUMN_MAP)
 
-        if ("tumor", "1", "side") in processed.columns:
+        if "side" in processed.ly:
             processed = leftright_to_ipsicontra(processed)
 
         save_table_to_csv(file_path=self.output_file, table=processed)
@@ -289,8 +291,8 @@ def leftright_to_ipsicontra(data: pd.DataFrame):
     involvement.
     """
     len_before = len(data)
-    left_data = data.loc[data["tumor", "1", "side"] != "right"]
-    right_data = data.loc[data["tumor", "1", "side"] == "right"]
+    left_data = data.ly.query(C("side") != "right")
+    right_data = data.ly.query(C("side") == "right")
 
     left_data = left_data.rename(columns={"left": "ipsi"}, level=1)
     left_data = left_data.rename(columns={"right": "contra"}, level=1)

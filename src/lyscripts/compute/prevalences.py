@@ -139,7 +139,7 @@ def observe_prevalence(
     QueryPortion(match=np.int64(7), total=np.int64(79))
     """
     mapping = mapping or DataConfig.model_fields["mapping"].default_factory()
-    data["tumor", "1", "t_stage"] = data.ly.t_stage.map(mapping)
+    data.ly.t_stage = data.ly.t_stage.map(mapping)
 
     has_t_stage = C("t_stage").isin(scenario_config.t_stages)
     if scenario_config.midext is None:
