@@ -18,6 +18,7 @@ from pydantic_settings import BaseSettings, CliApp, CliSubCommand
 
 from lyscripts.data import (  # noqa: F401
     enhance,
+    fetch,
     generate,
     join,
     lyproxify,
@@ -34,6 +35,7 @@ class DataCLI(BaseSettings):
     lyproxify: CliSubCommand[lyproxify.LyproxifyCLI]
     join: CliSubCommand[join.JoinCLI]
     split: CliSubCommand[split.SplitCLI]
+    fetch: CliSubCommand[fetch.FetchCLI]
     filter: CliSubCommand[filter_.FilterCLI]
     enhance: CliSubCommand[enhance.EnhanceCLI]
     generate: CliSubCommand[generate.GenerateCLI]
