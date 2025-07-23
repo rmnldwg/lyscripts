@@ -14,6 +14,7 @@ import pandas as pd
 from loguru import logger
 from lydata import C, Q
 from lydata.accessor import NoneQ, QueryPortion
+from lydata.utils import is_old
 from lymph import models
 from pydantic import Field
 from rich import progress
@@ -139,7 +140,8 @@ def observe_prevalence(
     QueryPortion(match=np.int64(7), total=np.int64(79))
     """
     mapping = mapping or DataConfig.model_fields["mapping"].default_factory()
-    data["tumor", "1", "t_stage"] = data.ly.t_stage.map(mapping)
+    key = ("tumor", "1", "t_stage") if is_old(data) else ("tumor", "info", "t_stage")
+    data[key] = data.ly.t_stage.map(mapping)
 
     has_t_stage = C("t_stage").isin(scenario_config.t_stages)
     if scenario_config.midext is None:
