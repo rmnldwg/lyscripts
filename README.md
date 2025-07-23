@@ -11,18 +11,19 @@
 | src/lyscripts/compute/\_\_init\_\_.py |        9 |        1 |     89% |        21 |
 | src/lyscripts/compute/\_\_main\_\_.py |        5 |        5 |      0% |       3-8 |
 | src/lyscripts/compute/posteriors.py   |       46 |       19 |     59% |97-137, 141-142 |
-| src/lyscripts/compute/prevalences.py  |       80 |        7 |     91% |58-60, 94-99, 232-233 |
+| src/lyscripts/compute/prevalences.py  |       82 |        7 |     91% |59-61, 95-100, 234-235 |
 | src/lyscripts/compute/priors.py       |       35 |        2 |     94% |   110-111 |
 | src/lyscripts/compute/risks.py        |       51 |       33 |     35% |47-65, 81-135, 139-140 |
 | src/lyscripts/compute/utils.py        |      120 |        6 |     95% |95, 146, 177, 188, 240, 250 |
 | src/lyscripts/configs.py              |      255 |       27 |     89% |90, 122, 165, 173, 217, 271, 277-278, 286, 472, 506-509, 514, 585, 624-637, 680 |
-| src/lyscripts/data/\_\_init\_\_.py    |       12 |        1 |     92% |        43 |
+| src/lyscripts/data/\_\_init\_\_.py    |       13 |        1 |     92% |        45 |
 | src/lyscripts/data/\_\_main\_\_.py    |       18 |       18 |      0% |      3-36 |
 | src/lyscripts/data/enhance.py         |       24 |        8 |     67% |39-58, 62-63 |
+| src/lyscripts/data/fetch.py           |       21 |        7 |     67% |42-52, 56-57 |
 | src/lyscripts/data/filter.py          |       49 |       30 |     39% |43-66, 76-94, 98-99 |
 | src/lyscripts/data/generate.py        |       39 |        4 |     90% |58, 63, 95-96 |
-| src/lyscripts/data/join.py            |       20 |        9 |     55% |59-72, 76-77 |
-| src/lyscripts/data/lyproxify.py       |      121 |       67 |     45% |29-32, 37-44, 88-117, 130-140, 171, 248-280, 291-305, 338-339 |
+| src/lyscripts/data/join.py            |       20 |        9 |     55% |60-73, 77-78 |
+| src/lyscripts/data/lyproxify.py       |      123 |       67 |     46% |31-34, 39-46, 90-119, 132-142, 173, 250-282, 293-307, 340-341 |
 | src/lyscripts/data/split.py           |       30 |       14 |     53% |33-65, 72-73 |
 | src/lyscripts/data/utils.py           |        9 |        0 |    100% |           |
 | src/lyscripts/decorators.py           |       41 |        4 |     90% | 53-55, 70 |
@@ -32,7 +33,7 @@
 | src/lyscripts/schedule.py             |       29 |       13 |     55% |25-27, 35, 44-45, 73-80, 84-85 |
 | src/lyscripts/schema.py               |       21 |        3 |     86% | 60-61, 65 |
 | src/lyscripts/utils.py                |       84 |        5 |     94% |25, 141-142, 196-197 |
-|                             **TOTAL** | **1551** |  **392** | **75%** |           |
+|                             **TOTAL** | **1577** |  **399** | **75%** |           |
 
 
 ## Setup coverage badge
