@@ -871,6 +871,7 @@ returns `None` instead. Fixes [#11]
 ## [0.5.3] - 2022-08-22
 
 <!-- markdownlint-disable-file MD024 -->
+[1.0.0rc3]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc2...1.0.0rc3
 [1.0.0rc2]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc1...1.0.0rc2
 [1.0.0rc1]: https://github.com/lycosystem/lyscripts/compare/1.0.0.a7...1.0.0rc1
 [1.0.0.a7]: https://github.com/lycosystem/lyscripts/compare/1.0.0.a6...1.0.0.a7
@@ -931,6 +932,7 @@ returns `None` instead. Fixes [#11]
 [#70]: https://github.com/lycosystem/lyscripts/issues/70
 [#72]: https://github.com/lycosystem/lyscripts/issues/72
 [#74]: https://github.com/lycosystem/lyscripts/issues/74
+[#75]: https://github.com/lycosystem/lyscripts/issues/75
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich`]: https://rich.readthedocs.io/en/latest/
