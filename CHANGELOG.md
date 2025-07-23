@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0rc3] - 2025-07-22
+
+### Documentation
+
+- Fix `join` command's example call.
+
+### Features
+
+- Add `data fetch` command. Fixes [#75].
+
+### Change
+
+- Access data only via lydata for compatibility.\
+  We have changed the lydata 2nd level headers slightly for the
+  patient and tumor info (see
+  https://github.com/lycosystem/lydata/issues/21 for more info).\
+  Since the lydata package was already updated to be compatible with
+  that change, we simply need to route every access the lyscripts
+  make to the data through lydata package and hence be compatible
+  too.
+- Make CLI work with new lydata format.\
+  This is also related to https://github.com/lycosystem/lydata/issues/21
+
 ## [1.0.0rc2] - 2025-06-26
 
 ### Bug Fixes
