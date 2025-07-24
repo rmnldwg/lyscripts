@@ -1,7 +1,7 @@
 """Filter a dataset according to some common criteria.
 
 This is essentially a command line interface to building a
-:py:class:`query object <lydata.accessor.Q>` and applying it to the dataset.
+:py:class:`query object <lydata.querier.Q>` and applying it to the dataset.
 """
 
 from pathlib import Path
@@ -68,7 +68,7 @@ class FilterCLI(BaseCLI):
     def cli_cmd(self):
         """Execute the ``filter`` command.
 
-        This command uses the :py:class:`~lydata.accessor.Q` objects of the `lydata`_
+        This command uses the :py:class:`~lydata.querier.Q` objects of the `lydata`_
         library to filter the dataset according to the given criteria.
 
         .. _lydata: https://lydata.readthedocs.io

@@ -11,7 +11,7 @@ associated `GitHub repository`_.
 .. _DVC: https://dvc.org
 .. _LyProX: https://lyprox.org
 .. _lydata: https://lydata.readthedocs.io
-.. _GitHub repository: https://github.com/rmnldwg/lydata
+.. _GitHub repository: https://github.com/lycosystem/lydata
 """
 
 from pydantic_settings import BaseSettings, CliApp, CliSubCommand

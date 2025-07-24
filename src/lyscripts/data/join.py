@@ -55,7 +55,7 @@ class JoinCLI(BaseCLI):
             lyscripts data join --configs datasets.ly.yaml --output-file joined.csv
 
         .. _pydantic: https://docs.pydantic.dev/latest/
-        .. _lydata Github repo: https://github.com/rmnldwg/lydata
+        .. _lydata Github repo: https://github.com/lycosystem/lydata
         """
         joined = None
 

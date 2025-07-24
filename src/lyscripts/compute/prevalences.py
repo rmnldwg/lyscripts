@@ -13,7 +13,8 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 from lydata import C, Q
-from lydata.accessor import NoneQ, QueryPortion
+from lydata.accessor import QueryPortion
+from lydata.querier import NoneQ
 from lydata.utils import is_old
 from lymph import models
 from pydantic import Field

@@ -308,7 +308,7 @@
           "type": "string"
         },
         "repo_name": {
-          "default": "rmnldwg/lydata",
+          "default": "lycosystem/lydata",
           "description": "GitHub `repository/owner`.",
           "minLength": 1,
           "title": "Repo Name",

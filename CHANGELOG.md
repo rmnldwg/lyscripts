@@ -356,7 +356,7 @@ over diagnosis times cannot be converted to a `DistributionConfig`.
   BREAKING CHANGES: `generate` command is better configurable
 - (**config**) Merge sample/sampling configs.
 - Use lydata's `ModalityConfig`.\
-  Since the [lydata](https://github.com/rmnldwg/lydata) package is
+  Since the [lydata](https://github.com/lycosystem/lydata) package is
   evolving quickly, I added it as a dependency and moved the first bit of
   code over there.
 - Enable use of lydata to load patient data.
