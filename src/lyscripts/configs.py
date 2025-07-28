@@ -18,7 +18,7 @@ import warnings
 from collections.abc import Callable, Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -432,6 +432,12 @@ class SamplingConfig(BaseModel):
         default=0.05,
         description="Relative threshold for convergence.",
     )
+    burnin_steps: int | None = Field(
+        default=None,
+        description=(
+            "Number of burn-in steps to take. If None, burn-in runs until convergence."
+        )
+    )
     num_steps: int | None = Field(
         default=100,
         description=("Number of steps to take in the MCMC sampling."),
@@ -460,6 +466,28 @@ class SamplingConfig(BaseModel):
             thin=thin,
         )
 
+class ScheduleConfig(BaseModel):
+        """Configuration for generating a schedule of inverse temperatures."""
+
+        method: Literal["geometric", "linear", "power"] = Field(
+            default="power",
+            description="Method to generate the inverse temperature schedule.",
+        )
+        num: int = Field(
+            default=32,
+            description="Number of inverse temperatures in the schedule.",
+        )
+        power: float = Field(
+            default=4.0,
+            description="If a power schedule is chosen, use this as power.",
+        )
+        values: list[float] | None = Field(
+            default=None,
+            description=(
+                "List of inverse temperatures to use instead of generating a schedule. "
+                "If a list is provided, the other parameters are ignored."
+            ),
+        )
 
 def map_to_optional_bool(value: Any) -> Any:
     """Try to convert the options in the `PatternType` to a boolean value."""

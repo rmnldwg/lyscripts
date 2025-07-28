@@ -129,7 +129,10 @@ def log_prob_fn(theta: ParamsType, inverse_temp: float = 1.0) -> tuple[float, fl
     An inverse temperature ``inverse_temp`` can be provided for thermodynamic
     integration.
     """
-    return inverse_temp * MODEL.likelihood(given_params=theta), inverse_temp
+    llh = MODEL.likelihood(given_params=theta)
+    if np.isinf(llh):  # to prevent the case of 0 * inf = NaN
+        return -np.inf, -np.inf
+    return inverse_temp * llh, llh
 
 
 def ensure_initial_state(sampler: emcee.EnsembleSampler) -> np.ndarray:
@@ -402,6 +405,7 @@ class SampleCLI(BaseCLI):
             run_sampling(
                 description="Burn-in phase",
                 sampler=sampler,
+                num_steps=self.sampling.burnin_steps,
                 check_interval=self.sampling.check_interval,
                 trust_factor=self.sampling.trust_factor,
                 relative_thresh=self.sampling.relative_thresh,
@@ -411,6 +415,7 @@ class SampleCLI(BaseCLI):
                 description="Sampling phase",
                 sampler=sampler,
                 num_steps=self.sampling.num_steps,
+                check_interval=self.sampling.num_steps,
                 reset_backend=True,
                 thin_by=self.sampling.thin_by,
             )
