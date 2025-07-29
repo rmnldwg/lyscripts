@@ -342,7 +342,7 @@ def init_sampler(settings: SampleCLI, ndim: int, pool: Any) -> emcee.EnsembleSam
         moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)],
         backend=backend,
         pool=pool,
-        blobs_dtype=[("inverse_temp", np.float64)],
+        blobs_dtype=[("log_prob", np.float64)],
         parameter_names=list(MODEL.get_named_params().keys()),
     )
 
