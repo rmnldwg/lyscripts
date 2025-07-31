@@ -197,4 +197,4 @@ sort_commits = "oldest"
 # limit_commits = 42
 
 [tool.uv.sources]
-lydata = { git = "https://github.com/lycosystem/lydata-package", rev = "374b25647fbe52ffb1e5583218bd06fbf8f3d403" }
+lydata = { git = "https://github.com/lycosystem/lydata-package", rev = "2a1b20cc318931b86e2c82c05b674a2cec094dac" }

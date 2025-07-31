@@ -141,7 +141,7 @@ def observe_prevalence(
     QueryPortion(match=np.int64(7), total=np.int64(79))
     """
     mapping = mapping or DataConfig.model_fields["mapping"].default_factory()
-    key = ("tumor", "1", "t_stage") if is_old(data) else ("tumor", "info", "t_stage")
+    key = ("tumor", "1", "t_stage") if is_old(data) else ("tumor", "core", "t_stage")
     data[key] = data.ly.t_stage.map(mapping)
 
     has_t_stage = C("t_stage").isin(scenario_config.t_stages)
