@@ -1,4 +1,7 @@
-"""Given samples drawn during thermodynamic integration, compute the model log evidence."""
+"""Given the samples drawn during thermodynamic integration and their
+respective log likelihoods, compute the model log evidence and 
+the Bayesian Information Criterion.
+"""
 
 from __future__ import annotations
 import numpy as np
@@ -112,7 +115,12 @@ class EvidenceCLI(BaseCLI):
 
 
     def cli_cmd(self) -> None:
-        """Start the evidence computation process."""
+        """Start the ``evidence`` subcommand.
+        Given the MCMC samples from thermodynamic integration provided by the ``sampling``
+        argument and the corresponding inverse temperature schedule, specified in the
+        ``schedule`` argument, the model evidence is computed using the functions
+        ``compute_ti_results`` and ``compute_evidence``. Further the BIC is evaluated.
+        """
 
         data = self.data.load()
 

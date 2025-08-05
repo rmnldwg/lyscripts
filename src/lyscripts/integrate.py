@@ -1,5 +1,10 @@
 """
 Perform thermodynamic integration to evaluate the model evidence.
+
+Using the functions provided by the `sample` module, this script implements
+thermodynamic integration (TI) in order to compute the model evidence.
+This is done by sampling the model parameters at different inverse temperatures
+following a specified schedule.
 """
 
 from __future__ import annotations
@@ -42,7 +47,7 @@ def init_ti_sampler(
     inv_temp: float, 
     pool: Any    
 ) -> emcee.EnsembleSampler:
-    """Initialize the ``emcee.EnsembleSampler``with the given ``settings''."""
+    """Initialize the ``emcee.EnsembleSampler`` for TI with the given ``settings''."""
     nwalkers = ndim * settings.sampling.walkers_per_dim
     backend = get_hdf5_backend(
                     file_path=settings.sampling.storage_file,
@@ -88,7 +93,18 @@ class IntegrateCLI(BaseCLI):
 
 
     def cli_cmd(self) -> None:
-        """Start the thermodynamic integration process."""
+        """Start the ``integrate`` subcommand.
+        
+        The model construction and setup is done analogously to the 
+        ``sample`` command. Afterwards, an :py:class:`emcee.EnsembleSampler` 
+        is initialized (see :py:func:`init_sampler`) and :py:func:`run_sampling`, 
+        implemented in the ``sample``module, is executed twice for each TI step:
+        once for the burn-in phase and once for the actual sampling phase. 
+        Thereby, the log likelihood is scaled by the respective inverse 
+        temperature of that step. All necessary settings for the sampling 
+        are passed by the ``sampling``argument, except for the inverse 
+        temperatures, which are provided by the ``schedule`` argument.
+        """
         # as recommended in https://emcee.readthedocs.io/en/stable/tutorials/parallel/#
         os.environ["OMP_NUM_THREADS"] = "1"
 
