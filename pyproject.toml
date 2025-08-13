@@ -50,8 +50,8 @@ dependencies = [
     "pydantic",
     "pydantic-settings >= 2.7.0, != 2.9.1, != 2.9.0",
     "numpydantic",
-    "lydata >= 0.4.0",
     "loguru",
+    "lydata @ git+https://github.com/lycosystem/lydata-package@eb99daf6cd65d93879cfa3552923f25c0a9c29bf",
 ]
 dynamic = ["version"]
 
@@ -191,10 +191,7 @@ skip_tags = "v0.1.0-beta.1"
 ignore_tags = ""
 # sort the tags topologically
 topo_order = false
-# sort the commits inside sections by oldest/newest order
-sort_commits = "oldest"
-
-[tool.uv.sources]
-lydata = { path = "../lydata-package", editable = true }
 # limit the number of commits included in the changelog.
 # limit_commits = 42
+# sort the commits inside sections by oldest/newest order
+sort_commits = "oldest"
