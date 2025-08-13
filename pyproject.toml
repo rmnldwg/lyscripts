@@ -51,7 +51,7 @@ dependencies = [
     "pydantic-settings >= 2.7.0, != 2.9.1, != 2.9.0",
     "numpydantic",
     "loguru",
-    "lydata @ git+https://github.com/lycosystem/lydata-package@eb99daf6cd65d93879cfa3552923f25c0a9c29bf",
+    "lydata @ git+https://github.com/lycosystem/lydata-package@79c5d4996b37a833afca457629d8d854acc05a33",
 ]
 dynamic = ["version"]
 
@@ -81,8 +81,17 @@ dev = [
 [project.scripts]
 lyscripts = "lyscripts:main"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"lyscripts" = [
+    "src/lyscripts/data/collect/collector.js",
+    "src/lyscripts/data/collect/index.html",
+]
 
 [tool.setuptools_scm]
 write_to = "src/lyscripts/_version.py"

@@ -17,6 +17,7 @@ associated `GitHub repository`_.
 from pydantic_settings import BaseSettings, CliApp, CliSubCommand
 
 from lyscripts.data import (  # noqa: F401
+    collect,
     enhance,
     fetch,
     generate,
@@ -32,6 +33,7 @@ from lyscripts.data import filter as filter_
 class DataCLI(BaseSettings):
     """Work with lymphatic progression data through this CLI."""
 
+    collect: CliSubCommand[collect.CollectorCLI]
     lyproxify: CliSubCommand[lyproxify.LyproxifyCLI]
     join: CliSubCommand[join.JoinCLI]
     split: CliSubCommand[split.SplitCLI]

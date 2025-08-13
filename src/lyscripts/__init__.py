@@ -17,7 +17,7 @@ from pydantic_settings import (
     CliSubCommand,
 )
 
-from lyscripts import compute, data, sample, schedule, integrate  # noqa: F401
+from lyscripts import compute, data, integrate, sample, schedule  # noqa: F401
 from lyscripts._version import version
 from lyscripts.cli import assemble_main, configure_logging
 from lyscripts.utils import console
