@@ -8,7 +8,7 @@ Introduction
 
 
 .. include:: ../../README.md
-    :end-line: 30
+    :end-before: <!--- ### --->
     :parser: myst_parser.sphinx_
 
 

@@ -41,7 +41,11 @@ Simply run
 lyscripts --help
 ```
 
-in your terminal and let the output guide you through the functions of the program.
+in your terminal to display the help text for the main command. It will list all subcommands that are avialable, which you can then also call with `lyscripts <subcommand> --help` to get more information on its use and the available arguments.
+
+For example, one subcommand is `lyscripts data collect`, which will launch a small web server that allows a user to enter patient records on lymphatic involvement in head and neck cancer one row at a time and construct a standardized CSV file from it.
+
+<!--- ### --->
 
 You can also refer to the [documentation] for a written-down version of all these help texts and even more context on how and why to use the provided commands.
 

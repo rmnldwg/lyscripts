@@ -1,6 +1,6 @@
 """Submodule to collect data interactively using a simple web interface.
 
-With the simply command
+With the simple command
 
 .. code-block:: bash
 
@@ -11,14 +11,13 @@ One can start a very basic web server that serves an interactive UI at
 involvement data one by one. When completed, the "submit" button will parse, validate,
 and convert the data to serve a downloadable CSV file.
 
-This resulting CSV file is in the correct format to be used in `LyProX`_ and for
+The resulting CSV file is in the correct format to be used in `LyProX`_ and for
 inference using our `lymph-model`_ library.
 
 .. _LyProX: https://lyprox.org
 .. _lymph-model: https://lymph-model.readthedocs.io
 """
 
-import inspect
 import io
 import logging
 from pathlib import Path
@@ -33,7 +32,7 @@ from loguru import logger
 from pydantic import Field, RootModel
 from starlette.responses import FileResponse, HTMLResponse
 
-from lyscripts.cli import _current_log_level
+from lyscripts.cli import InterceptHandler, _current_log_level
 from lyscripts.configs import BaseCLI
 
 app = FastAPI(
@@ -52,8 +51,8 @@ ROOT_MODEL = RootModel[list[RecordModel]]
 
 
 @app.get("/")
-def serve_index() -> HTMLResponse:
-    """Serve the index.html file."""
+def serve_index_html() -> HTMLResponse:
+    """Serve the ``index.html`` file at the URL's root."""
     with open(BASE_DIR / "index.html") as file:
         content = file.read()
     return HTMLResponse(content=content)
@@ -67,13 +66,29 @@ def serve_schema() -> dict[str, Any]:
 
 @app.get("/collector.js")
 def serve_collector_js() -> FileResponse:
-    """Serve the collector.js file."""
+    """Serve the ``collector.js`` file under ``"http://{host}:{port}/collector.js"``.
+
+    This frontend JavaScript file loads the `JSON-Editor`_ library and initializes it
+    using the schema returned by the :py:func:`serve_schema` function.
+
+    .. _JSON-Editor: https://github.com/json-editor/json-editor/
+    """
     return FileResponse(BASE_DIR / "collector.js")
 
 
 @app.post("/submit")
 async def process(data: RootModel) -> StreamingResponse:
-    """Convert the submitted data to a DataFrame."""
+    """Process the submitted data to a DataFrame.
+
+    `FastAPI`_ will automatically parse the received JSON data into the list of
+    instances of he pydantic type defined by the
+    :py:func:`lydata.schema.create_full_record_model` function.
+
+    From this list, we create a pandas DataFrame and return it as a downloadable CSV
+    file.
+
+    .. _FastAPI: https://fastapi.tiangolo.com/
+    """
     logger.info(f"Received data: {data.root}")
 
     if len(data.root) == 0:
@@ -105,36 +120,8 @@ async def process(data: RootModel) -> StreamingResponse:
     )
 
 
-class InterceptHandler(logging.Handler):
-    """Intercept logging messages and redirect them to Loguru."""
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """Intercept the log record and redirect it to Loguru."""
-        # Get corresponding Loguru level if it exists.
-        try:
-            level: str | int = logger.level(record.levelname).name
-        except ValueError:
-            level = record.levelno
-
-        # Find caller from where originated the logged message.
-        frame, depth = inspect.currentframe(), 0
-        while frame:
-            filename = frame.f_code.co_filename
-            is_logging = filename == logging.__file__
-            is_frozen = "importlib" in filename and "_bootstrap" in filename
-            if depth > 0 and not (is_logging or is_frozen):
-                break
-            frame = frame.f_back
-            depth += 1
-
-        logger.opt(depth=depth, exception=record.exc_info).log(
-            level,
-            record.getMessage(),
-        )
-
-
 class CollectorCLI(BaseCLI):
-    """Command-line interface for the lyDATA collector."""
+    """Serve a FastAPI web app for collecting involvement patterns as CSV files."""
 
     hostname: str = Field(
         default="localhost",
