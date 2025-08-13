@@ -17,6 +17,8 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich_argparse import ArgumentDefaultsRichHelpFormatter
 
+_current_log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+
 
 def assemble_main(
     settings_cls: type[BaseSettings],
@@ -80,11 +82,12 @@ def configure_logging(
     """
     logger.enable("lyscripts")
     logger.enable("lydata")
-    log_level = somewhat_safely_get_loglevel(argv=argv)
+    global _current_log_level
+    _current_log_level = somewhat_safely_get_loglevel(argv=argv)
     logger.remove()
     handler = RichHandler(console=console)
     logger.add(
         sink=handler,
-        level=log_level,
+        level=_current_log_level,
         format="<lvl>{message}</>",
     )
