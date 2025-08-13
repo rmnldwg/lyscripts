@@ -1,18 +1,21 @@
-"""Given the samples drawn during thermodynamic integration and their
-respective log likelihoods, compute the model log evidence and 
-the Bayesian Information Criterion.
+"""Compute the model evidence from MCMC samples.
+
+Given the samples drawn during thermodynamic integration and their respective log
+likelihoods, compute the model log evidence and the Bayesian Information Criterion.
 """
 
 from __future__ import annotations
-import numpy as np
+
 import json
+from pathlib import Path
+
+import emcee
+import h5py
+import numpy as np
 import pandas as pd
 from loguru import logger
 from pydantic import Field
-
-import h5py
-import emcee
-from pathlib import Path
+from scipy.integrate import trapezoid
 
 from lyscripts.cli import assemble_main
 from lyscripts.configs import (
@@ -21,11 +24,9 @@ from lyscripts.configs import (
     SamplingConfig,
     ScheduleConfig,
 )
-from lyscripts.schedule import SCHEDULES
-
-from scipy.integrate import trapezoid
 
 RNG = np.random.default_rng()
+
 
 def comp_bic(log_probs: np.ndarray, num_params: int, num_data: int) -> float:
     r"""Compute the negative one half of the Bayesian Information Criterion (BIC).
@@ -65,6 +66,7 @@ def compute_evidence(
         integrals[i] = trapezoid(y=drawn_accuracy, x=temp_schedule)
     return np.mean(integrals), np.std(integrals)
 
+
 def compute_ti_results(
     settings: EvidenceCLI,
     temp_schedule: np.ndarray,
@@ -86,8 +88,12 @@ def compute_ti_results(
     ti_log_probs = np.zeros(shape=(num_temps, nsteps * nwalker))
 
     for i, run in enumerate(h5_file["ti"]):
-        reader = emcee.backends.HDFBackend(settings.sampling.storage_file, name=f"ti/{run}", read_only=True)
-        ti_log_probs[i] = reader.get_blobs(flat=True)['log_prob']
+        reader = emcee.backends.HDFBackend(
+            settings.sampling.storage_file,
+            name=f"ti/{run}",
+            read_only=True,
+        )
+        ti_log_probs[i] = reader.get_blobs(flat=True)["log_prob"]
 
     evidence, evidence_std = compute_evidence(temp_schedule, ti_log_probs)
     metrics["evidence"] = evidence
@@ -102,7 +108,7 @@ class EvidenceCLI(BaseCLI):
     data: DataConfig
     sampling: SamplingConfig
     schedule: ScheduleConfig = Field(
-        description="Configuration for generating inverse temperature schedule."
+        description="Configuration for generating inverse temperature schedule.",
     )
     plots: Path = Field(
         default="./plots",
@@ -113,35 +119,31 @@ class EvidenceCLI(BaseCLI):
         description="Path to metrics file.",
     )
 
-
     def cli_cmd(self) -> None:
         """Start the ``evidence`` subcommand.
-        Given the MCMC samples from thermodynamic integration provided by the ``sampling``
-        argument and the corresponding inverse temperature schedule, specified in the
-        ``schedule`` argument, the model evidence is computed using the functions
-        ``compute_ti_results`` and ``compute_evidence``. Further the BIC is evaluated.
-        """
 
+        Given the MCMC samples from thermodynamic integration provided by the
+        ``sampling`` argument and the corresponding inverse temperature schedule,
+        specified in the ``schedule`` argument, the model evidence is computed using
+        the functions :py:func:`compute_ti_results` and :py:func`compute_evidence`.
+        Further the BIC is evaluated.
+        """
         data = self.data.load()
 
         metrics = {}
 
-        # temperature schedule: use direct list or generate
-        if self.schedule.values is not None:
-            temp_schedule = np.array(self.schedule.values)
-            logger.info(f"Using direct temperature values: {temp_schedule}")
-        else:
-            func = SCHEDULES[self.schedule.method]
-            temp_schedule = func(self.schedule.num, self.schedule.power)
-            logger.info(f"Generated {self.schedule.method} schedule: {temp_schedule}")
-        
+        temp_schedule = self.schedule.get_schedule()
 
-        with h5py.File(self.sampling.storage_file, mode='r') as h5_file:
+        with h5py.File(self.sampling.storage_file, mode="r") as h5_file:
             # Get ndim from the HDF5 backend
-            backend = emcee.backends.HDFBackend(self.sampling.storage_file, read_only=True, name=self.sampling.dataset)
+            backend = emcee.backends.HDFBackend(
+                self.sampling.storage_file,
+                read_only=True,
+                name=self.sampling.dataset,
+            )
             ndim = backend.shape[1]
             logger.info(f"Inferred {ndim} parameters from stored samples")
-            
+
             # if TI has been performed, compute the evidence
             if "ti" in h5_file:
                 temp_schedule, ti_log_probs = compute_ti_results(
@@ -172,10 +174,12 @@ class EvidenceCLI(BaseCLI):
                 )
                 beta_vs_accuracy.to_csv(self.plots, index=False)
                 logger.info(f"Plotted β vs accuracy at {self.plots}")
-            
+
             # use blobs, because also for TI, this is the unscaled log-prob
-            final_log_probs = backend.get_blobs()['log_prob']
-            logger.info(f"Opened samples from emcee backend from {self.sampling.storage_file}")
+            final_log_probs = backend.get_blobs()["log_prob"]
+            logger.info(
+                f"Opened samples from emcee backend from {self.sampling.storage_file}",
+            )
 
             # store metrics in JSON file
             self.metrics.parent.mkdir(parents=True, exist_ok=True)
@@ -191,11 +195,10 @@ class EvidenceCLI(BaseCLI):
 
             with open(self.metrics, mode="w", encoding="utf-8") as metrics_file:
                 json.dump(metrics, metrics_file)
-            
+
             logger.info(f"Wrote out metrics to {self.metrics}")
+
 
 if __name__ == "__main__":
     main = assemble_main(settings_cls=EvidenceCLI, prog_name="compute evidence")
     main()
-
-
