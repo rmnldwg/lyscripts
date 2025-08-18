@@ -51,6 +51,8 @@ dependencies = [
     "pydantic-settings >= 2.7.0, != 2.9.1, != 2.9.0",
     "numpydantic",
     "loguru",
+    "fastapi",
+    "uvicorn",
     "lydata @ git+https://github.com/lycosystem/lydata-package@79c5d4996b37a833afca457629d8d854acc05a33",
 ]
 dynamic = ["version"]
