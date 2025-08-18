@@ -137,6 +137,7 @@ fetch('/schema')
       theme: 'bootstrap5',
       iconlib: 'bootstrap',
       object_layout: 'grid',
+      disable_properties: true,
       schema: schema
   };
   const editor = new JSONEditor(element, options);
