@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from lydata import infer_and_combine_levels, load_datasets
+from lydata import load_datasets
 
 from lyscripts.compute.prevalences import observe_prevalence
 from lyscripts.configs import DiagnosisConfig, ScenarioConfig
@@ -24,7 +24,7 @@ def scenario_config() -> ScenarioConfig:
 def data() -> pd.DataFrame:
     """Load one of the lyDATA datasets."""
     data = next(load_datasets(year=2021, institution="usz"))
-    return infer_and_combine_levels(data)
+    return data.ly.enhance()
 
 
 def test_observe_prevalence(
@@ -37,5 +37,5 @@ def test_observe_prevalence(
         scenario_config=scenario_config,
     )
 
-    assert portion.match == 67
+    assert portion.match == 66
     assert portion.total == 150
