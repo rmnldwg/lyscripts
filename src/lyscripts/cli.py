@@ -8,6 +8,8 @@ some boilerplate code. Lastly, we have two functions related to the `loguru`_ se
 .. _loguru: https://loguru.readthedocs.io/en/stable
 """
 
+import inspect
+import logging
 from collections.abc import Callable
 from typing import Literal
 
@@ -16,6 +18,8 @@ from pydantic_settings import BaseSettings, CliApp, CliSettingsSource
 from rich.console import Console
 from rich.logging import RichHandler
 from rich_argparse import ArgumentDefaultsRichHelpFormatter
+
+_current_log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
 
 def assemble_main(
@@ -80,11 +84,40 @@ def configure_logging(
     """
     logger.enable("lyscripts")
     logger.enable("lydata")
-    log_level = somewhat_safely_get_loglevel(argv=argv)
+    global _current_log_level
+    _current_log_level = somewhat_safely_get_loglevel(argv=argv)
     logger.remove()
     handler = RichHandler(console=console)
     logger.add(
         sink=handler,
-        level=log_level,
+        level=_current_log_level,
         format="<lvl>{message}</>",
     )
+
+
+class InterceptHandler(logging.Handler):
+    """Intercept logging messages and redirect them to Loguru."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Intercept the log record and redirect it to Loguru."""
+        # Get corresponding Loguru level if it exists.
+        try:
+            level: str | int = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Find caller from where originated the logged message.
+        frame, depth = inspect.currentframe(), 0
+        while frame:
+            filename = frame.f_code.co_filename
+            is_logging = filename == logging.__file__
+            is_frozen = "importlib" in filename and "_bootstrap" in filename
+            if depth > 0 and not (is_logging or is_frozen):
+                break
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(
+            level,
+            record.getMessage(),
+        )

@@ -40,12 +40,9 @@ class EnhanceCLI(BaseCLI):
         logger.debug(self.model_dump_json(indent=2))
 
         data: LyDataFrame = self.input.load()
-        data[self.method] = data.ly.combine(
+        data = data.ly.enhance(
             modalities=self.modalities,
             method=self.method,
-        )
-        data[self.method] = data.ly.augment(
-            modality=self.method,
             subdivisions=self.lnl_subdivisions,
         )
         save_table_to_csv(file_path=self.output_file, table=data)

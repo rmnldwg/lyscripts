@@ -19,6 +19,7 @@ Submodules
 .. toctree::
     :maxdepth: 1
 
+    collect
     lyproxify
     join
     split
