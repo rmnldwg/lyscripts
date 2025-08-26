@@ -46,7 +46,7 @@ app = FastAPI(
 
 BASE_DIR = Path(__file__).parent
 modalities = lydata.schema.get_default_modalities()
-RecordModel = lydata.schema.create_full_record_model(modalities, title="Record")
+RecordModel = lydata.schema.create_full_record_model(modalities, model_name="Record")
 ROOT_MODEL = RootModel[list[RecordModel]]
 
 
