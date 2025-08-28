@@ -6,22 +6,16 @@ the preprocessed data as input and the mixture model.
 import argparse
 import logging
 import os
-from collections import namedtuple
-
-try:
-    from multiprocess import Pool
-except ModuleNotFoundError:
-    from multiprocessing import Pool
+import pickle
+from concurrent.futures import ProcessPoolExecutor
 
 from pathlib import Path
 
-import emcee
 import numpy as np
 import pandas as pd
 from lymph import models
-from lymixture import LymphMixture
 from lymixture.em import expectation, maximization
-from rich.progress import Progress, TimeElapsedColumn, track
+
 
 from lyscripts.utils import (
     create_mixture,
@@ -57,10 +51,6 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "-i", "--input", type=Path, required=True,
         help="Path to training data files"
     )
-    # parser.add_argument(
-    #     "-o", "--output", type=Path, required=True,
-    #     help="Path to the HDF5 file to store the results in"
-    # )
     parser.add_argument(
         "--history", type=Path, nargs="?",
         help="Path to store history in (as CSV file)."
@@ -72,6 +62,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-s", "--seed", type=int, default=42,
         help="Seed value to reproduce the same sampling round."
+    )
+    parser.add_argument(
+        "-m", "--multi_fit", type=bool, default=False,
+        help="Whether to fit multiple models for later uncertainty evaluation"
     )
     parser.add_argument(
         "-sp", "--starting_point", type=bool, default=None,
@@ -138,11 +132,68 @@ def run_EM(tolerance, history_dir = None):
         iteration += 1
     return params_history, likelihood_history
 
+
+def process_dataset(dataset, initial_params, folder_path, index = 0, look_back_steps=3):
+    os.makedirs(folder_path, exist_ok=True)
+    subpath_optimal_params = 'optimal_params'
+    os.makedirs(os.path.join(folder_path, subpath_optimal_params), exist_ok=True)
+    subpath_params_history = 'params_history'
+    os.makedirs(os.path.join(folder_path, subpath_params_history), exist_ok=True)
+    subpath_likelihood_history = 'likelihood_history'
+    os.makedirs(os.path.join(folder_path, subpath_likelihood_history), exist_ok=True)
+
+    logger.info(f"Starting dataset {index}")
+    mixture = create_mixture(params)
+    
+    mixture.load_patient_data(
+        dataset,
+        split_by=("tumor", "1", "subsite"),
+        mapping=lambda x: x,
+    )
+    assign_modalities(model=MIXTURE, config=params.get("inference_modalities", {}))
+    mixture.set_params(**initial_params[index])
+    params = initial_params[index].copy()
+        
+    mixture.normalize_mixture_coefs()
+    params_history = [params.copy()]
+    likelihood_history = [mixture.likelihood(use_complete=False)]
+    
+    is_converged = False
+    count = 0
+    logger.info(f"[Dataset {index}] started")
+    while not is_converged:
+        
+        latent = expectation(mixture, params, log = True)
+        mixture.set_resps(np.exp(latent))
+        params = maximization(mixture, latent)
+
+        params_history.append(params.copy())
+        likelihood_history.append(mixture.likelihood(use_complete=False))
+        
+        llh_history = pd.DataFrame(likelihood_history)
+        llh_history.columns = ['likelihoods']
+        llh_history.to_csv(os.path.join(folder_path, subpath_likelihood_history, f"{file_prefix}_likelihood_history.pkl"), index=False)
+        param_history = pd.DataFrame(params_history)
+        param_history.to_csv(os.path.join(folder_path, subpath_params_history, f"{file_prefix}_param_history.pkl"), index=False)
+        if count >= look_back_steps:
+            is_converged = check_convergence(params_history, likelihood_history, list(range(1, look_back_steps + 1)))
+        
+        count += 1
+
+    logger.info(f"[Dataset {index}] Converged after {count} steps")
+    file_prefix = f"dataset_{index}"
+
+    with open(os.path.join(folder_path, subpath_optimal_params,f"{file_prefix}_best_params.pkl"), 'wb') as f:
+        pickle.dump(params_history[-1], f)
+
+
+
 def main(args: argparse.Namespace) -> None:
     """Main function to run the EM algorithm for a mixture model"""
 
     params = load_yaml_params(args.params)
     inference_data = load_patient_data(args.input)
+    multiple_fit = args.multi_fit
 
     # ugly, but necessary for pickling
     global MIXTURE
@@ -156,22 +207,29 @@ def main(args: argparse.Namespace) -> None:
 
     else:
         raise "Only Unilateral has been implemented so far"
-    # emcee does not support numpy's new random number generator yet.
-    rng = np.random.default_rng(params["em"].get("seed", 42))
-    starting_values = {k: rng.uniform() for k in MIXTURE.get_params()}
-    MIXTURE.set_params(**starting_values)
-    MIXTURE.normalize_mixture_coefs()
-    tolerance = params['model'].get('likelihood_tolerance', 0.01)
-    history_dir = params['general']['history_dir']
-    logger.info(f"Saving history to {history_dir}.")
-    params_history, likelihood_history = run_EM(tolerance = tolerance, history_dir = history_dir)
     
+    rng = np.random.default_rng(params["em"].get("seed", 42))
+    if args.multi_fit:
+        with ProcessPoolExecutor(max_workers = 10) as executor:
+            futures = [
+                executor.submit(process_dataset, i, dataset, initial_params, history_dir)
+                for i, dataset in enumerate(datasets)
+        ]
+    else:
+        starting_values = {k: rng.uniform() for k in MIXTURE.get_params()}
+        MIXTURE.set_params(**starting_values)
+        MIXTURE.normalize_mixture_coefs()
+        tolerance = params['model'].get('likelihood_tolerance', 0.01)
+        history_dir = params['general']['history_dir']
+        logger.info(f"Saving history to {history_dir}.")
+        params_history, likelihood_history = run_EM(tolerance = tolerance, history_dir = history_dir)
+        
     llh_history = pd.DataFrame(likelihood_history)
     llh_history.columns = ['likelihoods']
-    llh_history.to_csv(history_dir + '/llh.csv', index=False)
+    llh_history.to_csv(history_dir + '/original' + '/llh.csv', index=False)
     param_history = pd.DataFrame(params_history)
-    param_history.to_csv(history_dir + '/params.csv', index=False)
-    MIXTURE.get_mixture_coefs().to_csv(history_dir + '/mixture_coef.csv', index=False)
+    param_history.to_csv(history_dir + '/original' + '/params.csv', index=False)
+    MIXTURE.get_mixture_coefs().to_csv(history_dir + '/original' + '/mixture_coef.csv', index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
