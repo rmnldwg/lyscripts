@@ -53,6 +53,7 @@ class SchemaSettings(BaseModel):
     model: configs.ModelConfig = None
     sampling: configs.SamplingConfig = None
     scenarios: list[configs.ScenarioConfig] = []
+    schedule: configs.ScheduleConfig = None
 
 
 def main() -> None:
