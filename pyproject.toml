@@ -53,7 +53,7 @@ dependencies = [
     "loguru",
     "fastapi",
     "uvicorn",
-    "lydata @ git+https://github.com/lycosystem/lydata-package@8469a26bea1d275b7ced43fbe3a269c8b30b60f4",
+    "lydata >= 0.4.0",
 ]
 dynamic = ["version"]
 
