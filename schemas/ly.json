@@ -308,18 +308,46 @@
           "type": "string"
         },
         "repo_name": {
-          "default": "rmnldwg/lydata",
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "lycosystem/lydata",
           "description": "GitHub `repository/owner`.",
-          "minLength": 1,
-          "title": "Repo Name",
-          "type": "string"
+          "title": "Repo Name"
         },
         "ref": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": "main",
           "description": "Branch/tag/commit of the repo.",
-          "minLength": 1,
-          "title": "Ref",
-          "type": "string"
+          "title": "Ref"
+        },
+        "local_dataset_dir": {
+          "anyOf": [
+            {
+              "format": "directory-path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to directory containing all the dataset subdirectories. So, e.g. if `path_on_disk` is `~/datasets` and the dataset is `2023-clb-multisite`, then the CSV file is expected to be at `~/datasets/2023-clb-multisite/data.csv`.",
+          "title": "Local Dataset Dir"
         }
       },
       "required": [
@@ -501,6 +529,19 @@
           "title": "Relative Thresh",
           "type": "number"
         },
+        "burnin_steps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of burn-in steps to take. If None, burn-in runs until convergence.",
+          "title": "Burnin Steps"
+        },
         "num_steps": {
           "anyOf": [
             {
@@ -623,6 +664,52 @@
       ],
       "title": "ScenarioConfig",
       "type": "object"
+    },
+    "ScheduleConfig": {
+      "description": "Configuration for generating a schedule of inverse temperatures.",
+      "properties": {
+        "method": {
+          "default": "power",
+          "description": "Method to generate the inverse temperature schedule.",
+          "enum": [
+            "geometric",
+            "linear",
+            "power"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "num": {
+          "default": 32,
+          "description": "Number of inverse temperatures in the schedule.",
+          "title": "Num",
+          "type": "integer"
+        },
+        "power": {
+          "default": 4.0,
+          "description": "If a power schedule is chosen, use this as power.",
+          "title": "Power",
+          "type": "number"
+        },
+        "values": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "List of inverse temperatures to use instead of generating a schedule. If a list is provided, the other parameters are ignored.",
+          "title": "Values"
+        }
+      },
+      "title": "ScheduleConfig",
+      "type": "object"
     }
   },
   "description": "Settings for generating a JSON schema for lyscripts configuration files.",
@@ -685,6 +772,10 @@
       },
       "title": "Scenarios",
       "type": "array"
+    },
+    "schedule": {
+      "$ref": "#/$defs/ScheduleConfig",
+      "default": null
     }
   },
   "required": [

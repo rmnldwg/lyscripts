@@ -432,6 +432,12 @@ class SamplingConfig(BaseModel):
         default=0.05,
         description="Relative threshold for convergence.",
     )
+    burnin_steps: int | None = Field(
+        default=None,
+        description=(
+            "Number of burn-in steps to take. If None, burn-in runs until convergence."
+        ),
+    )
     num_steps: int | None = Field(
         default=100,
         description=("Number of steps to take in the MCMC sampling."),
@@ -459,6 +465,75 @@ class SamplingConfig(BaseModel):
             name=self.dataset,
             thin=thin,
         )
+
+
+def geometric_schedule(num: int, *_a) -> np.ndarray:
+    """Create a geometric sequence of ``num`` numbers from 0 to 1."""
+    log_seq = np.logspace(0.0, 1.0, num)
+    shifted_seq = log_seq - 1.0
+    return shifted_seq / 9.0
+
+
+def linear_schedule(num: int, *_a) -> np.ndarray:
+    """Create a linear sequence of ``num`` numbers from 0 to 1.
+
+    Equivalent to the :py:func:`power_schedule` with ``power=1``.
+    """
+    return np.linspace(0.0, 1.0, num)
+
+
+def power_schedule(num: int, power: float, *_a) -> np.ndarray:
+    """Create a power sequence of ``num`` numbers from 0 to 1.
+
+    This is essentially a :py:func:`linear_schedule` of ``num`` numbers from 0 to 1,
+    but each number is raised to the power of ``power``.
+    """
+    lin_seq = np.linspace(0.0, 1.0, num)
+    return lin_seq**power
+
+
+SCHEDULES = {
+    "geometric": geometric_schedule,
+    "linear": linear_schedule,
+    "power": power_schedule,
+}
+
+
+class ScheduleConfig(BaseModel):
+    """Configuration for generating a schedule of inverse temperatures."""
+
+    method: Literal["geometric", "linear", "power"] = Field(
+        default="power",
+        description="Method to generate the inverse temperature schedule.",
+    )
+    num: int = Field(
+        default=32,
+        description="Number of inverse temperatures in the schedule.",
+    )
+    power: float = Field(
+        default=4.0,
+        description="If a power schedule is chosen, use this as power.",
+    )
+    values: list[float] | None = Field(
+        default=None,
+        description=(
+            "List of inverse temperatures to use instead of generating a schedule. "
+            "If a list is provided, the other parameters are ignored."
+        ),
+    )
+
+    def get_schedule(self) -> np.ndarray:
+        """Get the inverse temperature schedule as a numpy array."""
+        if self.values is not None:
+            logger.debug("Using provided inverse temperature values.")
+            schedule = np.array(self.values)
+        else:
+            logger.debug(f"Generating inverse temperature schedule with {self.method}.")
+            func = SCHEDULES[self.method]
+            schedule = func(self.num, self.power)
+
+        logger.info(f"Generated inverse temperature schedule: {schedule}")
+        return schedule
 
 
 def map_to_optional_bool(value: Any) -> Any:

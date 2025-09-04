@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2025-09-04
+
+### Bug Fixes
+
+- Change `info` to `core` for mid-level lydata columns
+- Use bug-fixed lydata `.ly.enhance()` method.
+
+### Documentation
+
+- Update documentation for `integrate` and `evidence` commands.
+- Improve `data collect` description.
+
+### Features
+
+- Add `integrate` command for thermodynamic integration. Thanks [@noemibuehrer]!
+- Add command spawning websever for interactive data collection.
+
+### Miscellaneous Tasks
+
+- Add missing links to changelog.
+- Add CITATION.cff.
+
+### Testing
+
+- Update tests for new lydata.
+
+### Build
+
+- Add uvicorn, fastapi to deps.
+- Require at least lydata 0.4.0.
+
+### Change
+
+- Make compatible with new lyDATA version.
+- Centralize inverse temperature schedule generation.
+- Store selected log-level globally.
+- Disable properties in collector.
+
 ## [1.0.0rc3] - 2025-07-22
 
 ### Documentation
@@ -356,7 +394,7 @@ over diagnosis times cannot be converted to a `DistributionConfig`.
   BREAKING CHANGES: `generate` command is better configurable
 - (**config**) Merge sample/sampling configs.
 - Use lydata's `ModalityConfig`.\
-  Since the [lydata](https://github.com/rmnldwg/lydata) package is
+  Since the [lydata](https://github.com/lycosystem/lydata) package is
   evolving quickly, I added it as a dependency and moved the first bit of
   code over there.
 - Enable use of lydata to load patient data.
@@ -871,6 +909,8 @@ returns `None` instead. Fixes [#11]
 ## [0.5.3] - 2022-08-22
 
 <!-- markdownlint-disable-file MD024 -->
+[1.0.0]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc3...1.0.0
+[1.0.0rc3]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc2...1.0.0rc3
 [1.0.0rc2]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc1...1.0.0rc2
 [1.0.0rc1]: https://github.com/lycosystem/lyscripts/compare/1.0.0.a7...1.0.0rc1
 [1.0.0.a7]: https://github.com/lycosystem/lyscripts/compare/1.0.0.a6...1.0.0.a7
@@ -931,8 +971,10 @@ returns `None` instead. Fixes [#11]
 [#70]: https://github.com/lycosystem/lyscripts/issues/70
 [#72]: https://github.com/lycosystem/lyscripts/issues/72
 [#74]: https://github.com/lycosystem/lyscripts/issues/74
+[#75]: https://github.com/lycosystem/lyscripts/issues/75
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich`]: https://rich.readthedocs.io/en/latest/
 [`rich_argparse`]: https://github.com/hamdanal/rich_argparse
 [LyProX]: https://lyprox.org
+[@noemibuehrer]: https://github.com/noemibuehrer

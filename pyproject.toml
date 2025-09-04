@@ -50,8 +50,10 @@ dependencies = [
     "pydantic",
     "pydantic-settings >= 2.7.0, != 2.9.1, != 2.9.0",
     "numpydantic",
-    "lydata >= 0.3.3",
     "loguru",
+    "fastapi",
+    "uvicorn",
+    "lydata >= 0.4.0",
 ]
 dynamic = ["version"]
 
@@ -81,8 +83,17 @@ dev = [
 [project.scripts]
 lyscripts = "lyscripts:main"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"lyscripts" = [
+    "src/lyscripts/data/collect/collector.js",
+    "src/lyscripts/data/collect/index.html",
+]
 
 [tool.setuptools_scm]
 write_to = "src/lyscripts/_version.py"
@@ -191,10 +202,7 @@ skip_tags = "v0.1.0-beta.1"
 ignore_tags = ""
 # sort the tags topologically
 topo_order = false
-# sort the commits inside sections by oldest/newest order
-sort_commits = "oldest"
-
-[tool.uv.sources]
-lydata = { path = "../lydata-package", editable = true }
 # limit the number of commits included in the changelog.
 # limit_commits = 42
+# sort the commits inside sections by oldest/newest order
+sort_commits = "oldest"
