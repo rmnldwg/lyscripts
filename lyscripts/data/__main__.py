@@ -1,7 +1,7 @@
 import argparse
 
 from lyscripts import RichDefaultHelpFormatter, exit_cli
-from lyscripts.data import enhance, filter, generate, join, split
+from lyscripts.data import enhance, filter, generate, join, split, bootstrap
 
 # I need another __main__ guard here, because otherwise pdoc tries to run this
 if __name__ == "__main__":
@@ -20,6 +20,7 @@ if __name__ == "__main__":
     join._add_parser(subparsers, help_formatter=parser.formatter_class)
     split._add_parser(subparsers, help_formatter=parser.formatter_class)
     filter._add_parser(subparsers, help_formatter=parser.formatter_class)
+    bootstrap._add_parser(subparsers, help_formatter=parser.formatter_class)
 
     args = parser.parse_args()
     args.run_main(args)

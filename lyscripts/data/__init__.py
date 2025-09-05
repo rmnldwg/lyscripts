@@ -10,7 +10,7 @@ which can then be uploaded to the `LyProX`_ online tool for others to inspect th
 import argparse
 from pathlib import Path
 
-from lyscripts.data import enhance, filter, generate, join, lyproxify, split
+from lyscripts.data import enhance, filter, generate, join, lyproxify, split, bootstrap
 
 
 def _add_parser(
@@ -31,3 +31,4 @@ def _add_parser(
     lyproxify._add_parser(subparsers, help_formatter=parser.formatter_class)
     split._add_parser(subparsers, help_formatter=parser.formatter_class)
     filter._add_parser(subparsers, help_formatter=parser.formatter_class)
+    bootstrap._add_parser(subparsers, help_formatter=parser.formatter_class)

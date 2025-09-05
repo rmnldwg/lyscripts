@@ -68,7 +68,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Whether to fit multiple models for later uncertainty evaluation"
     )
     parser.add_argument(
-        "-sp", "--starting_point", type=bool, default=None,
+        "-sp", "--starting_point", type=Path, default=None,
         help="Starting point for optimization if we do not want to start from a random point"
     )
 
@@ -100,6 +100,7 @@ def check_convergence(params_history, likelihood_history, steps_back_list, absol
 def run_EM(tolerance, history_dir = None):
     """Run the EM algorithm to determine the optimal parameters.
     """
+    os.makedirs(history_dir, exist_ok=True)
     is_converged = False
     iteration = 0
     params = MIXTURE.get_params()
@@ -113,7 +114,8 @@ def run_EM(tolerance, history_dir = None):
     while not is_converged:
         logger.info(f"Iteration: {iteration}")
         logger.info(f"Likelihood: {likelihood_history[-1]}")
-        latent = expectation(MIXTURE, params)
+        latent = expectation(MIXTURE, params, log = True)
+        MIXTURE.set_resps(np.exp(latent))
         params = maximization(MIXTURE, latent)
         
         # Append current params and likelihood to history
@@ -130,10 +132,12 @@ def run_EM(tolerance, history_dir = None):
         if iteration >= 3:  # Ensure enough history is available
             is_converged = check_convergence(params_history, likelihood_history,list(range(1,look_back_steps+1)),tolerance)
         iteration += 1
+    df = pd.DataFrame.from_dict(MIXTURE.get_params(), orient='index', columns=['value'])
+    df.to_csv(history_dir + '/optimal_params.csv')
     return params_history, likelihood_history
 
 
-def process_dataset(dataset, initial_params, folder_path, index = 0, look_back_steps=3):
+def process_dataset(dataset, folder_path, initial_params, model_build_params, index, look_back_steps=3):
     os.makedirs(folder_path, exist_ok=True)
     subpath_optimal_params = 'optimal_params'
     os.makedirs(os.path.join(folder_path, subpath_optimal_params), exist_ok=True)
@@ -142,17 +146,21 @@ def process_dataset(dataset, initial_params, folder_path, index = 0, look_back_s
     subpath_likelihood_history = 'likelihood_history'
     os.makedirs(os.path.join(folder_path, subpath_likelihood_history), exist_ok=True)
 
+
     logger.info(f"Starting dataset {index}")
-    mixture = create_mixture(params)
+    mixture = create_mixture(model_build_params)
+    mapping = model_build_params["model"].get("mapping", None)
+    if isinstance(mixture.components[0], models.Unilateral):
+        mixture.load_patient_data(dataset, split_by= model_build_params["model"].get("split_by", ("tumor", "1", "subsite")), mapping=mapping)
+        assign_modalities(model=mixture, config=model_build_params.get("inference_modalities", {}))
+    else:
+        raise ValueError("Only Unilateral has been implemented so far")
     
-    mixture.load_patient_data(
-        dataset,
-        split_by=("tumor", "1", "subsite"),
-        mapping=lambda x: x,
-    )
-    assign_modalities(model=MIXTURE, config=params.get("inference_modalities", {}))
-    mixture.set_params(**initial_params[index])
-    params = initial_params[index].copy()
+    mixture.set_params(**initial_params)
+    mixture.normalize_mixture_coefs()
+    tolerance = model_build_params['model'].get('likelihood_tolerance', 0.01)
+    mixture.set_params(**initial_params)
+    params = initial_params.copy()
         
     mixture.normalize_mixture_coefs()
     params_history = [params.copy()]
@@ -161,6 +169,8 @@ def process_dataset(dataset, initial_params, folder_path, index = 0, look_back_s
     is_converged = False
     count = 0
     logger.info(f"[Dataset {index}] started")
+    file_prefix = f"dataset_{index}"
+
     while not is_converged:
         
         latent = expectation(mixture, params, log = True)
@@ -172,64 +182,65 @@ def process_dataset(dataset, initial_params, folder_path, index = 0, look_back_s
         
         llh_history = pd.DataFrame(likelihood_history)
         llh_history.columns = ['likelihoods']
-        llh_history.to_csv(os.path.join(folder_path, subpath_likelihood_history, f"{file_prefix}_likelihood_history.pkl"), index=False)
+        llh_history.to_csv(os.path.join(folder_path, subpath_likelihood_history, f"{file_prefix}_likelihood_history.csv"), index=False)
         param_history = pd.DataFrame(params_history)
-        param_history.to_csv(os.path.join(folder_path, subpath_params_history, f"{file_prefix}_param_history.pkl"), index=False)
+        param_history.to_csv(os.path.join(folder_path, subpath_params_history, f"{file_prefix}_param_history.csv"), index=False)
         if count >= look_back_steps:
-            is_converged = check_convergence(params_history, likelihood_history, list(range(1, look_back_steps + 1)))
+            is_converged = check_convergence(params_history, likelihood_history, list(range(1, look_back_steps + 1)), tolerance)
         
         count += 1
 
     logger.info(f"[Dataset {index}] Converged after {count} steps")
-    file_prefix = f"dataset_{index}"
 
-    with open(os.path.join(folder_path, subpath_optimal_params,f"{file_prefix}_best_params.pkl"), 'wb') as f:
-        pickle.dump(params_history[-1], f)
-
-
+    df = pd.DataFrame.from_dict(mixture.get_params(), orient='index', columns=['value'])
+    df.to_csv(os.path.join(folder_path, subpath_optimal_params, f"{file_prefix}_optimal_params.csv"))
 
 def main(args: argparse.Namespace) -> None:
     """Main function to run the EM algorithm for a mixture model"""
 
     params = load_yaml_params(args.params)
-    inference_data = load_patient_data(args.input)
-    multiple_fit = args.multi_fit
-
-    # ugly, but necessary for pickling
     global MIXTURE
     MIXTURE = create_mixture(params)
 
-    mapping = params["model"].get("mapping", None)
-    if isinstance(MIXTURE.components[0], models.Unilateral):
-        side = params["model"].get("side", "ipsi")
-        MIXTURE.load_patient_data(inference_data, split_by= params["model"].get("split_by", ("tumor", "1", "subsite")), mapping=mapping)
-        assign_modalities(model=MIXTURE, config=params.get("inference_modalities", {}))
-
+    if args.starting_point is None:
+        rng = np.random.default_rng(params["em"].get("seed", 42))
+        starting_values = {k: rng.uniform() for k in MIXTURE.get_params()}
     else:
-        raise "Only Unilateral has been implemented so far"
-    
-    rng = np.random.default_rng(params["em"].get("seed", 42))
+        logger.info(f"Using starting point from {args.starting_point}")
+        starting_df = pd.read_csv(args.starting_point, index_col=0)  # Use first column as index
+        starting_values = starting_df['value'].to_dict()
+
     if args.multi_fit:
-        with ProcessPoolExecutor(max_workers = 10) as executor:
+        datasets = []
+        history_dir = params['sampling']['output_path']
+        os.makedirs(history_dir, exist_ok=True)
+        for i in range(params['sampling']['n_bootstraps']):
+            file_path = os.path.join(args.input, f"dataset_resample_{i}.csv")
+            if os.path.exists(file_path):
+                loaded_dataset = pd.read_csv(file_path, header=[0, 1, 2])
+                datasets.append(loaded_dataset)
+        with ProcessPoolExecutor(max(1, os.cpu_count() - 2)) as executor:
             futures = [
-                executor.submit(process_dataset, i, dataset, initial_params, history_dir)
+                executor.submit(process_dataset, dataset, history_dir, starting_values, params, i)
                 for i, dataset in enumerate(datasets)
         ]
     else:
-        starting_values = {k: rng.uniform() for k in MIXTURE.get_params()}
+        inference_data = load_patient_data(args.input)
+
+        mapping = params["model"].get("mapping", None)
+        if isinstance(MIXTURE.components[0], models.Unilateral):
+            MIXTURE.load_patient_data(inference_data, split_by= params["model"].get("split_by", ("tumor", "1", "subsite")), mapping=mapping)
+            assign_modalities(model=MIXTURE, config=params.get("inference_modalities", {}))
+
+        else:
+            raise ValueError("Only Unilateral has been implemented so far")
+        
         MIXTURE.set_params(**starting_values)
         MIXTURE.normalize_mixture_coefs()
         tolerance = params['model'].get('likelihood_tolerance', 0.01)
-        history_dir = params['general']['history_dir']
+        history_dir = params['fitting']['folder_path']
         logger.info(f"Saving history to {history_dir}.")
         params_history, likelihood_history = run_EM(tolerance = tolerance, history_dir = history_dir)
-        
-    llh_history = pd.DataFrame(likelihood_history)
-    llh_history.columns = ['likelihoods']
-    llh_history.to_csv(history_dir + '/original' + '/llh.csv', index=False)
-    param_history = pd.DataFrame(params_history)
-    param_history.to_csv(history_dir + '/original' + '/params.csv', index=False)
-    MIXTURE.get_mixture_coefs().to_csv(history_dir + '/original' + '/mixture_coef.csv', index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

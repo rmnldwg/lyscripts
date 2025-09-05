@@ -97,6 +97,8 @@ def _add_arguments(parser: argparse.ArgumentParser):
 #     bottom_ax.grid(axis="x", alpha=0.5, color=USZ["gray"], linestyle=":")
 #     plt.savefig(args.output, bbox_inches="tight", dpi=300)
 
+def plot_2d_simplex(mixture_df, data):
+
 def plot_3d_simplex(mixture_df, data, output, component_names = False):
     data = pd.read_csv(data, header=[0, 1, 2])
     subsites = list(mixture_df.columns)
