@@ -1,6 +1,5 @@
-"""
-Utilities related to the commands for data cleaning and processing.
-"""
+"""Utilities related to the commands for data cleaning and processing."""
+
 from pathlib import Path
 
 import pandas as pd

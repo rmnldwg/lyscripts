@@ -1,8 +1,8 @@
-"""
-Module containing scripts to run different `streamlit`_ applications.
+"""Module containing scripts to run different `streamlit`_ applications.
 
 .. _streamlit: https://streamlit.io/
 """
+
 import argparse
 from pathlib import Path
 

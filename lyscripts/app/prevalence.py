@@ -1,5 +1,4 @@
-"""
-A `streamlit`_ app for computing, displaying, and reproducing prevalence estimates.
+"""A `streamlit`_ app for computing, displaying, and reproducing prevalence estimates.
 
 The primary goal with this little GUI is that one can quickly draft some data &
 prediction comparisons visually and then copy & paste the configuration in YAML format
@@ -7,6 +6,7 @@ that is necessary to reproduce this via the :py:mod:`.predict.prevalences` scrip
 
 .. _streamlit: https://streamlit.io/
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -51,10 +51,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
     .. _streamlit: https://streamlit.io/
     """
-    parser.add_argument(
-        "--message", type=str,
-        help="Print our this little message."
-    )
+    parser.add_argument("--message", type=str, help="Print our this little message.")
 
     parser.set_defaults(run_main=launch_streamlit)
 
@@ -122,7 +119,7 @@ def interactive_load(streamlit):
         type=["csv"],
         help="CSV spreadsheet containing lymphatic patterns of progression",
     )
-    header_rows = [0,1] if is_unilateral else [0,1,2]
+    header_rows = [0, 1] if is_unilateral else [0, 1, 2]
     patient_data = load_patient_data(data_file, header=header_rows)
 
     streamlit.write("---")
@@ -130,7 +127,7 @@ def interactive_load(streamlit):
     samples_file = streamlit.file_uploader(
         label="HDF5 sample file",
         type=["hdf5", "hdf", "h5"],
-        help="HDF5 file containing the samples."
+        help="HDF5 file containing the samples.",
     )
     samples = load_model_samples(samples_file)
 
@@ -138,10 +135,7 @@ def interactive_load(streamlit):
 
 
 def interactive_pattern(
-    streamlit,
-    is_unilateral: bool,
-    lnls: list[str],
-    side: str
+    streamlit, is_unilateral: bool, lnls: list[str], side: str
 ) -> dict[str, bool]:
     """Create a `streamlit`_ panel for specifying an involvement pattern.
 
@@ -179,7 +173,7 @@ def interactive_additional_params(
 
     The respective controls are presented next to each other in three dedicated columns.
     """
-    control_cols = streamlit.columns([1,2,1,1,1])
+    control_cols = streamlit.columns([1, 2, 1, 1, 1])
     t_stage = control_cols[0].selectbox(
         label="T-category",
         options=model.diag_time_dists.keys(),
@@ -270,15 +264,16 @@ def add_current_scenario(
     session_state["contents"].append(beta_posterior)
     session_state["contents"].append(histogram)
 
-    session_state["scenarios"].append({
-        "pattern": reduce_pattern(pattern), **prevs_kwargs
-    })
+    session_state["scenarios"].append(
+        {"pattern": reduce_pattern(pattern), **prevs_kwargs}
+    )
 
 
 def main(args: argparse.Namespace):
     """The main function that contains the `streamlit`_ code and functionality.
 
-    .. _streamlit: https://streamlit.io/"""
+    .. _streamlit: https://streamlit.io/
+    """
     import streamlit as st
 
     st.title("Prevalence")
@@ -335,7 +330,7 @@ def main(args: argparse.Namespace):
     )
 
     fig, ax = plt.subplots()
-    draw(axes=ax, contents=st.session_state.get("contents", []), xlims=(0., 100.))
+    draw(axes=ax, contents=st.session_state.get("contents", []), xlims=(0.0, 100.0))
     ax.legend()
     st.pyplot(fig)
 

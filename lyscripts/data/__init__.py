@@ -1,5 +1,4 @@
-"""
-Provide a range of commands and functions related to managing CSV datasets on patterns
+"""Provide a range of commands and functions related to managing CSV datasets on patterns
 of lymphatic progression.
 
 It helps transform raw CSV data of any form to be converted into our `LyProX`_ format,
@@ -7,10 +6,11 @@ which can then be uploaded to the `LyProX`_ online tool for others to inspect th
 
 .. _LyProX: https://lyprox.org
 """
+
 import argparse
 from pathlib import Path
 
-from lyscripts.data import enhance, filter, generate, join, lyproxify, split, bootstrap
+from lyscripts.data import bootstrap, enhance, filter, generate, join, lyproxify, split
 
 
 def _add_parser(

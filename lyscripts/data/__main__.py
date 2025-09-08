@@ -1,7 +1,7 @@
 import argparse
 
 from lyscripts import RichDefaultHelpFormatter, exit_cli
-from lyscripts.data import enhance, filter, generate, join, split, bootstrap
+from lyscripts.data import bootstrap, enhance, filter, generate, join, split
 
 # I need another __main__ guard here, because otherwise pdoc tries to run this
 if __name__ == "__main__":

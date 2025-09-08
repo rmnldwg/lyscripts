@@ -15,10 +15,13 @@ it with the :py:func:`lymph.matrix.generate_observation` to get the likelihood o
 observed involvement pattern.
 
 Warning:
+-------
     The command skips the computation of the priors if it finds them in the cache. But
     this cache only accounts for the scenario, *NOT* the samples. So, if the samples
     change, you need to force a recomputation of the priors (e.g., by deleting them).
+
 """
+
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
@@ -35,7 +38,6 @@ from rich.progress import track
 from lyscripts import utils
 from lyscripts.compute.priors import compute_priors_using_cache
 from lyscripts.compute.utils import HDF5FileCache, get_modality_subset
-from lyscripts.data import accessor  # nopycln: import
 from lyscripts.scenario import Scenario, add_scenario_arguments
 
 logger = logging.getLogger(__name__)
@@ -58,41 +60,45 @@ def _add_parser(
 def _add_arguments(parser: argparse.ArgumentParser):
     """Add arguments needed to run this script to a ``subparsers`` instance."""
     parser.add_argument(
-        "--priors", type=Path, required=True,
+        "--priors",
+        type=Path,
+        required=True,
         help=(
             "Path to the prior state distributions (HDF5 file). If samples are "
             "provided, this will be used as output to store the computed posteriors. "
             "If no samples are provided, this will be used as input to load the priors."
-        )
+        ),
     )
     parser.add_argument(
-        "--prevalences", type=Path, required=True,
-        help="Path to the HDF5 file for storing the computed prevalences."
+        "--prevalences",
+        type=Path,
+        required=True,
+        help="Path to the HDF5 file for storing the computed prevalences.",
     )
     parser.add_argument(
-        "--data", type=Path, required=False,
-        help="Path to the patient data (CSV file)."
+        "--data", type=Path, required=False, help="Path to the patient data (CSV file)."
     )
     parser.add_argument(
-        "--params", default="./params.yaml", type=Path,
-        help="Path to parameter file defining the model (YAML)."
+        "--params",
+        default="./params.yaml",
+        type=Path,
+        help="Path to parameter file defining the model (YAML).",
     )
     parser.add_argument(
-        "--scenarios", type=Path, required=False,
+        "--scenarios",
+        type=Path,
+        required=False,
         help=(
             "Path to a YAML file containing a `scenarios` key with a list of "
             "involvement scenarios to compute the posteriors for."
-        )
+        ),
     )
 
     add_scenario_arguments(parser, for_comp="prevalences")
     parser.set_defaults(run_main=main)
 
 
-def does_midext_match(
-    data: pd.DataFrame,
-    midext: bool | None = None
-) -> pd.Index:
+def does_midext_match(data: pd.DataFrame, midext: bool | None = None) -> pd.Index:
     """Return indices of ``data`` where ``midline_ext`` of the patients matches."""
     midext_col = data["tumor", "1", "extension"]
     if midext is None:
@@ -112,8 +118,10 @@ def compute_observed_prevalence(
     T-stages defined in the ``scenario``.
 
     Warning:
+    -------
         When computing prevalences for unilateral models, the contralateral diagnosis
         will still be considered for computing the prevalence in the *data*.
+
     """
     # when looking at the data, we always consider both sides
     is_uni = scenario.is_uni
@@ -147,7 +155,7 @@ def observe_prevalence_using_cache(
     data: pd.DataFrame,
     scenario: Scenario,
     cache: HDF5FileCache,
-    mapping: dict[int, Any] | Callable[[int], Any] = None
+    mapping: dict[int, Any] | Callable[[int], Any] = None,
 ):
     """Compute and cache the observed prevalence for a given ``scenario``."""
     num_match, num_total = compute_observed_prevalence(
@@ -239,12 +247,14 @@ def main(args: argparse.Namespace):
 
     if args.scenarios is None:
         # create a single scenario from the stdin arguments...
-        scenarios = [Scenario.from_namespace(
-            namespace=args,
-            lnls=lnls,
-            is_uni=isinstance(model, models.Unilateral),
-            side=params["model"].get("side", "ipsi"),
-        )]
+        scenarios = [
+            Scenario.from_namespace(
+                namespace=args,
+                lnls=lnls,
+                is_uni=isinstance(model, models.Unilateral),
+                side=params["model"].get("side", "ipsi"),
+            )
+        ]
         num_scens = len(scenarios)
     else:
         # ...or load the scenarios from a YAML file

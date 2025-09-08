@@ -1,12 +1,21 @@
-"""
-Provide various plotting utilities for displaying results of e.g. the inference
+"""Provide various plotting utilities for displaying results of e.g. the inference
 or prediction process. At the moment, three subcommands are grouped under
 :py:mod:`.plot`.
 """
+
 import argparse
 from pathlib import Path
 
-from lyscripts.plot import corner, histograms, thermo_int, mixture_plot, simplex_plot, mixture_sampling_plotter
+from lyscripts.plot import (
+    corner,
+    histograms,
+    mixture_comp_uncertainty,
+    mixture_plot,
+    mixture_sampling_plotter,
+    simplex_plot,
+    thermo_int,
+)
+
 
 def _add_parser(
     subparsers: argparse._SubParsersAction,
@@ -25,4 +34,9 @@ def _add_parser(
     thermo_int._add_parser(subparsers, help_formatter=parser.formatter_class)
     mixture_plot._add_parser(subparsers, help_formatter=parser.formatter_class)
     simplex_plot._add_parser(subparsers, help_formatter=parser.formatter_class)
-    mixture_sampling_plotter._add_parser(subparsers, help_formatter=parser.formatter_class)
+    mixture_sampling_plotter._add_parser(
+        subparsers, help_formatter=parser.formatter_class
+    )
+    mixture_comp_uncertainty._add_parser(
+        subparsers, help_formatter=parser.formatter_class
+    )

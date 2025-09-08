@@ -1,11 +1,11 @@
-"""
-Test the sampling command with some example patients.
+"""Test the sampling command with some example patients.
 
 Originally, I wanted to test that the sampling procedure is reproducible, but the
 `emcee` package does not seem to work with any kind of seed in a reproducible manner.
 
 Maybe I am doing something wrong...
 """
+
 # pylint: disable=redefined-outer-name
 import numpy as np
 import pytest
@@ -66,10 +66,14 @@ def test_burnin(sampler: EnsembleSampler):
     assert sampler.iteration == 100, "Burnin di not run 100 iterations."
     assert len(burnin_history.steps) == 10, "Burnin history does not have 10 entries."
     assert np.all(
-        np.array([
-            0.7147557514447068, 0.9227188150264771,
-            0.2629624184410706, 0.6001184115584288,
-        ])
+        np.array(
+            [
+                0.7147557514447068,
+                0.9227188150264771,
+                0.2629624184410706,
+                0.6001184115584288,
+            ]
+        )
         == sampler.get_last_sample().coords[0]
     ), "Not reproducible."
 
@@ -87,6 +91,5 @@ def test_get_starting_state(sampler: EnsembleSampler):
         check_interval=2,
     )
     assert np.all(
-        get_starting_state(sampler).coords
-        == sampler.get_last_sample().coords
+        get_starting_state(sampler).coords == sampler.get_last_sample().coords
     ), "State is not the same."

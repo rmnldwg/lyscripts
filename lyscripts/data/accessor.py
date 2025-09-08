@@ -1,8 +1,8 @@
-"""
-Create a custom pandas accessor to handle `LyProX`_ style data.
+"""Create a custom pandas accessor to handle `LyProX`_ style data.
 
 .. _LyProX: https://lyprox.org
 """
+
 from collections.abc import Callable
 from typing import Any
 
@@ -50,6 +50,7 @@ class LyProXAccessor:
 
     .. _LyProX: https://lyprox.org
     """
+
     def __init__(self, obj: pd.DataFrame) -> None:
         self._validate(obj)
         self._obj = obj

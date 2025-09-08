@@ -1,5 +1,4 @@
-"""
-Generate inverse temperature schedules for thermodynamic integration using various
+"""Generate inverse temperature schedules for thermodynamic integration using various
 different methods.
 
 Thermodynamic integration is quite sensitive to the specific schedule which is used.
@@ -11,6 +10,7 @@ This can be achieved by using a power sequence: Generate $n$ linearly spaced poi
 the interval $[0, 1]$ and then transform each point by computing $\\beta_i^k$ where
 $k$ could e.g. be 5.
 """
+
 # pylint: disable=logging-fstring-interpolation
 import argparse
 import logging
@@ -27,9 +27,7 @@ def _add_parser(
     subparsers: argparse._SubParsersAction,
     help_formatter,
 ):
-    """
-    Add an `ArgumentParser` to the subparsers action.
-    """
+    """Add an `ArgumentParser` to the subparsers action."""
     parser = subparsers.add_parser(
         Path(__file__).name.replace(".py", ""),
         description=__doc__,
@@ -40,21 +38,26 @@ def _add_parser(
 
 
 def _add_arguments(parser: argparse.ArgumentParser):
-    """
-    Add arguments needed to run this script to a `subparsers` instance
+    """Add arguments needed to run this script to a `subparsers` instance
     and run the respective main function when chosen.
     """
     parser.add_argument(
-        "--method", choices=SCHEDULES.keys(), default=list(SCHEDULES.keys())[0],
-        help="Choose the method to distribute the inverse temperature."
+        "--method",
+        choices=SCHEDULES.keys(),
+        default=list(SCHEDULES.keys())[0],
+        help="Choose the method to distribute the inverse temperature.",
     )
     parser.add_argument(
-        "--num", default=32, type=int,
-        help="Number of inverse temperatures in the schedule"
+        "--num",
+        default=32,
+        type=int,
+        help="Number of inverse temperatures in the schedule",
     )
     parser.add_argument(
-        "--pow", default=4, type=float,
-        help="If a power schedule is chosen, use this as power"
+        "--pow",
+        default=4,
+        type=float,
+        help="If a power schedule is chosen, use this as power",
     )
 
     parser.set_defaults(run_main=main)
@@ -62,35 +65,38 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
 def tolist(func: Callable) -> Callable:
     """Decorator to make sure the returned value is a list of floats."""
+
     def inner(*args) -> np.ndarray | list[float]:
         res = func(*args)
         if isinstance(res, np.ndarray):
             return res.tolist()
         return res
+
     return inner
 
 
 @tolist
 def geometric_schedule(n: int, *_a) -> np.ndarray:
     """Create a geometric sequence of `n` numbers from 0. to 1."""
-    log_seq = np.logspace(0., 1., n)
-    shifted_seq = log_seq - 1.
-    geom_seq = shifted_seq / 9.
+    log_seq = np.logspace(0.0, 1.0, n)
+    shifted_seq = log_seq - 1.0
+    geom_seq = shifted_seq / 9.0
     return geom_seq
 
 
 @tolist
 def linear_schedule(n: int, *_a) -> np.ndarray:
     """Create a linear sequence of `n` numbers from 0. to 1."""
-    return np.linspace(0., 1., n)
+    return np.linspace(0.0, 1.0, n)
 
 
 @tolist
 def power_schedule(n: int, power: float, *_a) -> np.ndarray:
     """Create a power sequence of `n` numbers from 0. to 1."""
-    lin_seq = np.linspace(0., 1., n)
+    lin_seq = np.linspace(0.0, 1.0, n)
     power_seq = lin_seq**power
     return power_seq
+
 
 SCHEDULES = {
     "geometric": geometric_schedule,

@@ -1,11 +1,11 @@
-"""
-This module contains frequently used functions and decorators that are used throughout
+"""This module contains frequently used functions and decorators that are used throughout
 the subcommands to load e.g. YAML specifications or model definitions.
 
 It also contains helpers for reporting the script's progress via a slightly customized
 `rich` console and a custom `Exception` called `LyScriptsWarning` that can propagate
 occuring issues to the right place.
 """
+
 import warnings
 from logging import LogRecord
 from pathlib import Path
@@ -16,8 +16,8 @@ import pandas as pd
 import yaml
 from deprecated import deprecated
 from emcee.backends import HDFBackend
-from lymph import diagnosis_times, models, types
 from lymixture import LymphMixture
+from lymph import diagnosis_times, models, types
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
@@ -32,8 +32,10 @@ from lyscripts.decorators import (
 try:
     import streamlit
     from streamlit.runtime.scriptrunner import get_script_run_ctx
+
     streamlit.status = streamlit.spinner
 except ImportError:
+
     def get_script_run_ctx() -> bool:
         """A mock for the `get_script_run_ctx` function of `streamlit`."""
         return None
@@ -49,13 +51,13 @@ console = Console()
 
 
 class LyScriptsWarning(Warning):
-    """
-    Exception that can be raised by methods if they want the `LyScriptsReport` instance
+    """Exception that can be raised by methods if they want the `LyScriptsReport` instance
     to not stop and print a traceback, but display some message appropriately.
 
     Essentially, this is a way for decorated functions to propagate messages through
     the `report_state` decorator.
     """
+
     def __init__(self, *args: object, level: str = "info") -> None:
         """Extract the `level` of the message (can be "info", "warning" or "error")."""
         self.level = level
@@ -70,7 +72,8 @@ def is_streamlit_running() -> bool:
 
 class CustomProgress(Progress):
     """Small wrapper around rich's `Progress` initializing my custom columns."""
-    def __init__( self, **kwargs: dict):
+
+    def __init__(self, **kwargs: dict):
         columns = [
             SpinnerColumn(finished_text=CHECK),
             *Progress.get_default_columns(),
@@ -81,6 +84,7 @@ class CustomProgress(Progress):
 
 class CustomRichHandler(RichHandler):
     """Uses `func_filepath` from the `extra` dict to modify `pathname`."""
+
     def emit(self, record: LogRecord) -> None:
         """Emit a log record."""
         if (
@@ -100,11 +104,13 @@ class CustomRichHandler(RichHandler):
 def binom_pmf(support: list[int] | np.ndarray, p: float = 0.5):
     """Binomial PMF"""
     max_time = len(support) - 1
-    if p > 1. or p < 0.:
+    if p > 1.0 or p < 0.0:
         raise ValueError("Binomial prob must be btw. 0 and 1")
-    q = 1. - p
-    binom_coeff = factorial(max_time) / (factorial(support) * factorial(max_time - support))
-    return binom_coeff * p**support * q**(max_time - support)
+    q = 1.0 - p
+    binom_coeff = factorial(max_time) / (
+        factorial(support) * factorial(max_time - support)
+    )
+    return binom_coeff * p**support * q ** (max_time - support)
 
 
 FUNCS = {
@@ -116,7 +122,7 @@ def graph_from_config(graph_params: dict) -> dict[tuple[str, str], list[str]]:
     """Build graph dictionary for the `lymph` models from the YAML params."""
     lymph_graph = {}
 
-    if not "tumor" in graph_params and "lnl" in graph_params:
+    if "tumor" not in graph_params and "lnl" in graph_params:
         raise KeyError("Parameters must define tumors and LNLs")
 
     for node_type, node_dict in graph_params.items():
@@ -151,7 +157,7 @@ def _create_model_from_v0(params: dict[str, Any]) -> types.Model:
 
     if "model" in params:
         model_cls = getattr(models, params["model"]["class"])
-        if not "is_symmetric" in params["model"]["kwargs"]:
+        if "is_symmetric" not in params["model"]["kwargs"]:
             warnings.warn(
                 "The keywords `base_symmetric`, `trans_symmetric`, and `use_mixing` "
                 "have been deprecated. Please use `is_symmetric` instead.",
@@ -201,7 +207,7 @@ def assign_modalities(
     to the ``model``.
 
     Example:
-
+    -------
     >>> from_config = {
     ...     "CT": {"spec": 0.76, "sens": 0.81},
     ...     "MRI": [0.63, 0.86, "pathological"],
@@ -218,6 +224,7 @@ def assign_modalities(
     >>> assign_modalities(model, from_config, subset=["CT"])
     >>> model.get_all_modalities()   # doctest: +NORMALIZE_WHITESPACE
     {'CT': Clinical(spec=0.76, sens=0.81, is_trinary=False)}
+
     """
     if clear:
         model.clear_modalities()
@@ -242,7 +249,7 @@ def create_distribution(config: dict[str, Any]) -> diagnosis_times.Distribution:
     kwargs = config.get("kwargs", {})
 
     if (type_ := config.get("frozen")) is not None:
-        kwargs.update({"support": np.arange(max_time+1)})
+        kwargs.update({"support": np.arange(max_time + 1)})
         distribution = diagnosis_times.Distribution(FUNCS[type_](**kwargs))
     elif (type_ := config.get("parametric")) is not None:
         distribution = diagnosis_times.Distribution(FUNCS[type_], max_time, **kwargs)
@@ -294,27 +301,37 @@ def create_mixture(config: dict[str, Any], config_version: int = 0) -> types.Mod
         raise LyScriptsWarning("No graph definition found in YAML file", level="error")
 
     if (model_config := config.get("model")) is None:
-        raise LyScriptsWarning("No mixture definition found in YAML file", level="error")
+        raise LyScriptsWarning(
+            "No mixture definition found in YAML file", level="error"
+        )
 
     graph_dict = graph_from_config(graph_config)
     model_cls_name, _, cls_meth_name = model_config["class"].partition(".")
-    if model_cls_name != 'Unilateral':
-        raise LyScriptsWarning("The mixture model has only been implemented for Unilateral so far", level = "error")
+    if model_cls_name != "Unilateral":
+        raise LyScriptsWarning(
+            "The mixture model has only been implemented for Unilateral so far",
+            level="error",
+        )
     model_cls = getattr(models, model_cls_name)
     model_kwargs = model_config.get("kwargs", {})
-    if not isinstance(model_kwargs,dict):
+    if not isinstance(model_kwargs, dict):
         model_kwargs = {}
-    model_num_components = model_config.get('num_components')
-    model_kwargs['graph_dict'] = graph_dict
-    mixture = LymphMixture(model_cls = model_cls, model_kwargs = model_kwargs, num_components = model_num_components) 
+    model_num_components = model_config.get("num_components")
+    model_kwargs["graph_dict"] = graph_dict
+    mixture = LymphMixture(
+        model_cls=model_cls,
+        model_kwargs=model_kwargs,
+        num_components=model_num_components,
+    )
 
-    #note: modalities can't be set here, as we need to add the data first to define the number of subgroups
-    
+    # note: modalities can't be set here, as we need to add the data first to define the number of subgroups
+
     for t_stage, dist_config in model_config.get("distributions", {}).items():
         distribution = create_distribution(dist_config)
         mixture.set_distribution(t_stage, distribution)
 
     return mixture
+
 
 def get_dict_depth(nested: dict) -> int:
     """Get the depth of a nested dictionary.
@@ -437,7 +454,7 @@ def load_patient_data(
 ) -> pd.DataFrame:
     """Load patient data from a CSV file stored at ``file``."""
     if header is None:
-        header = [0,1,2]
+        header = [0, 1, 2]
     return pd.read_csv(file_path, header=header)
 
 
@@ -491,6 +508,7 @@ TrueChoices = Literal["true", "t", "yes", "y", "involved", "metastatic"]
 FalseChoices = Literal["false", "f", "no", "n", "healthy", "benign"]
 """Type alias for what is interpreted as healthy/benign involvement of an LNL."""
 
+
 def optional_bool(value: NoneChoices | TrueChoices | FalseChoices) -> bool | None:
     """Convert a string to a boolean or ``None``.
 
@@ -514,7 +532,7 @@ def make_pattern(
     lnls: list[str],
 ) -> dict[str, bool | None]:
     """Create a dictionary from a list of bools and Nones."""
-    return dict(zip(lnls, from_list or [None] * len(lnls)))
+    return dict(zip(lnls, from_list or [None] * len(lnls), strict=False))
 
 
 def to_numpy(params: dict[str, float]) -> np.ndarray:

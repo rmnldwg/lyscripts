@@ -1,9 +1,9 @@
-"""
-This module provides decorators that can be used to avoid repetitive snippets of code,
+"""This module provides decorators that can be used to avoid repetitive snippets of code,
 e.g. safely opening files or logging the state of a function call.
 
 This is *not* a command line tool.
 """
+
 import functools
 import logging
 from collections.abc import Callable
@@ -66,10 +66,12 @@ def log_state(log_level: int = logging.INFO) -> Callable:
     The log message will simply be the function name where underscores are replaced
     with spaces. The `log_level` can be set in the decorator call.
     """
+
     # pylint: disable=logging-fstring-interpolation
     # pylint: disable=logging-not-lazy
     def log_decorator(func: Callable):
         """The decorator wrapping the decorated function."""
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             """The wrapper around the decorated function."""
@@ -101,6 +103,7 @@ def log_state(log_level: int = logging.INFO) -> Callable:
 
 def check_input_file_exists(loading_func: Callable) -> Callable:
     """Check if the file path provided to the `loading_func` exists."""
+
     @wraps(loading_func)
     def inner(file_path: str, *args, **kwargs) -> Any:
         """Wrapped loading function."""
@@ -115,6 +118,7 @@ def check_input_file_exists(loading_func: Callable) -> Callable:
 
 def check_output_dir_exists(saving_func: Callable) -> Callable:
     """Make sure the parent directory of the saved file exists."""
+
     @wraps(saving_func)
     def inner(file_path: str, *args, **kwargs) -> Any:
         """Wrapped saving function."""
