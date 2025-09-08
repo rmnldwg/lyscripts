@@ -19,7 +19,6 @@ from lyscripts import (
     data,
     evaluate,
     mixture_fit,
-    mixture_sample,
     plot,
     temp_schedule,
 )
@@ -120,7 +119,6 @@ def main():
     plot._add_parser(subparsers, help_formatter=parser.formatter_class)
     mixture_fit._add_parser(subparsers, help_formatter=parser.formatter_class)
     temp_schedule._add_parser(subparsers, help_formatter=parser.formatter_class)
-    mixture_sample._add_parser(subparsers, help_formatter=parser.formatter_class)
 
     args = parser.parse_args()
 
