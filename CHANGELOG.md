@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
-- `.convert_dtypes()` during joining of tables. Not doing this caused pandas to interpret e.g. booleans with missing values as strings.
+- Convert dtypes during joining using lydata's `cast_dtypes()`.
 
 ## [1.0.0] - 2025-09-04
 
