@@ -24,7 +24,7 @@
 | src/lyscripts/data/fetch.py                |       21 |        7 |     67% |42-52, 56-57 |
 | src/lyscripts/data/filter.py               |       49 |       30 |     39% |43-66, 76-94, 98-99 |
 | src/lyscripts/data/generate.py             |       39 |        4 |     90% |58, 63, 95-96 |
-| src/lyscripts/data/join.py                 |       20 |        9 |     55% |60-73, 77-78 |
+| src/lyscripts/data/join.py                 |       22 |       10 |     55% |61-77, 81-82 |
 | src/lyscripts/data/lyproxify.py            |      123 |       67 |     46% |31-34, 39-46, 90-119, 132-142, 173, 250-282, 293-307, 340-341 |
 | src/lyscripts/data/split.py                |       30 |       14 |     53% |33-65, 72-73 |
 | src/lyscripts/data/utils.py                |        9 |        0 |    100% |           |
@@ -36,7 +36,7 @@
 | src/lyscripts/schedule.py                  |       11 |        5 |     55% |24-28, 32-33 |
 | src/lyscripts/schema.py                    |       22 |        3 |     86% | 61-62, 66 |
 | src/lyscripts/utils.py                     |       84 |        5 |     94% |25, 141-142, 196-197 |
-|                                  **TOTAL** | **1774** |  **505** | **72%** |           |
+|                                  **TOTAL** | **1776** |  **506** | **72%** |           |
 
 
 ## Setup coverage badge
