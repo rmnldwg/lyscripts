@@ -60,7 +60,9 @@ class JoinCLI(BaseCLI):
         joined = None
 
         for data_config in self.inputs:
-            data = data_config.load()
+            # `.convert_dtypes()` ensures that e.g. boolean values are not suddenly
+            # converted to strings when a dataset with missing values is concatenated.
+            data = data_config.load().convert_dtypes()
             if joined is None:
                 joined = data
             else:
