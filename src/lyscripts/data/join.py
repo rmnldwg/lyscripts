@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pandas as pd
+from lydata.validator import cast_dtypes
 from pydantic import Field
 
 from lyscripts.cli import assemble_main
@@ -61,6 +62,9 @@ class JoinCLI(BaseCLI):
 
         for data_config in self.inputs:
             data = data_config.load()
+            # `cast_dtypes()` ensures that e.g. boolean values are not suddenly
+            # converted to strings when a dataset with missing values is concatenated.
+            data = cast_dtypes(data)
             if joined is None:
                 joined = data
             else:

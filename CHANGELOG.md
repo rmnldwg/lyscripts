@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2025-09-10
+
+### Bug Fixes
+
+- Convert dtypes during joining using lydata's `cast_dtypes()`.
+
 ## [1.0.0] - 2025-09-04
 
 ### Bug Fixes
@@ -909,6 +915,7 @@ returns `None` instead. Fixes [#11]
 ## [0.5.3] - 2022-08-22
 
 <!-- markdownlint-disable-file MD024 -->
+[1.0.1]: https://github.com/lycosystem/lyscripts/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc3...1.0.0
 [1.0.0rc3]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc2...1.0.0rc3
 [1.0.0rc2]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc1...1.0.0rc2
