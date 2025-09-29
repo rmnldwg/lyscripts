@@ -25,7 +25,7 @@ from lyscripts.utils import console
 __version__ = version
 __description__ = "Package to interact with lymphatic progression data and models."
 __author__ = "Roman Ludwig"
-__email__ = "roman.ludwig@usz.ch"
+__email__ = "gygqdstu3@mozmail.com"
 __uri__ = "https://github.com/lycosystem/lyscripts"
 
 # activate copy on write in pandas.

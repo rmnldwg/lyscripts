@@ -10,7 +10,9 @@ build-backend = "setuptools.build_meta"
 name = "lyscripts"
 description = "Package to interact with lymphatic progression data and models."
 authors = [
-	{name = "Roman Ludwig", email = "roman.ludwig@usz.ch"}
+    {name = "Roman Ludwig", email = "gygqdstu3@mozmail.com"},
+    {name = "Yoel Pérez Haas", email = "yoel.perezhaas@usz.ch"},
+    {name = "Noemi Bührer", email = "noemi.buehrer@usz.ch"},
 ]
 readme = "README.md"
 requires-python = ">=3.10"
