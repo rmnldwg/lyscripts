@@ -90,23 +90,17 @@ def comp_bic(log_probs: np.ndarray, num_params: int, num_data: int) -> float:
 def compute_evidence(
     temp_schedule: np.ndarray,
     log_probs: np.ndarray,
-    num: int = 1000,
-) -> tuple[float, float]:
-    """Compute the evidence and its standard deviation.
+) -> float:
+    """Compute the evidence.
 
     Given a ``temp_schedule`` of inverse temperatures and corresponding sets of
-    ``log_probs``, draw ``num`` "paths" of log-probabilities and compute the evidence
-    for each using trapezoidal integration.
-
-    The evidence is then the mean of those ``num`` integrations, while the error is
-    their standard deviation.
+    ``log_probs``, we calculate the mean ``log_prob`` over all samples to approximate
+    the expectation value under the corresponding power posterior for each step in the
+    ``temp_schedule``. The evidence is evaluated using trapezoidal integration of the
+    expectation values over the ``temp_schedule``.
     """
-    integrals = np.zeros(shape=num)
-    for i in range(num):
-        rand_idx = RNG.choice(log_probs.shape[1], size=log_probs.shape[0])
-        drawn_accuracy = log_probs[np.arange(log_probs.shape[0]), rand_idx].copy()
-        integrals[i] = trapezoid(y=drawn_accuracy, x=temp_schedule)
-    return np.mean(integrals), np.std(integrals)
+    a_mc = np.mean(log_probs, axis=1)
+    return trapezoid(y=a_mc, x=temp_schedule)
 
 
 def compute_ti_results(
@@ -134,9 +128,8 @@ def compute_ti_results(
         reader = emcee.backends.HDFBackend(model, name=f"ti/{run}", read_only=True)
         ti_log_probs[i] = reader.get_blobs(flat=True)
 
-    evidence, evidence_std = compute_evidence(temp_schedule, ti_log_probs)
+    evidence = compute_evidence(temp_schedule, ti_log_probs)
     metrics["evidence"] = evidence
-    metrics["evidence_std"] = evidence_std
 
     return temp_schedule, ti_log_probs
 
