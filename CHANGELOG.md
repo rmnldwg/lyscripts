@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-04-08
+
+### Bug Fixes
+
+- Correct TI evaluation and leave out uncertainty reporting. Fixes [#81].
+
+### Miscellaneous Tasks
+
+- Change email addresses.
+
 ## [1.0.1] - 2025-09-10
 
 ### Bug Fixes
@@ -915,6 +925,7 @@ returns `None` instead. Fixes [#11]
 ## [0.5.3] - 2022-08-22
 
 <!-- markdownlint-disable-file MD024 -->
+[1.0.2]: https://github.com/lycosystem/lyscripts/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/lycosystem/lyscripts/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc3...1.0.0
 [1.0.0rc3]: https://github.com/lycosystem/lyscripts/compare/1.0.0rc2...1.0.0rc3
@@ -979,6 +990,7 @@ returns `None` instead. Fixes [#11]
 [#72]: https://github.com/lycosystem/lyscripts/issues/72
 [#74]: https://github.com/lycosystem/lyscripts/issues/74
 [#75]: https://github.com/lycosystem/lyscripts/issues/75
+[#81]: https://github.com/lycosystem/lyscripts/issues/81
 
 [`emcee`]: https://emcee.readthedocs.io/en/stable/
 [`rich`]: https://rich.readthedocs.io/en/latest/
